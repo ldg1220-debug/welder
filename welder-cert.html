@@ -214,6 +214,7 @@ const DB={db:null,
   tx(s,m,f){return new Promise((res,rej)=>{const t=this.db.transaction(s,m);const q=f(t.objectStore(s));t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error);});},
   all(s){return this.tx(s,'readonly',o=>o.getAll());},
   put(s,v){return this.tx(s,'readwrite',o=>o.put(v));},
+  putMany(s,arr){return new Promise((res,rej)=>{const t=this.db.transaction(s,'readwrite');const o=t.objectStore(s);const ids=[];arr.forEach((v,i)=>{const q=o.put(v);q.onsuccess=()=>ids[i]=q.result;});t.oncomplete=()=>res(ids);t.onerror=()=>rej(t.error);});},
   del(s,id){return this.tx(s,'readwrite',o=>o.delete(id));},
   clear(s){return this.tx(s,'readwrite',o=>o.clear());}
 };
@@ -275,12 +276,14 @@ function vWelders(){
     <label>출생지 (인증서 표기)<input name="birthPlace" placeholder="SA CHEON"></label>
     <label>소속<input name="company"></label>
     <label>직무<select name="role"><option>용접사</option><option>취부사</option><option>LBW 용접 오퍼레이터</option></select></label>
-    <label>상태<select name="status"><option>재직</option><option>퇴사</option></select></label>
+    <label>상태<select name="status"><option>재직</option><option>퇴사</option><option>미확인</option></select></label>
     <label>사진<input type="file" name="photo" accept="image/*"></label>
    </div><div class="row"><button class="b">저장</button><button type="button" class="b sec" onclick="vWelders()">초기화</button></div></form></div>
    <div class="card"><h2>용접사 목록 (${rows.length})</h2>
-   <div class="row" style="margin:0 0 8px">상태 <select onchange="window._wf=this.value;vWelders()">${['전체','재직','퇴사'].map(x=>`<option ${x===f?'selected':''}>${x}</option>`).join('')}</select>
-   <span style="color:var(--mute)">CSV 가져오기(번호,성명,생년월일,소속,직무,상태)</span><input type="file" accept=".csv" onchange="importCSV(this.files[0])"></div>
+   <div class="row" style="margin:0 0 8px">상태 <select onchange="window._wf=this.value;vWelders()">${['전체','재직','퇴사','미확인'].map(x=>`<option ${x===f?'selected':''}>${x}</option>`).join('')}</select>
+   <span style="color:var(--mute)">엑셀(.xlsx) / CSV 가져오기</span><input type="file" accept=".xlsx,.csv" onchange="importFile(this.files[0]);this.value=''">
+   <button class="b sm red" onclick="cleanupWelders()">깨진 데이터 정리</button></div>
+   <div style="color:var(--mute);font-size:12px;margin-bottom:6px">엑셀: '1.Welder list'(명단)와 '2.자격 시험 기록서'(시험 기록)를 자동 인식합니다. CSV: 번호,성명,생년월일,소속,직무,상태</div>
    <table class="list"><tr><th></th><th>번호</th><th>성명</th><th>생년월일</th><th>소속</th><th>직무</th><th>상태</th><th></th></tr>${rows.map(w=>
    `<tr><td>${w.photo?`<img class="thumb" style="height:32px" src="${w.photo}">`:''}</td><td>${esc(w.welderNo)}</td><td>${esc(w.name)}</td><td>${w.birthDate||''}</td><td>${esc(w.company)}</td><td>${esc(w.role)}</td><td>${w.status}</td>
    <td><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>`).join('')}</table></div>`;
@@ -294,11 +297,131 @@ function vWelders(){
 function editWelder(id){const w=welders.find(x=>x.id===id),f=$('#wf');for(const k of ['id','welderNo','name','birthDate','birthPlace','company','role','status']) f.elements[k].value=w[k]??'';scrollTo(0,0);}
 async function delWelder(id){ if(records.some(r=>r.welderId===id)) return alert('시험 기록이 있는 용접사는 삭제할 수 없습니다. 상태를 퇴사로 변경하세요.');
   if(confirm('삭제할까요?')){await DB.del('welders',id);await load();vWelders();}}
-async function importCSV(file){ if(!file) return; const lines=(await file.text()).replace(/^﻿/,'').split(/\r?\n/).filter(Boolean); let n=0,skip=0;
-  for(const ln of lines){const c=ln.split(',').map(x=>x.trim()); if(!/^[A-Za-z0-9-]+$/.test(c[0])||!c[1]||/^welder/i.test(c[0])){skip++;continue;}
-    if(welders.some(w=>w.welderNo===c[0])){skip++;continue;}
-    await DB.put('welders',{welderNo:c[0],name:c[1],birthDate:c[2]||'',birthPlace:'',company:c[3]||'',role:c[4]||'용접사',status:c[5]==='퇴사'?'퇴사':'재직'});n++;}
-  await load(); alert(`${n}명 추가, ${skip}줄 건너뜀`); vWelders(); }
+async function cleanupWelders(){
+  const used=new Set(records.map(r=>r.welderId));
+  const bad=w=>/[\uFFFD\u0000-\u0008]/.test(w.name+w.welderNo+(w.company||''))||String(w.welderNo).length<3||!String(w.name).trim();
+  const del=welders.filter(w=>!used.has(w.id)&&bad(w));
+  if(!del.length) return alert('깨진 데이터로 보이는 용접사가 없습니다.');
+  if(!confirm(`깨진 데이터로 보이는 용접사 ${del.length}명을 삭제합니다.\n(시험 기록이 없고, 이름/번호에 깨진 문자가 있거나 번호가 3자 미만인 항목)\n예: ${del.slice(0,3).map(w=>w.welderNo).join(', ')}\n되돌릴 수 없습니다. 계속할까요?`)) return;
+  for(const w of del) await DB.del('welders',w.id); await load(); vWelders(); }
+
+// ---------- 가져오기 (xlsx는 브라우저 내장 DecompressionStream으로 직접 해석, 외부 라이브러리 없음) ----------
+async function importFile(file){
+  if(!file) return;
+  try{
+    const buf=await file.arrayBuffer(), head=new Uint8Array(buf,0,4);
+    const isZip=head[0]===0x50&&head[1]===0x4B;
+    if(isZip||/\.xlsx$/i.test(file.name)){
+      if(!isZip) return alert('올바른 .xlsx 파일이 아닙니다.');
+      if(typeof DecompressionStream==='undefined') return alert('이 브라우저는 엑셀 직접 읽기를 지원하지 않습니다. 최신 Chrome/Edge를 사용하세요.');
+      return await importXlsx(buf);
+    }
+    return await importCSV(new TextDecoder('utf-8').decode(buf));
+  }catch(e){ alert('가져오기 실패: '+(e.message||e)); }
+}
+async function inflateRaw(u8){ const st=new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw')); return new Uint8Array(await new Response(st).arrayBuffer()); }
+async function unzip(buf){
+  const dv=new DataView(buf), u8=new Uint8Array(buf); let e=buf.byteLength-22;
+  while(e>=0&&dv.getUint32(e,true)!==0x06054b50) e--;
+  if(e<0) throw new Error('ZIP(xlsx) 형식이 아닙니다.');
+  const n=dv.getUint16(e+10,true); let p=dv.getUint32(e+16,true); const files={};
+  for(let i=0;i<n&&dv.getUint32(p,true)===0x02014b50;i++){
+    const method=dv.getUint16(p+10,true), cs=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), off=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(u8.subarray(p+46,p+46+nl));
+    files[name]=async()=>{const st=off+30+dv.getUint16(off+26,true)+dv.getUint16(off+28,true); const d=u8.subarray(st,st+cs);
+      return new TextDecoder().decode(method===0?d:await inflateRaw(d));};
+    p+=46+nl+el+cl; }
+  return files;
+}
+const colIdx=ref=>{let n=0;for(const ch of ref.match(/^[A-Z]+/)[0]) n=n*26+ch.charCodeAt(0)-64;return n-1;};
+async function readXlsx(buf){
+  const z=await unzip(buf), X=async n=>{if(!z[n]) throw new Error('엑셀 내부 파일 없음: '+n);return new DOMParser().parseFromString(await z[n](),'application/xml');};
+  const shared=[]; if(z['xl/sharedStrings.xml']) for(const si of (await X('xl/sharedStrings.xml')).getElementsByTagName('si')) shared.push([...si.getElementsByTagName('t')].map(t=>t.textContent).join(''));
+  const rels={}; for(const r of (await X('xl/_rels/workbook.xml.rels')).getElementsByTagName('Relationship')) rels[r.getAttribute('Id')]=r.getAttribute('Target');
+  const out=[];
+  for(const sh of (await X('xl/workbook.xml')).getElementsByTagName('sheet')){
+    let t=rels[sh.getAttribute('r:id')]||''; t=t.startsWith('/')?t.slice(1):'xl/'+t; if(!z[t]) continue;
+    const rows=[]; for(const row of (await X(t)).getElementsByTagName('row')){
+      const arr=[]; for(const c of row.getElementsByTagName('c')){
+        const ty=c.getAttribute('t'), v=c.getElementsByTagName('v')[0]; let val=null;
+        if(ty==='inlineStr') val=[...c.getElementsByTagName('t')].map(x=>x.textContent).join('');
+        else if(v){ const tx=v.textContent; val=ty==='s'?shared[+tx]:ty==='str'?tx:ty==='b'?tx==='1':(tx!==''&&!isNaN(tx)?Number(tx):tx); }
+        if(val!==null) arr[colIdx(c.getAttribute('r'))]=val; }
+      rows[+row.getAttribute('r')-1]=arr; }
+    out.push({name:sh.getAttribute('name'),rows}); }
+  return out;
+}
+// --- 값 정규화 (importer.py와 동일 규칙)
+const serialISO=n=>new Date(Date.UTC(1899,11,30)+Math.round(n)*86400000).toISOString().slice(0,10);
+function xDate(v){ if(typeof v==='number'&&v>20000&&v<70000) return serialISO(v);
+  const m=String(v??'').match(/^\s*(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/); if(!m) return '';
+  const d=new Date(Date.UTC(+m[1],m[2]-1,+m[3])); return d.getUTCMonth()===m[2]-1?d.toISOString().slice(0,10):''; }
+function xBirth(v){ const d=String(v??'').replace(/\D/g,''); if(d.length!==6) return '';
+  const y=+d.slice(0,2), yy=y>30?1900+y:2000+y, dt=new Date(Date.UTC(yy,+d.slice(2,4)-1,+d.slice(4))); return dt.getUTCMonth()===+d.slice(2,4)-1?dt.toISOString().slice(0,10):''; }
+function xRes(v){ const t=String(v??'').trim(); if(t==='●') return 'pass'; if(/^(fail|x)$/i.test(t)) return 'fail'; return 'na'; }
+function xProc(v){ const k=String(v??'').trim().toUpperCase().split(/[\s()]+/)[0]; return {GMAW:'135 MAG',MAG:'135 MAG',GTAW:'141 TIG',TIG:'141 TIG',LBW:'521 LBW'}[k]||''; }
+function xBack(v,joint){ if(joint!=='BW') return 'N/A'; const t=String(v??'').trim().toUpperCase(); return t==='NB'?'ss nb':(t==='MB'||t==='CERAMIC')?'ss mb':'N/A'; }
+function findCols(rows,labels){ // 상단 8행에서 라벨 위치 찾기 (위→아래, 왼쪽→오른쪽 첫 일치)
+  const c={}; let hdr=-1;
+  for(let r=0;r<Math.min(8,rows.length);r++) (rows[r]||[]).forEach((v,i)=>{ const t=String(v??'').replace(/\s+/g,' ').trim();
+    for(const [k,lab] of Object.entries(labels)) if(t===lab&&!(k in c)){c[k]=i; if(k==='no') hdr=r;} });
+  return {c,hdr}; }
+function mapWorkbook(sheets){
+  const W=[],R=[],info=[],done={};
+  for(const sh of sheets){
+    const {c,hdr}=findCols(sh.rows,{no:'용접사 No',company:'소속',name:'성명',birth:'생년월일',role:'비고',status:'상태',date:'TEST 시행일',project:'프로젝트 및 제작품목',
+      process:'Process',joint:'시편 형태',thick:'두께',pos:'자세',filler:'용가재',gas:'가스',back:'배킹/3P',vt:'VT',rt:'RT',bend:'Bending',macro:'Macro'});
+    if(hdr<0||c.no===undefined||c.name===undefined) continue;
+    const isTests=c.process!==undefined&&c.joint!==undefined;
+    if(done[isTests?'t':'w']){info.push(`${sh.name}: 같은 형식의 시트가 이미 있어 건너뜀`);continue;} // 명단/시험기록은 각각 첫 시트만 사용
+    done[isTests?'t':'w']=true;
+    let n=0;
+    for(let r=hdr+1;r<sh.rows.length;r++){ const row=sh.rows[r]; if(!row||typeof row[0]!=='number') continue;
+      const no=String(row[c.no]??'').trim(); if(!/^[A-Za-z0-9][A-Za-z0-9\-_.]*$/.test(no)) continue;
+      if(!isTests){
+        W.push({welderNo:no,name:String(row[c.name]??'').trim(),birthDate:xBirth(row[c.birth]),birthPlace:'',company:String(row[c.company]??'').trim(),
+          role:['용접사','취부사','LBW 용접 오퍼레이터'].includes(row[c.role])?row[c.role]:'용접사',status:row[c.status]==='재직'||row[c.status]==='퇴사'?row[c.status]:'미확인'}); n++;
+      }else{
+        const joint=String(row[c.joint]??'').trim().toUpperCase(), wd=xDate(row[c.date]), pr=xProc(row[c.process]);
+        if(!wd||!['BW','FW'].includes(joint)||!pr){ info.push(`${sh.name} ${r+1}행 건너뜀 (용접일/시편형태/공정 누락)`); continue; }
+        const th=String(row[c.thick]??'').match(/\d+(\.\d+)?/);
+        R.push({welderNo:no,name:String(row[c.name]??'').trim(),birthDate:xBirth(row[c.birth]),company:String(row[c.company]??'').trim(),
+          rec:{weldingDate:wd,project:String(row[c.project]??'').trim(),wpsNo:'',process:pr,productType:'P',pipeDiameter:'',joint,transfer:'globular/spray',
+          fillerGroup:String(row[c.filler]??'').trim().replace(/^FM\s*(\d)/i,'FM $1'),fillerType:'S',materialGroup:'1.1',gas:/M21/i.test(row[c.gas])?'EN ISO 14175-M21':String(row[c.gas]??'').trim(),
+          backing:xBack(row[c.back],joint),thickness:th?+th[0]:0,deposited:th?+th[0]:0,position:String(row[c.pos]??'').trim().toUpperCase(),
+          tests:{vt:xRes(row[c.vt]),rtut:xRes(row[c.rt]),bend:joint==='BW'?xRes(row[c.bend]):'na',macro:joint==='FW'?xRes(row[c.macro]):'na',fracture:'na',additional:'na'},renewals:[]}}); n++; }
+    }
+    info.push(`${sh.name}: ${isTests?'시험 기록':'용접사'} ${n}건 인식`);
+  }
+  return {W,R,info};
+}
+async function importXlsx(buf){
+  const {W,R,info}=mapWorkbook(await readXlsx(buf));
+  if(!W.length&&!R.length) return alert('용접사 명단/시험 기록 시트를 찾지 못했습니다.\n(필요한 머리글: 용접사 No, 성명, 소속 / Process, 시편 형태 등)');
+  const have=new Set(welders.map(w=>w.welderNo)), newW=W.filter((w,i)=>!have.has(w.welderNo)&&W.findIndex(x=>x.welderNo===w.welderNo)===i);
+  const known=new Set([...have,...newW.map(w=>w.welderNo)]); const extra=[];
+  for(const r of R) if(!known.has(r.welderNo)){known.add(r.welderNo);extra.push({welderNo:r.welderNo,name:r.name,birthDate:r.birthDate,birthPlace:'',company:r.company,role:'용접사',status:'미확인'});}
+  const key=(wid,x)=>[wid,x.weldingDate,x.joint,x.process,x.thickness,x.position,x.fillerGroup,JSON.stringify(x.tests)].join('|');
+  const ex=new Set(records.map(x=>key(x.welderId,x)));
+  const msg=`${info.join('\n')}\n\n새 용접사 ${newW.length+extra.length}명 (명단에 없어 자동 등록 ${extra.length}명 포함)\n시험 기록 ${R.length}건 (이미 있는 동일 기록은 제외)\n\n가져올까요?`;
+  if(!confirm(msg)) return;
+  await DB.putMany('welders',[...newW,...extra]); await load();
+  const idOf=Object.fromEntries(welders.map(w=>[w.welderNo,w.id])), add=[]; let dup=0;
+  for(const r of R){ const wid=idOf[r.welderNo]; const k=key(wid,r.rec); if(ex.has(k)){dup++;continue;}
+    add.push({...r.rec,welderId:wid,refNo:''}); }
+  // Reference No. 자동 부여: 용접사별 순번
+  const cnt={}; records.forEach(x=>cnt[x.welderId]=(cnt[x.welderId]||0)+1);
+  for(const x of add){ cnt[x.welderId]=(cnt[x.welderId]||0)+1; x.refNo=`${S.refPrefix}-${cnt[x.welderId]}-${processCode(x.process)}-T${fmtN(x.thickness)}-${x.joint}-${x.position}`; }
+  await DB.putMany('records',add); await load(); vWelders();
+  alert(`완료: 용접사 ${newW.length+extra.length}명, 시험 기록 ${add.length}건 추가${dup?` (중복 ${dup}건 제외)`:''}`);
+}
+async function importCSV(text){
+  if(text.includes('�')||text.includes('\u0000')) throw new Error('텍스트 CSV 파일이 아닙니다 (엑셀은 .xlsx로 선택하거나, 엑셀에서 "CSV UTF-8"로 저장하세요).');
+  const lines=text.replace(/^﻿/,'').split(/\r?\n/).filter(Boolean); let n=0,skip=0; const add=[], seen=new Set(welders.map(w=>w.welderNo));
+  for(const ln of lines){const c=ln.split(',').map(x=>x.trim());
+    if(!/^[A-Za-z0-9][A-Za-z0-9\-_.]{2,}$/.test(c[0]||'')||!c[1]||seen.has(c[0])){skip++;continue;}
+    seen.add(c[0]); add.push({welderNo:c[0],name:c[1],birthDate:/^\d{4}-\d{2}-\d{2}$/.test(c[2]||'')?c[2]:'',birthPlace:'',company:c[3]||'',role:['용접사','취부사','LBW 용접 오퍼레이터'].includes(c[4])?c[4]:'용접사',status:c[5]==='퇴사'?'퇴사':c[5]==='재직'?'재직':'미확인'}); n++;}
+  await DB.putMany('welders',add); await load(); alert(`${n}명 추가, ${skip}줄 건너뜀`); vWelders(); }
 
 const FIELDS_DEFAULT={weldingDate:today(),process:'135 MAG',productType:'P',pipeDiameter:'',joint:'BW',transfer:'globular/spray',fillerGroup:'FM 1',fillerType:'S',
   materialGroup:'1.1',gas:'EN ISO 14175-M21',backing:'ss nb',thickness:12,deposited:12,position:'PC',project:'',wpsNo:'',tests:{}};
