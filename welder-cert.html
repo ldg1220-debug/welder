@@ -102,7 +102,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v35 · 비드/지시선</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v38 · 형상 도구</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -373,11 +373,11 @@ function imgSection(){ return Object.entries(IMG_KINDS).map(([k,l])=>{ const lib
 async function pickPhoto(inp){ const f=inp.files[0]; if(f) await setPz('photo',f); }
 
 // ===================== 화면 =====================
-const TABS=[['dash','대시보드'],['welders','용접사'],['records','시험기록(WQT)'],['wps','WPS'],['settings','설정 · 백업']];
+const TABS=[['dash','대시보드'],['welders','용접사'],['records','시험기록(WQT)'],['wps','WPS'],['shape','형상 도구'],['settings','설정 · 백업']];
 let tab='dash', editRec=null;
 function nav(){ $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="go('${k}')">${l}</button>`).join(''); }
 function go(k){tab=k;editRec=null;render();}
-function render(){nav();({dash:vDash,welders:vWelders,records:vRecords,wps:vWps,settings:vSettings})[tab]();}
+function render(){nav();({dash:vDash,welders:vWelders,records:vRecords,wps:vWps,shape:vShape,settings:vSettings})[tab]();}
 
 // 판정. 시험이 끝나지 않은(진행중) 기록이라도 용접사가 퇴사 처리돼 있으면 불합격으로 본다.
 function rawStatus(r){return judge(r.joint,r.tests||{},S.strict);}
@@ -535,7 +535,7 @@ async function readXlsx(buf){
       rows[+row.getAttribute('r')-1]=arr; }
     const rp='xl/worksheets/_rels/'+t.split('/').pop()+'.rels'; let drawing=null;
     if(z[rp]){ const m=(await z[rp]()).match(/Target="\.\.\/drawings\/(drawing\d+\.xml)"/); if(m&&z['xl/drawings/'+m[1]]) drawing=()=>z['xl/drawings/'+m[1]](); }
-    out.push({name:sh.getAttribute('name'),rows,drawing}); }
+    out.push({name:sh.getAttribute('name'),rows,drawing,theme:()=>z['xl/theme/theme1.xml']?z['xl/theme/theme1.xml']():Promise.resolve('')}); }
   return out;
 }
 // --- 값 정규화 (importer.py와 동일 규칙)
@@ -698,9 +698,19 @@ async function importWpsLists(wl){
 // ---------- DrawingML(엑셀 도형) -> SVG 변환: WPS 양식의 '이음부 형상 / 용접 순서' 스케치 추출 ----------
 const SVGNS='http://www.w3.org/2000/svg', DML=(el,n)=>[...el.children].find(c=>c.localName===n), DMLall=(el,n)=>[...el.children].filter(c=>c.localName===n);
 const dsc=(el,n)=>el.getElementsByTagNameNS('*',n);
-function dmlColor(el){ if(!el) return null; const c=[...el.children].find(x=>/Clr$/.test(x.localName)); if(!c) return null;
-  if(c.localName==='srgbClr') return '#'+c.getAttribute('val'); if(c.localName==='sysClr') return '#'+(c.getAttribute('lastClr')||'000000');
-  const v=c.getAttribute('val'); return /^(bg1|lt1|bg2)$/.test(v)?'#ffffff':'#000000'; }
+const THEME_DEF={dk1:'#000000',lt1:'#ffffff',dk2:'#44546a',lt2:'#e7e6e6',accent1:'#4472c4',accent2:'#ed7d31',accent3:'#a5a5a5',accent4:'#ffc000',accent5:'#5b9bd5',accent6:'#70ad47'};
+function parseTheme(xml){ const th={...THEME_DEF}; if(!xml) return th; try{ const d=new DOMParser().parseFromString(xml,'application/xml');
+  for(const k of Object.keys(THEME_DEF)){ const e=d.getElementsByTagNameNS('*',k)[0], c=e&&e.firstElementChild; if(!c) continue; th[k]=c.localName==='sysClr'?'#'+(c.getAttribute('lastClr')||'000000'):'#'+c.getAttribute('val'); } }catch(e){} return th; }
+const h2r=h=>{ h=String(h).replace('#',''); return [0,2,4].map(i=>parseInt(h.substr(i,2),16)||0); }, r2h=r=>'#'+r.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+function r2hsl(r,g,b){ r/=255;g/=255;b/=255; const mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2; let h=0,s=0; if(mx!==mn){ const d=mx-mn; s=l>.5?d/(2-mx-mn):d/(mx+mn); h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4; h/=6; } return [h,s,l]; }
+function hsl2r(h,s,l){ if(!s){ const v=l*255; return [v,v,v]; } const q=l<.5?l*(1+s):l+s-l*s, p=2*l-q, f=t=>{ t=(t+1)%1; return 255*(t<1/6?p+(q-p)*6*t:t<.5?q:t<2/3?p+(q-p)*(2/3-t)*6:p); }; return [f(h+1/3),f(h),f(h-1/3)]; }
+function dmlColor(el,TH){ if(!el) return null; const c=[...el.children].find(x=>/Clr$/.test(x.localName)); if(!c) return null; let base;
+  if(c.localName==='srgbClr') base='#'+c.getAttribute('val'); else if(c.localName==='sysClr') base='#'+(c.getAttribute('lastClr')||'000000');
+  else { let v=c.getAttribute('val'); v={tx1:'dk1',bg1:'lt1',tx2:'dk2',bg2:'lt2'}[v]||v; base=(TH||THEME_DEF)[v]||'#000000'; }
+  let rgb=h2r(base); for(const m of c.children){ const k=m.localName, v=+(m.getAttribute('val')||0)/100000;
+    if(k==='lumMod'||k==='lumOff'){ let [h,s2,l]=r2hsl(...rgb); l=k==='lumMod'?l*v:l+v; rgb=hsl2r(h,s2,Math.max(0,Math.min(1,l))); }
+    else if(k==='tint') rgb=rgb.map(x=>255-(255-x)*v); else if(k==='shade') rgb=rgb.map(x=>x*v); }
+  return r2h(rgb); }
 function dmlXfrm(el){ const x=dsc(el,'xfrm')[0]; if(!x) return null; const o=dsc(x,'off')[0], e=dsc(x,'ext')[0]; if(!o||!e) return null;
   const co=dsc(x,'chOff')[0], ce=dsc(x,'chExt')[0]; return {x:+o.getAttribute('x'),y:+o.getAttribute('y'),cx:+e.getAttribute('cx'),cy:+e.getAttribute('cy'),rot:+(x.getAttribute('rot')||0)/60000,fh:x.getAttribute('flipH')==='1',fv:x.getAttribute('flipV')==='1',
     chx:co?+co.getAttribute('x'):0,chy:co?+co.getAttribute('y'):0,chcx:ce?+ce.getAttribute('cx'):0,chcy:ce?+ce.getAttribute('cy'):0}; }
@@ -713,11 +723,15 @@ function dmlShape(el,st,k){
     return `<g transform="translate(${f.x+f.cx/2} ${f.y+f.cy/2}) rotate(${f.rot}) scale(${f.fh?-1:1} ${f.fv?-1:1}) translate(${-f.cx/2} ${-f.cy/2})"><g transform="scale(${sx} ${sy}) translate(${-f.chx} ${-f.chy})">${kids}</g></g>`; }
   const nv=el.getElementsByTagNameNS('*','cNvPr')[0]; if(nv&&nv.getAttribute('hidden')==='1') return '';
   const spPr=DML(el,'spPr'); if(!spPr) return ''; const f=dmlXfrm(spPr); if(!f) return '';
-  const lnEl=DML(spPr,'ln'); let stroke='#000', sw=Math.max(9525,lnEl&&lnEl.getAttribute('w')?+lnEl.getAttribute('w'):9525)/k, noLine=false, dash='', head='', tail='';
-  if(lnEl){ if(DML(lnEl,'noFill')) noLine=true; const c=dmlColor(DML(lnEl,'solidFill')); if(c) stroke=c; const d=DML(lnEl,'prstDash'); if(d&&d.getAttribute('val')!=='solid') dash=` stroke-dasharray="${sw*4} ${sw*3}"`;
+  const TH=st.th, stl=DML(el,'style'), lref=stl&&DML(stl,'lnRef'), fref=stl&&DML(stl,'fillRef'), lnEl=DML(spPr,'ln'), lIdx=lref?+lref.getAttribute('idx'):-1;
+  let stroke=(lIdx>0&&dmlColor(lref,TH))||'#000', sw=Math.max(9525,lnEl&&lnEl.getAttribute('w')?+lnEl.getAttribute('w'):9525)/k, noLine=false, dash='', head='', tail='';
+  if(lnEl){ if(DML(lnEl,'noFill')) noLine=true; const sf=DML(lnEl,'solidFill'); if(sf){ const c=dmlColor(sf,TH); if(c) stroke=c; }
+    const d=DML(lnEl,'prstDash'); if(d&&d.getAttribute('val')!=='solid') dash=` stroke-dasharray="${sw*4} ${sw*3}"`;
     const he=DML(lnEl,'headEnd'), te=DML(lnEl,'tailEnd'); if(he&&he.getAttribute('type')&&he.getAttribute('type')!=='none') head=' marker-start="url(#ah)"'; if(te&&te.getAttribute('type')&&te.getAttribute('type')!=='none') tail=' marker-end="url(#ah)"'; if(head||tail) st.arrow=true; }
-  else if(el.localName==='sp'&&!DML(spPr,'custGeom')&&!DML(spPr,'prstGeom')) noLine=true;
-  let fill='none'; if(DML(spPr,'solidFill')) fill=dmlColor(DML(spPr,'solidFill'))||'none';
+  else if(lIdx===0) noLine=true; else if(el.localName==='sp'&&!DML(spPr,'custGeom')&&!DML(spPr,'prstGeom')) noLine=true;
+  let fill='none'; const df=[...spPr.children].find(c=>/^(solidFill|noFill|gradFill|pattFill|blipFill)$/.test(c.localName));
+  if(df){ if(df.localName==='solidFill') fill=dmlColor(df,TH)||'none'; else if(df.localName==='gradFill'){ const gs=dsc(df,'gs')[0]; fill=gs?(dmlColor(gs,TH)||'none'):'none'; } else if(df.localName==='pattFill') fill=dmlColor(DML(df,'fgClr'),TH)||'none'; }
+  else if(fref&&+fref.getAttribute('idx')>0) fill=dmlColor(fref,TH)||'none';
   const sa=`stroke="${noLine?'none':stroke}" stroke-width="${sw}" fill="${fill}"${dash}${head}${tail}`;
   const w=f.cx, h=f.cy; let g='';
   const pg=DML(spPr,'prstGeom'), cg=DML(spPr,'custGeom'), prst=pg?pg.getAttribute('prst'):'';
@@ -745,13 +759,13 @@ function dmlShape(el,st,k){
       txt=`<g transform="translate(${w/2} ${h/2}) scale(${f.fh?-1:1} ${f.fv?-1:1}) translate(${-w/2} ${-h/2})">${parts}</g>`; } }
   return `<g transform="${dmlPlace(f)}">${g}${txt}</g>`; }
 // 시트 drawing XML에서 스케치 영역(이음부 형상: B~F열, 용접 순서: G~K열, 14~21행)의 도형만 SVG로
-function drawingSketches(xml){
+function drawingSketches(xml,th){
   const doc=new DOMParser().parseFromString(xml,'application/xml'), res={joint:'',sequence:''}, groups={joint:[],sequence:[]};
   for(const a of [...doc.documentElement.children].filter(e=>/Anchor$/.test(e.localName))){
     const fr=DML(a,'from'); if(!fr) continue; const col=+DML(fr,'col').textContent, row=+DML(fr,'row').textContent+1; if(row<12||row>=22||col<1||col>10) continue;
     const sh=[...a.children].find(e=>/^(sp|cxnSp|grpSp)$/.test(e.localName)); if(!sh) continue; groups[col<=5?'joint':'sequence'].push(sh); }
   for(const k of ['joint','sequence']){ if(!groups[k].length) continue;
-    const st={}, body=groups[k].map(e=>dmlShape(e,st,1)).join(''); if(!body) continue;
+    const st={th:th||THEME_DEF}, body=groups[k].map(e=>dmlShape(e,st,1)).join(''); if(!body) continue;
     let x0=1e18,y0=1e18,x1=-1e18,y1=-1e18; for(const e of groups[k]){ const f=dmlXfrm(e.localName==='grpSp'?DML(e,'grpSpPr'):DML(e,'spPr')); if(!f) continue; x0=Math.min(x0,f.x); y0=Math.min(y0,f.y); x1=Math.max(x1,f.x+f.cx); y1=Math.max(y1,f.y+f.cy); }
     if(!isFinite(x0)||x1<=x0||y1<=y0) continue; const pad=Math.max(x1-x0,y1-y0)*.04, W=x1-x0+2*pad, H=y1-y0+2*pad;
     res[k]=`<svg xmlns="${SVGNS}" viewBox="0 0 ${Math.round(W)} ${Math.round(H)}" preserveAspectRatio="xMidYMid meet"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs><rect width="100%" height="100%" fill="#fff"/><g transform="translate(${Math.round(pad-x0)} ${Math.round(pad-y0)})">${body}</g></svg>`; }
@@ -790,20 +804,22 @@ async function importWpsForms(forms){
   const match=uniq.filter(f=>wpsFind(f.wpsNo)).length, fresh=uniq.length-match;
   const filled=k=>uniq.filter(f=>f.form[k]).length;
   if(!confirm(`WPS 양식 ${uniq.length}장 인식 (시트 번호를 WPS 번호로 사용)\n\nWPS 마스터와 일치해 양식 내용을 채움: ${match}건\n마스터에 없어 새로 등록: ${fresh}건\n\n항목 인식률: 용접방법 ${filled('processIso')} · 용가재 ${filled('filler')} · 보호가스 ${filled('gas')} · 예열 ${filled('preheat')} · 두께 ${filled('thickness')} / ${uniq.length}\n${conflicts.length?`\n번호 확인 ${conflicts.length}건 (본문 번호가 시트와 다름):\n${conflicts.slice(0,5).join('\n')}${conflicts.length>5?'\n…':''}\n`:''}${dup.length?`\n중복 번호로 건너뜀: ${dup.join(', ')}\n`:''}\n이음부 형상·용접 순서 스케치는 도형을 SVG로 변환해 각 WPS에 넣고 형상 라이브러리에도 저장합니다.\n(용접 조건표는 가져오지 않습니다)\n\n가져올까요?`)) return;
-  const sk=new Map(); let nSk=0;
-  for(const f of uniq){ if(!f.sh||!f.sh.drawing) continue; try{ const r=drawingSketches(await f.sh.drawing()); sk.set(f.wpsNo,r); nSk+=(r.joint?1:0)+(r.sequence?1:0); }catch(e){} }
+  const sk=new Map(); let nSk=0, th=null; const hasOld=joints.some(j=>j.meta&&j.meta.source==='wps-form');
+  const replace=hasOld&&confirm('이전에 WPS 양식에서 가져온 스케치/형상 라이브러리가 있습니다.\n새로 추출한 것으로 교체할까요? (확인=교체, 취소=기존 유지하고 새 것만 추가)');
+  for(const f of uniq){ if(!f.sh||!f.sh.drawing) continue; try{ if(!th) th=parseTheme(await f.sh.theme()); const r=drawingSketches(await f.sh.drawing(),th); sk.set(f.wpsNo,r); nSk+=(r.joint?1:0)+(r.sequence?1:0); }catch(e){} }
+  if(replace){ for(const j of joints.filter(j=>j.meta&&j.meta.source==='wps-form')) await DB.del('joints',j.id); await load(); }
   const up=[];
   for(const f of uniq){ const cur=wpsFind(f.wpsNo);
     const codeOf=t=>(String(t).match(/\b\d{2,3}\b/)||[''])[0];
     const base=cur||{wpsNo:f.wpsNo,kind:'WPS',rev:f.rawRev,revDate:'',pqrNos:f.pqr?[f.pqr]:[],materialGroup:(f.form.parentSpec.match(/\d+\.\d+(?:~\d+\.\d+)?/)||[''])[0],weldType:/fillet/i.test(f.form.jointType)?'FW':/t-?butt/i.test(f.form.jointType)?'T-BUTT':'BW',process:codeOf(f.form.processIso)?codeOf(f.form.processIso)+({135:'(MAG)',141:'(TIG)'}[codeOf(f.form.processIso)]||''):'',procCodes:[codeOf(f.form.processIso)].filter(Boolean),position:f.form.positionIso.split('[')[0].trim().toUpperCase(),positions:positionsOf(f.form.positionIso),thk:f.form.thickness?f.form.thickness.replace(/\s/g,'').replace(/(\d+(?:\.\d+)?)~(\d+(?:\.\d+)?)/,'$1≤T≤$2'):'',backing:'',pwht:f.form.pwht,part:'',remarks:'',status:'사용'};
     if(!cur){ const [mn,mx]=thkOf(base.thk); base.thkMin=mn; base.thkMax=mx; }
-    const r=sk.get(f.wpsNo)||{}, cur2={...(base.sketches||{})}; for(const k of ['joint','sequence']) if(r[k]&&!cur2[k]) cur2[k]=svgUrl(r[k]);
+    const r=sk.get(f.wpsNo)||{}, cur2={...(base.sketches||{})}; for(const k of ['joint','sequence']) if(r[k]&&(replace||!cur2[k])) cur2[k]=svgUrl(r[k]);
     up.push({...base,form:{...(base.form||{}),...Object.fromEntries(Object.entries(f.form).filter(([,v])=>v!==''))},params:base.params||[],sketches:cur2}); }
   await DB.putMany('wps',up);
   // 형상 라이브러리: 같은 SVG는 하나로, 출처 WPS/형식/공정/백킹 정보를 붙인다
   const lib=new Map(joints.map(j=>[j.kind+'|'+j.svg,j])), add=[];
   for(const f of uniq){ const r=sk.get(f.wpsNo)||{}; for(const k of ['joint','sequence']){ if(!r[k]) continue; const key=k+'|'+r[k], m=up.find(x=>x.wpsNo===f.wpsNo);
-    let it=lib.get(key); if(!it){ it={kind:k,name:`${f.wpsNo} ${k==='joint'?'이음부 형상':'용접 순서'}`,svg:r[k],fav:false,meta:{wpsNos:[],weldType:m.weldType,process:m.process,backing:m.backing||f.form.backingDetail||'',thk:m.thk},created:Date.now()}; lib.set(key,it); add.push(it); }
+    let it=lib.get(key); if(!it){ it={kind:k,name:`${f.wpsNo} ${k==='joint'?'이음부 형상':'용접 순서'}`,svg:r[k],fav:false,meta:{wpsNos:[],weldType:m.weldType,process:m.process,backing:m.backing||f.form.backingDetail||'',thk:m.thk,source:'wps-form'},created:Date.now()}; lib.set(key,it); add.push(it); }
     if(!it.meta.wpsNos.includes(f.wpsNo)) it.meta.wpsNos.push(f.wpsNo); } }
   await DB.putMany('joints',[...lib.values()]); await load();
   alert(`완료: WPS 양식 ${up.length}건 반영 (신규 ${fresh}건)\n스케치 ${nSk}개를 WPS에 넣고, 형상 라이브러리에 ${add.length}종을 저장했습니다.`); go('wps');
@@ -1138,7 +1154,7 @@ function vWpsDoc(){
      <span style="color:var(--mute);font-size:12px">엑셀에서 표를 복사해(층수~단위, A~J열) 아래 칸에 붙여넣고 "표로 변환"을 누르면 행이 추가됩니다.</span></div>
     <div class="row"><textarea id="ptext" rows="2" placeholder="여기에 엑셀 표를 붙여넣기 (Ctrl+V)" style="flex:1;min-width:300px"></textarea><button type="button" class="b sm sec" onclick="pasteParams()">표로 변환</button></div></div>
    <div class="card"><h3 style="margin-top:0">④ 스케치 (이음부 형상 / 용접 순서)</h3><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">
-    ${[['joint','이음부 형상 Joint Design'],['sequence','용접 순서 Welding Sequence']].map(([k,l])=>`<div><div style="font-size:12px;color:var(--mute);margin-bottom:3px">${l}</div>${pzHTML('wps:'+k,o.sketches[k]||null,'클릭 후 Ctrl+V · 이미지 끌어놓기')}<div class="row" style="margin-top:6px"><input type="file" accept="image/*" onchange="pickImg('wps:${k}',this)" style="max-width:200px"></div><div class="row" style="margin-top:4px"><button type="button" class="b sm sec" onclick="collectDoc();openLibPicker('${k}')">라이브러리에서 선택</button><button type="button" class="b sm sec" onclick="collectDoc();GEN.open=true;GEN.t=numOf(WD.obj.form.thickness)&&Math.min(numOf(WD.obj.form.thickness)*1,40)||GEN.t;vWpsDoc();genDraw()">형상 생성</button>${o.sketches[k]?`<button type="button" class="b sm sec" onclick="saveSlotToLib('${k}')">라이브러리에 저장</button><button type="button" class="b sm red" onclick="WD.obj.sketches['${k}']='';collectDoc();vWpsDoc()">삭제</button>`:''}</div></div>`).join('')}</div>${GEN.open?genPanelHTML():''}</div>
+    ${[['joint','이음부 형상 Joint Design'],['sequence','용접 순서 Welding Sequence']].map(([k,l])=>`<div><div style="font-size:12px;color:var(--mute);margin-bottom:3px">${l}</div>${pzHTML('wps:'+k,o.sketches[k]||null,'클릭 후 Ctrl+V · 이미지 끌어놓기')}<div class="row" style="margin-top:6px"><input type="file" accept="image/*" onchange="pickImg('wps:${k}',this)" style="max-width:200px"></div><div class="row" style="margin-top:4px"><button type="button" class="b sm sec" onclick="collectDoc();openLibPicker('${k}')">라이브러리에서 선택</button><button type="button" class="b sm sec" onclick="collectDoc();GEN.open=true;GEN.t=numOf(WD.obj.form.thickness)&&Math.min(numOf(WD.obj.form.thickness)*1,40)||GEN.t;vWpsDoc();genDraw()">형상 생성</button>${o.sketches[k]?`<button type="button" class="b sm sec" onclick="saveSlotToLib('${k}')">라이브러리에 저장</button><button type="button" class="b sm red" onclick="WD.obj.sketches['${k}']='';collectDoc();vWpsDoc()">삭제</button>`:''}</div></div>`).join('')}</div>${GEN.open?genPanelHTML('doc'):''}</div>
    </form>`;
   $('#wdf').onsubmit=async e=>{ e.preventDefault(); await saveWpsDoc(); };
   if(GEN.open) genDraw();
@@ -1159,7 +1175,7 @@ function libGridHTML(kind,pick){ // pick=슬롯 이름이면 '적용' 버튼, �
     <select onchange="LB.type=this.value;libRedraw()">${['전체','BW','FW','T-BUTT'].map(x=>`<option ${LB.type===x?'selected':''}>${x}</option>`).join('')}</select>
     <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" ${LB.fav?'checked':''} onchange="LB.fav=this.checked;libRedraw()">★ 즐겨찾기만</label><span style="color:var(--mute);font-size:12px">${list.length} / ${joints.filter(j=>!kind||j.kind===kind).length}개</span></div>
    <div class="libg">${list.map(j=>`<div class="lc"><div class="lt"><img src="${svgUrl(j.svg)}"></div><div class="ln2"><b title="${esc(j.name)}">${esc(j.name)}</b><small>${esc(j.meta.weldType||'')} · ${esc(j.meta.process||'')} · ${esc(j.meta.thk||'')}${j.meta.backing?' · '+esc(j.meta.backing):''}</small><small title="${esc(j.meta.wpsNos.join(', '))}">${esc(j.meta.wpsNos.slice(0,4).join(', '))}${j.meta.wpsNos.length>4?' 외 '+(j.meta.wpsNos.length-4):''}</small></div>
-     <div class="row" style="margin:4px 0 0;gap:4px">${pick?`<button type="button" class="b sm" onclick="pickLib(${j.id},'${pick}')">적용</button>`:''}<button type="button" class="b sm sec" onclick="favLib(${j.id})">${j.fav?'★':'☆'}</button><button type="button" class="b sm sec" onclick="renameLib(${j.id})">이름</button><button type="button" class="b sm red" onclick="delLib(${j.id})">삭제</button></div></div>`).join('')||'<div style="color:var(--mute);padding:10px">저장된 형상이 없습니다. WPS 양식 파일(Total_WPS)을 가져오거나, 형상을 생성해 저장하세요.</div>'}</div>`; }
+     <div class="row" style="margin:4px 0 0;gap:4px">${pick?`<button type="button" class="b sm" onclick="pickLib(${j.id},'${pick}')">적용</button>`:''}${j.gen?`<button type="button" class="b sm" title="생성 값을 불러와 수정" onclick="editGenLib(${j.id})">편집</button>`:''}<button type="button" class="b sm sec" onclick="favLib(${j.id})">${j.fav?'★':'☆'}</button><button type="button" class="b sm sec" onclick="renameLib(${j.id})">이름</button><button type="button" class="b sm red" onclick="delLib(${j.id})">삭제</button></div></div>`).join('')||'<div style="color:var(--mute);padding:10px">저장된 형상이 없습니다. WPS 양식 파일(Total_WPS)을 가져오거나, 형상을 생성해 저장하세요.</div>'}</div>`; }
 let LIBCTX=null; // {kind,pick}
 function libRedraw(){ const b=$('#libbody'); if(b&&LIBCTX) b.innerHTML=libGridHTML(LIBCTX.kind,LIBCTX.pick); }
 function openLibPicker(slot){ LIBCTX={kind:slot,pick:slot}; let m=$('#libpick'); if(!m){ m=document.createElement('div'); m.id='libpick'; document.body.appendChild(m); }
@@ -1169,14 +1185,14 @@ function pickLib(id,slot){ const j=joints.find(x=>x.id===id); if(!j||!WD) return
 async function favLib(id){ const j=joints.find(x=>x.id===id); await DB.put('joints',{...j,fav:!j.fav}); await load(); libRedraw(); if(WF.view==='lib') drawWps(); }
 async function renameLib(id){ const j=joints.find(x=>x.id===id), n=prompt('형상 이름',j.name); if(!n) return; await DB.put('joints',{...j,name:n.trim()}); await load(); libRedraw(); if(WF.view==='lib') drawWps(); }
 async function delLib(id){ const j=joints.find(x=>x.id===id); if(!confirm(`"${j.name}" 을(를) 라이브러리에서 삭제할까요?\n(이미 WPS에 적용된 스케치는 그대로 유지됩니다)`)) return; await DB.del('joints',id); await load(); libRedraw(); if(WF.view==='lib') drawWps(); }
-async function saveToLib(slot,svgText,defName,meta){ const n=prompt('라이브러리에 저장할 형상 이름',defName); if(!n) return; await DB.put('joints',{kind:slot,name:n.trim(),svg:svgText,fav:true,meta:{wpsNos:[],weldType:'',process:'',backing:'',thk:'',...meta},created:Date.now()}); await load(); toast('형상 라이브러리에 저장했습니다 (★ 즐겨찾기).',3000); }
+async function saveToLib(slot,svgText,defName,meta,gen){ const n=prompt('라이브러리에 저장할 형상 이름',defName); if(!n) return; await DB.put('joints',{kind:slot,name:n.trim(),svg:svgText,fav:true,gen:gen||null,meta:{wpsNos:[],weldType:'',process:'',backing:'',thk:'',source:'gen',...meta},created:Date.now()}); await load(); toast('형상 라이브러리에 저장했습니다 (★ 즐겨찾기).',3000); }
 function svgFromUrl(u){ if(!u||!u.startsWith('data:image/svg+xml')) return ''; try{ return decodeURIComponent(u.split(',').slice(1).join(',')); }catch(e){ return ''; } }
 function saveSlotToLib(slot){ collectDoc(); const sv=svgFromUrl(WD.obj.sketches[slot]); if(!sv) return toast('SVG 형상만 라이브러리에 저장할 수 있습니다 (붙여넣은 이미지는 불가).',4000);
   saveToLib(slot,sv,`${WD.obj.wpsNo||'새 WPS'} ${KIND_L[slot]}`,{weldType:WD.obj.weldType,process:WD.obj.process,thk:WD.obj.thk,backing:WD.obj.backing}); }
 
 // ---- 형상 생성기 (값 입력 -> SVG)
-const GEN={open:false,type:'vgroove',t:12,t2:12,angle:60,gap:2,face:1.5,r:6,leg:6,backing:'none',layers:'1,2,3',dims:true,weld:true,symbol:true,symSide:'above',symDim:'z',allAround:false,field:false,tail:'135; PA'};
-const GEN_TYPES=[['square','I형 맞대기 (Square butt)'],['vgroove','단면 V형 맞대기'],['xgroove','양면 V형(X) 맞대기'],['bevel','단면 베벨 맞대기'],['ugroove','U형 맞대기'],['tee','T이음 필릿'],['tbevel','T이음 베벨(개선)'],['lap','겹치기 필릿']];
+const GEN={open:false,type:'vgroove',t:12,t2:12,angle:60,gap:2,face:1.5,r:6,leg:6,backing:'none',layers:'1,2,3',dims:true,weld:true,symbol:true,symSystem:'A',symSide:'arrow',symDim:'z',symS:'',contour:'none',allAround:false,field:false,tailProc:'135',tailLvl:'B',tailLvlPrefix:false,tailPos:'PA',tailFiller:'',tailRef:'',custom:'9,0; 1.5,10.5; 1.5,12',mirror:true,symKind:'V'};
+const GEN_TYPES=[['square','I형 맞대기 (Square butt)'],['vgroove','단면 V형 맞대기'],['xgroove','양면 V형(X) 맞대기'],['bevel','단면 베벨 맞대기'],['kgroove','양면 베벨(K형) 맞대기'],['ugroove','U형 맞대기'],['jgroove','단면 J형 맞대기'],['tee','T이음 필릿'],['tbevel','T이음 베벨(개선)'],['lap','겹치기 필릿'],['custom','사용자 정의 (개선면 좌표 입력)']];
 // ---------- 기하 유틸 ----------
 function polyExt(poly,y){ const xs=[]; for(let i=0;i<poly.length;i++){ const a=poly[i], b=poly[(i+1)%poly.length]; if((a[1]<=y&&b[1]>y)||(b[1]<=y&&a[1]>y)) xs.push(a[0]+(y-a[1])*(b[0]-a[0])/(b[1]-a[1])); } return xs.length>=2?[Math.min(...xs),Math.max(...xs)]:null; }
 const arcPts=(cx,cy,R,a1,a2,n=10)=>Array.from({length:n+1},(_,k)=>{ const a=a1+(a2-a1)*k/n; return [cx+R*Math.cos(a),cy+R*Math.sin(a)]; });
@@ -1188,18 +1204,34 @@ function symGlyph(kind,sx,sy,s){ const h=12*s, st=`fill="none" stroke="#000" str
   if(kind==='V') return `<polyline points="${sx-8},${sy+h} ${sx},${sy} ${sx+8},${sy+h}" ${st}/>`;
   if(kind==='bevel') return `<polyline points="${sx-6},${sy+h} ${sx-6},${sy} ${sx+7},${sy+h}" ${st}/>`;
   if(kind==='U') return `<path d="M${sx-8},${sy+h} L${sx-8},${sy+h*.35} A8,8 0 0 ${s<0?0:1} ${sx+8},${sy+h*.35} L${sx+8},${sy+h}" ${st}/>`;
+  if(kind==='J') return `<path d="M${sx-7},${sy+h} L${sx-7},${sy+h*.3} M${sx-7},${sy+h*.3} A9,9 0 0 ${s<0?0:1} ${sx+8},${sy+h}" ${st}/>`;
   if(kind==='fillet') return `<polygon points="${sx-7},${sy} ${sx-7},${sy+h} ${sx+7},${sy}" ${st}/>`; return ''; }
-function weldSymbol(o,kinds,anc,ref){ // anc=[x,y] 화살표 끝, ref={x0,y,len}
-  if(!o.symbol) return ''; const {x0,y,len}=ref, sx=x0+len*0.45, both=o.symSide==='both', s=o.symSide==='below'?1:-1, K='#000';
-  let out=`<line x1="${x0}" y1="${y}" x2="${anc[0]}" y2="${anc[1]}" stroke="${K}" stroke-width="1.3" marker-end="url(#ah2)"/><line x1="${x0}" y1="${y}" x2="${x0+len}" y2="${y}" stroke="${K}" stroke-width="1.5"/>`;
-  if(!both) out+=`<line x1="${x0}" y1="${y-s*3.5}" x2="${x0+len}" y2="${y-s*3.5}" stroke="${K}" stroke-width="1" stroke-dasharray="6 4"/>`; // 식별선(점선)
-  for(const k of kinds){ if(both){ out+=symGlyph(k,sx,y,-1)+symGlyph(k,sx,y,1); } else out+=symGlyph(k,sx,y,s); }
-  if(kinds.includes('fillet')){ const v=o.symDim==='a'?`a${r2(o.leg/Math.SQRT2)}`:`z${o.leg}`; out+=`<text x="${sx-13}" y="${y+(both?-6:s*7)+4}" font-size="11" text-anchor="end" font-family="Arial" fill="${K}">${v}</text>`; }
-  if(o.backing!=='none'&&['II','V','bevel','U'].includes(kinds[0])){ const t=o.backing==='ceramic'?'MR':'M'; out+=`<rect x="${sx+16}" y="${y-(both?0:s>0?-2:12)-(both?6:0)}" width="${t.length*8+4}" height="12" fill="#fff" stroke="${K}" stroke-width="1"/><text x="${sx+18}" y="${y-(both?0:s>0?-2:12)-(both?6:0)+10}" font-size="10" font-family="Arial" fill="${K}">${t}</text>`; }
+// EN ISO 2553 : 기준선 체계 A(실선+점선 이중 기준선) / B(단일 기준선, AWS와 동일 배치)
+//  A: 기호가 점선의 '반대쪽'에 있으면 화살표 쪽 용접, 점선과 '같은 쪽'에 붙으면 반대쪽 용접, 양쪽(대칭)은 점선 없이 양쪽에 기호
+//  B: 기준선 아래 = 화살표 쪽, 위 = 반대쪽
+//  주 치수(z/a/s)는 기호 왼쪽, 길이·피치는 오른쪽. 꼬리에는 공정(ISO 4063)/품질등급(ISO 5817)/자세(ISO 6947)/충전재/WPS 참조를 '/'로 구분
+function tailText(o){ return [o.tailProc,o.tailLvl?(o.tailLvlPrefix?'ISO 5817-'+o.tailLvl:o.tailLvl):'',o.tailPos,o.tailFiller,o.tailRef].map(x=>String(x||'').trim()).filter(Boolean).join('/'); }
+function weldSymbol(o,kinds,anc,ref,bent){
+  if(!o.symbol) return ''; const {x0,y,len}=ref, sx=x0+len*0.42, K='#000', side=o.symSide||'arrow', sys=o.symSystem||'A', both=side==='both', kind=kinds[0];
+  const arrowD=bent?(()=>{ const bx=anc[0]+(x0-anc[0])*0.55, by=anc[1]-22; return `M${x0},${y} L${bx},${by} L${anc[0]},${anc[1]}`; })():`M${x0},${y} L${anc[0]},${anc[1]}`;
+  let out=`<path d="${arrowD}" fill="none" stroke="${K}" stroke-width="1.3" stroke-linejoin="round" marker-end="url(#ah2)"/><line x1="${x0}" y1="${y}" x2="${x0+len}" y2="${y}" stroke="${K}" stroke-width="1.5"/>`;
+  let bases=[]; // [기호 기준선 y, 방향 s]
+  if(sys==='A'){ if(side==='arrow'){ out+=`<line x1="${x0}" y1="${y+3.5}" x2="${x0+len}" y2="${y+3.5}" stroke="${K}" stroke-width="1" stroke-dasharray="6 4"/>`; bases=[[y,-1]]; }
+    else if(side==='other'){ out+=`<line x1="${x0}" y1="${y-3.5}" x2="${x0+len}" y2="${y-3.5}" stroke="${K}" stroke-width="1" stroke-dasharray="6 4"/>`; bases=[[y-3.5,-1]]; }
+    else bases=[[y,-1],[y,1]]; }
+  else { bases=both?[[y,-1],[y,1]]:side==='arrow'?[[y,1]]:[[y,-1]]; }
+  for(const [by,s] of bases){ for(const k of kinds) out+=symGlyph(k,sx,by,s);
+    const top=by+s*12; // 표면 형상 보조기호: 용접 기호 바깥쪽
+    if(o.contour==='flush') out+=`<line x1="${sx-8}" y1="${top+s*4}" x2="${sx+8}" y2="${top+s*4}" stroke="${K}" stroke-width="1.4"/>`;
+    else if(o.contour==='convex') out+=`<path d="M${sx-8},${top+s*3} Q${sx},${top+s*11} ${sx+8},${top+s*3}" fill="none" stroke="${K}" stroke-width="1.4"/>`;
+    else if(o.contour==='concave') out+=`<path d="M${sx-8},${top+s*9} Q${sx},${top+s*1} ${sx+8},${top+s*9}" fill="none" stroke="${K}" stroke-width="1.4"/>`;
+    let dim=''; if(kinds.includes('fillet')) dim=o.symDim==='a'?`a${r2(o.leg/Math.SQRT2)}`:`z${o.leg}`; else if(o.symS) dim=`s${o.symS}`;
+    if(dim) out+=`<text x="${sx-13}" y="${by+s*7+4}" font-size="11" text-anchor="end" font-family="Arial" fill="${K}">${dmlEsc(dim)}</text>`;
+    if(o.backing!=='none'&&['II','V','bevel','U','J'].includes(kind)){ const t=o.backing==='ceramic'?'MR':'M'; const ry=s<0?by-13:by+1; out+=`<rect x="${sx+16}" y="${ry}" width="${t.length*8+4}" height="12" fill="#fff" stroke="${K}" stroke-width="1"/><text x="${sx+18}" y="${ry+10}" font-size="10" font-family="Arial" fill="${K}">${t}</text>`; } }
   if(o.allAround) out+=`<circle cx="${x0}" cy="${y}" r="4.5" fill="#fff" stroke="${K}" stroke-width="1.2"/>`;
-  if(o.field) out+=`<polygon points="${x0},${y} ${x0},${y-16} ${x0+11},${y-11}" fill="${K}"/><line x1="${x0}" y1="${y}" x2="${x0}" y2="${y-16}" stroke="${K}" stroke-width="1.2"/>`;
+  if(o.field) out+=`<line x1="${x0}" y1="${y}" x2="${x0}" y2="${y-17}" stroke="${K}" stroke-width="1.2"/><polygon points="${x0},${y-17} ${x0+11},${y-12} ${x0},${y-7}" fill="${K}"/>`;
   const tx=x0+len; out+=`<polyline points="${tx+9},${y-8} ${tx},${y} ${tx+9},${y+8}" fill="none" stroke="${K}" stroke-width="1.3"/>`;
-  if(o.tail) out+=`<text x="${tx+13}" y="${y+4}" font-size="11" font-family="Arial" fill="${K}">${dmlEsc(o.tail)}</text>`;
+  const tt=tailText(o); if(tt) out+=`<text x="${tx+13}" y="${y+4}" font-size="10.5" font-family="Arial" fill="${K}">${dmlEsc(tt)}</text>`;
   return out; }
 // ---------- 이음부 형상 생성 ----------
 function genJoint(o,seq){
@@ -1232,7 +1264,20 @@ function genJoint(o,seq){
     // 위 좌표는 왼쪽 위 -> 왼쪽 원호 -> 바닥 -> 오른쪽 원호 -> 오른쪽 위 순서가 되도록 재정렬
     const left=[[topx,y0],[pxL,pyL],...arcPts(xl,pyL,R,Math.PI,Math.PI/2).slice(1)], right=[...arcPts(xr,pyL,R,Math.PI/2,0),[topxR,y0]];
     const wp2=[...left,[xl,y0+Tp],[xr,y0+Tp],...right]; weld=wfill(wp2); polys=[{pts:wp2,crown:{a:[topx,y0],b:[topxR,y0],nx:0,ny:-1,amt:Math.max(5,(topxR-topx)*.14)}}]; kinds=['U']; }
-  if(o.backing!=='none'&&['square','vgroove','bevel','ugroove'].includes(type)){ const yb=y0+Tp;
+  else if(type==='jgroove'){ const R=Math.min(o.r*sc,d*0.95), th0=Math.tan(Math.min(o.angle,25)*Math.PI/180), pyL=y0+d-R, pxR=xr+R, topxR=pxR+(pyL-y0)*th0;
+    plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+`<path d="M${xr+Wd},${y0} L${topxR},${y0} L${pxR},${pyL} A${R},${R} 0 0 1 ${xr},${y0+d} L${xr},${y0+Tp} L${xr+Wd},${y0+Tp} Z" fill="#fff" stroke="${K}" stroke-width="1.6"/>`;
+    const wp=[[xl,y0],[topxR,y0],[pxR,pyL],...arcPts(xr,pyL,R,0,Math.PI/2).slice(1),[xr,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp); polys=[{pts:wp,crown:{a:[xl,y0],b:[topxR,y0],nx:0,ny:-1,amt:Math.max(5,(topxR-xl)*.16)}}]; kinds=['J']; anc=[(xr+topxR)/2,y0]; }
+  else if(type==='kgroove'){ const d1=(Tp-c)/2, th=d1*tanB, m=y0+d1+c/2, xb=xr;
+    plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+poly([[xb+th,y0],[xb+Wd,y0],[xb+Wd,y0+Tp],[xb+th,y0+Tp],[xb,y0+d1+c],[xb,y0+d1]]);
+    const wp=[[xl,y0],[xb+th,y0],[xb,y0+d1],[xb,y0+d1+c],[xb+th,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp);
+    polys=[{pts:[[xl,y0],[xb+th,y0],[xb,y0+d1],[xb,m],[xl,m]],crown:{a:[xl,y0],b:[xb+th,y0],nx:0,ny:-1,amt:Math.max(5,th*.28)}},{pts:[[xl,m],[xb,m],[xb,y0+d1+c],[xb+th,y0+Tp],[xl,y0+Tp]],crown:{a:[xb+th,y0+Tp],b:[xl,y0+Tp],nx:0,ny:1,amt:Math.max(5,th*.28)},down:true,cont:true}]; kinds=['bevel']; anc=[xl+(th+g)/2,y0]; }
+  else if(type==='custom'){ let pr=String(o.custom||'').split(';').map(t=>t.split(',').map(Number)).filter(a=>a.length>=2&&a.every(isFinite)).map(a=>[a[0],Math.min(Math.max(a[1],0),T)]);
+    if(pr.length<2) pr=[[8,0],[1,T]]; if(pr[pr.length-1][1]<T) pr.push([pr[pr.length-1][0],T]);
+    const R=pr.map(q=>[cx+q[0]*sc,y0+q[1]*sc]), Lp=o.mirror?pr.map(q=>[cx-q[0]*sc,y0+q[1]*sc]):pr.map(q=>[cx-Math.abs(pr[pr.length-1][0])*sc,y0+q[1]*sc]).filter((q,k,a)=>k===0||k===a.length-1);
+    const rightPoly=[[R[0][0]+Wd,y0],...R,[R[R.length-1][0]+Wd,y0+Tp]], leftPoly=[[Lp[0][0]-Wd,y0],...Lp,[Lp[Lp.length-1][0]-Wd,y0+Tp]];
+    plates=poly(leftPoly)+poly(rightPoly); const wp=[...Lp,...R.slice().reverse()]; weld=wfill(wp);
+    polys=[{pts:wp,crown:{a:Lp[0],b:R[0],nx:0,ny:-1,amt:Math.max(5,Math.abs(R[0][0]-Lp[0][0])*.16)}}]; kinds=[o.symKind==='J'?'J':o.symKind||'V']; anc=[(R[0][0]+Lp[0][0])/2,y0]; }
+  if(o.backing!=='none'&&['square','vgroove','bevel','ugroove','jgroove','custom'].includes(type)){ const yb=y0+Tp;
     back=o.backing==='ceramic'?`<path d="M${cx-46},${yb} L${cx-46},${yb+16} L${cx+46},${yb+16} L${cx+46},${yb} L${cx+22},${yb} Q${cx},${yb-9} ${cx-22},${yb} Z" fill="#e6d8c3" stroke="${K}" stroke-width="1.2"/>${txt(cx,yb+30,'Ceramic backing')}`:`<rect x="${cx-55}" y="${yb}" width="110" height="9" fill="#cfcfcf" stroke="${K}" stroke-width="1.2"/>${txt(cx,yb+24,'Metal backing')}`; }
   if(type==='tee'||type==='tbevel'||type==='lap'){
     const T2=o.t2*sc, z=o.leg*sc, yb=200-T2;
@@ -1250,14 +1295,16 @@ function genJoint(o,seq){
         const wp=[[vx1,yv-rise],[vx0+cc,yv],[vx0+cc,yb],[vx1+z*.6,yb]]; plates+=`<polygon points="${P(wp)}" fill="${fill}" stroke="${K}" stroke-width="1.2"/>`;
         polys=[{pts:wp,crown:{a:[vx1+z*.6,yb],b:[vx1,yv-rise],nx:Math.SQRT1_2,ny:-Math.SQRT1_2,amt:z*.12},fillet:{C:[vx0+cc,yb],u:[1,0],z:Math.max(20,(vx1+z*.6)-(vx0+cc)),phi:Math.atan2(rise,run)}}]; kinds=['bevel','fillet']; anc=[vx1+z*.25,yb-z*.9]; ref={x0:vx1+z+50,y:yb-90,len:78}; dimsArr.push(txt(vx1+z*.6+14,yb+16,`α=${o.angle}°`,'start')); }
       dimsArr.push(dimV(vx0-30,y1,yb,`t=${o.t}`),dimV(cx+bw+22,yb,yb+T2,`t2=${o.t2}`)); } }
-  if(o.dims&&['square','vgroove','xgroove','bevel','ugroove'].includes(type)){ const yb=y0+Tp;
+  if(o.dims&&['square','vgroove','xgroove','bevel','ugroove','kgroove','jgroove','custom'].includes(type)){ const yb=y0+Tp;
     dimsArr.push(dimV(xl-Wd+8,y0,y0+Tp,`t=${o.t}`));
     if(g>0) dimsArr.push(txt(cx,yb+(o.backing!=='none'?46:26),`b=${o.gap}`));
     if(type==='vgroove'||type==='xgroove') dimsArr.push(txt(cx,y0-10,`α=${o.angle}°`));
-    if(type==='bevel') dimsArr.push(txt(xr+d*tanB/2+4,y0-10,`α=${o.angle}°`,'start'));
+    if(type==='bevel'||type==='kgroove') dimsArr.push(txt(xr+d*tanB/2+4,y0-10,`α=${o.angle}°`,'start'));
+    if(type==='jgroove') dimsArr.push(txt(xr+30,y0-10,`R=${o.r}`,'start'));
     if(type==='ugroove') dimsArr.push(txt(cx,y0-10,`R=${o.r}`));
     if(c>0) dimsArr.push(txt(xr+12,y0+Tp-(type==='xgroove'?(Tp/2-c/2):c/2)+4,`c=${o.face}`,'start')); }
-  const sym=seq?'':weldSymbol(o,kinds,anc,ref);
+  const symO=['xgroove','kgroove','tee'].includes(type)?{...o,symSide:'both'}:o, bent=['bevel','jgroove','kgroove','tbevel'].includes(type)||(type==='custom'&&['bevel','J'].includes(o.symKind));
+  const sym=seq?'':weldSymbol(symO,kinds,anc,ref,bent);
   const defs=`<defs><marker id="ah2" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#888" stroke-width="1"/></pattern></defs>`;
   const svg=`<svg xmlns="${SVGNS}" viewBox="0 0 520 290" preserveAspectRatio="xMidYMid meet">${defs}<rect width="520" height="290" fill="#fff"/>${weld}${plates}${back}${dimsArr.join('')}${sym}</svg>`;
   return seq?{svg,polys,sc,cx,y0,kinds}:svg; }
@@ -1287,38 +1334,43 @@ function genSeq(o){
       for(let j=0;j<k;j++){ n++; const t=(j+.5)/k, p0=pt(li,t), p1=last?[xa+(xb-xa)*t,ys0+dir*hb*0.55]:pt(li+1,t); out+=num((p0[0]+p1[0])/2,(p0[1]+p1[1])/2); } }); });
   return svg.replace('</svg>',out+'</svg>'); }
 // ---------- 용접부 지시선 가이드라인 ----------
-const SYM_GUIDE=`<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--accent)"><b>용접 기호(지시선) 가이드라인 — ISO 2553 기준</b></summary><div style="font-size:12.5px;line-height:1.55;margin-top:6px">
+const SYM_GUIDE=`<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--accent)"><b>용접 기호(지시선) 가이드라인 — EN ISO 2553</b></summary><div style="font-size:12.5px;line-height:1.55;margin-top:6px">
  <svg viewBox="0 0 520 150" style="width:100%;max-width:520px;background:#fff;border:1px solid var(--line);border-radius:6px"><defs><marker id="gah" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs>
   <rect x="20" y="105" width="150" height="24" fill="#fff" stroke="#000"/><rect x="185" y="105" width="150" height="24" fill="#fff" stroke="#000"/><polyline points="170,105 178,105 183,129 172,129" fill="none"/>
   <line x1="200" y1="40" x2="178" y2="103" stroke="#000" stroke-width="1.3" marker-end="url(#gah)"/><line x1="200" y1="40" x2="330" y2="40" stroke="#000" stroke-width="1.6"/><line x1="200" y1="43.5" x2="330" y2="43.5" stroke="#000" stroke-dasharray="6 4"/>
-  <polyline points="255,28 263,40 271,28" fill="none" stroke="#000" stroke-width="1.6"/><polyline points="339,32 330,40 339,48" fill="none" stroke="#000" stroke-width="1.3"/><text x="345" y="44" font-size="11" font-family="Arial">135; B; PA</text>
-  <text x="188" y="24" font-size="11" fill="#c00">① 화살표선</text><text x="262" y="60" font-size="11" fill="#c00">② 기준선(실선)</text><text x="262" y="72" font-size="11" fill="#c00">③ 식별선(점선)</text><text x="240" y="22" font-size="11" fill="#c00">④ 기호</text><text x="345" y="28" font-size="11" fill="#c00">⑤ 꼬리</text></svg>
- <ul style="margin:6px 0 0 18px;padding:0"><li><b>① 화살표선</b>: 기준선 왼쪽 끝에서 <u>접합부</u>를 가리킵니다. 개선(베벨)은 개선이 있는 판 쪽으로 꺾어 표시합니다.</li>
-  <li><b>② 기준선(실선)·③ 식별선(점선)</b>: 기호가 <u>점선 쪽</u>에 있으면 화살표 쪽 용접, 반대쪽에 있으면 반대쪽 용접입니다. 좌우 대칭 용접(양면)은 양쪽에 기호를 둡니다. <small>(회사 스케치는 실선 위에 기호, 점선 아래 — 이 앱의 기본값. 규격 개정에 따라 달라질 수 있어 규격서 확인)</small></li>
-  <li><b>④ 기호</b>: I형 <b>║</b> · V형 <b>V</b> · 베벨 <b>⊢</b> · U형 <b>U</b> · 필릿 <b>◣</b>(수직변은 항상 왼쪽) · X형(양면 V)은 위아래 모두 V. 백킹은 옆에 <b>MR</b>(제거형/세라믹) 또는 <b>M</b>(영구).</li>
-  <li><b>치수</b>: 필릿은 기호 <u>왼쪽</u>에 각장 <b>z</b> 또는 목 두께 <b>a</b>(a≈0.7z). 홈 용접은 기호 왼쪽에 용접 깊이 s, 오른쪽에 루트 간격.</li>
-  <li><b>⑤ 꼬리(포크)</b>: 공정 번호(ISO 4063, 예 135), 품질 등급(ISO 5817, 예 B), 용접 자세(ISO 6947, 예 PA), 필요 시 WPS 번호를 <b>;</b>로 구분해 적습니다.</li>
-  <li><b>보조 기호</b>: 전둘레 용접 <b>○</b>(화살표선과 기준선 접점), 현장 용접 <b>▶</b>(깃발).</li></ul>
- <table class="list nested" style="width:100%;font-size:12.5px;margin-top:6px"><thead><tr><th>이음 형상</th><th>기호</th><th>이 앱의 자동 표기</th></tr></thead><tbody>
-  <tr class="kid"><td>I형 맞대기</td><td>║</td><td>기준선 위 ║</td></tr><tr class="kid"><td>단면 V / 양면 V(X)</td><td>V / X</td><td>V, X는 위아래 모두</td></tr><tr class="kid"><td>단면 베벨</td><td>⊢</td><td>수직변이 왼쪽</td></tr><tr class="kid"><td>U형</td><td>U</td><td>U</td></tr><tr class="kid"><td>T이음 필릿·겹치기</td><td>◣ + z/a</td><td>기호 왼쪽에 각장</td></tr><tr class="kid"><td>T이음 베벨(K)</td><td>⊢ + ◣</td><td>두 기호 겹쳐 표기</td></tr></tbody></table></div></details>`;
-function genPanelHTML(){ const G=GEN, num=(k,l,st)=>`<label>${l}<input type="number" step="any" data-g="${k}" value="${G[k]}" ${st||''}></label>`;
-  return `<div class="card" id="genbox" style="border-color:var(--accent)"><div class="row" style="margin:0"><h3 style="margin:0;flex:1">형상 생성 (값 입력 → 도면)</h3><button type="button" class="b sec" onclick="GEN.open=false;vWpsDoc()">닫기</button></div>
-   <div class="grid" style="margin-top:8px"><label>형상 종류<select data-g="type">${GEN_TYPES.map(([v,l])=>`<option value="${v}" ${G.type===v?'selected':''}>${l}</option>`).join('')}</select></label>
-    ${num('t','판 두께 t (mm)')}${num('t2','바닥판 t2 (T/겹치기)')}${num('angle','개선 각도 α (°)')}${num('gap','루트 간격 b (mm)')}${num('face','루트 면 c (mm)')}${num('r','U형 반지름 R (mm)')}${num('leg','필릿 각장 z (mm)')}
-    <label>백킹<select data-g="backing"><option value="none" ${G.backing==='none'?'selected':''}>없음</option><option value="ceramic" ${G.backing==='ceramic'?'selected':''}>세라믹</option><option value="metal" ${G.backing==='metal'?'selected':''}>금속(영구)</option></select></label>
-    <label>층별 비드 수 (용접 순서)<input data-g="layers" value="${esc(G.layers)}" placeholder="1,2,3,3"></label>
-    <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" data-g="dims" ${G.dims?'checked':''}>치수 표시</label><label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" data-g="weld" ${G.weld?'checked':''}>용접부 채움</label></div>
-   <div class="grid" style="margin-top:6px"><label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" data-g="symbol" ${G.symbol?'checked':''}><b>용접 기호(지시선) 표시</b></label>
-    <label>기호 위치<select data-g="symSide"><option value="above" ${G.symSide==='above'?'selected':''}>기준선 위 (회사 스케치 방식)</option><option value="below" ${G.symSide==='below'?'selected':''}>기준선 아래</option><option value="both" ${G.symSide==='both'?'selected':''}>양쪽(양면)</option></select></label>
-    <label>필릿 치수<select data-g="symDim"><option value="z" ${G.symDim==='z'?'selected':''}>각장 z</option><option value="a" ${G.symDim==='a'?'selected':''}>목 두께 a</option></select></label>
-    <label>꼬리 표기 (공정; 품질등급; 자세)<input data-g="tail" value="${esc(G.tail)}" placeholder="135; B; PA"></label>
-    <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" data-g="allAround" ${G.allAround?'checked':''}>전둘레 ○</label><label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" data-g="field" ${G.field?'checked':''}>현장 용접 ▶</label></div>${SYM_GUIDE}
-   <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:8px"><div style="border:1px solid var(--line);border-radius:6px"><div style="font-size:12px;padding:4px 8px;color:var(--mute)">이음부 형상</div><div id="genj" style="height:220px"></div></div><div style="border:1px solid var(--line);border-radius:6px"><div style="font-size:12px;padding:4px 8px;color:var(--mute)">용접 순서</div><div id="gens" style="height:220px"></div></div></div>
-   <div class="row"><button type="button" class="b sm" onclick="genApply('joint')">이음부 형상에 적용</button><button type="button" class="b sm" onclick="genApply('sequence')">용접 순서에 적용</button><button type="button" class="b sm" onclick="genApply('both')">둘 다 적용</button><button type="button" class="b sm sec" onclick="genSave('joint')">형상을 라이브러리에 저장</button><button type="button" class="b sm sec" onclick="genSave('sequence')">순서를 라이브러리에 저장</button></div></div>`; }
+  <polyline points="255,28 263,40 271,28" fill="none" stroke="#000" stroke-width="1.6"/><polyline points="339,32 330,40 339,48" fill="none" stroke="#000" stroke-width="1.3"/><text x="345" y="44" font-size="11" font-family="Arial">135/B/PA</text>
+  <text x="176" y="24" font-size="11" fill="#c00">① 화살표선</text><text x="262" y="62" font-size="11" fill="#c00">② 기준선(실선)</text><text x="262" y="74" font-size="11" fill="#c00">③ 식별선(점선)</text><text x="238" y="22" font-size="11" fill="#c00">④ 기호</text><text x="345" y="28" font-size="11" fill="#c00">⑤ 꼬리</text></svg>
+ <ul style="margin:6px 0 0 18px;padding:0"><li><b>기준선 체계 (EN ISO 2553:2019)</b>: <b>A = 이중 기준선</b>(실선+점선, 유럽 표준 도면), <b>B = 단일 기준선</b>(AWS A2.4와 같은 배치). 앱에서 체계를 고를 수 있습니다.</li>
+  <li><b>A체계 위치 규칙</b>: 실선이 기준선입니다. 기호가 <u>점선의 반대쪽</u>(실선 바깥)에 있으면 <b>화살표 쪽</b> 용접, 점선과 <u>같은 쪽</u>(점선에 붙여서)에 두면 <b>반대쪽</b> 용접입니다. <b>양쪽(대칭)</b>은 점선 없이 양쪽에 기호를 둡니다.</li>
+  <li><b>B체계 위치 규칙</b>: 기준선 <u>아래</u> = 화살표 쪽, <u>위</u> = 반대쪽, 양쪽은 위아래 모두.</li>
+  <li><b>① 화살표선</b>: 기준선 왼쪽 끝에서 접합부를 가리킵니다. 베벨·J·K형처럼 한쪽 판만 개선하는 경우 화살표선을 <b>꺾어서</b> 개선한 판 쪽을 가리킵니다(앱이 자동으로 꺾음).</li>
+  <li><b>④ 기호</b>: I형 <b>║</b> · V형 <b>V</b> · 베벨 <b>⊢</b>(수직변은 항상 왼쪽) · U형 <b>U</b> · J형 <b>J</b> · 필릿 <b>◣</b>(수직변은 항상 왼쪽) · X·K는 위아래 모두. 백킹은 <b>MR</b>(제거형/세라믹) 또는 <b>M</b>(영구).</li>
+  <li><b>치수</b>: 주 치수(필릿 <b>z</b> 각장 / <b>a</b> 목 두께, 홈 <b>s</b> 용입 깊이)는 기호 <u>왼쪽</u>, 길이·피치는 오른쪽. 표면 형상은 기호 바깥에 평탄(—)·볼록·오목 보조기호.</li>
+  <li><b>⑤ 꼬리(포크)</b>: <b>공정(ISO 4063)/품질등급(ISO 5817)/자세(ISO 6947)/충전재/WPS 참조</b>를 <b>/</b>로 구분해 적습니다 (예: <b>135/B/PA</b>). 표기 세부는 사내 도면 규칙에 맞게 조정하세요.</li>
+  <li><b>보조 기호</b>: 전둘레 <b>○</b>(화살표선과 기준선의 접점), 현장 용접 <b>▶</b>(깃발).</li></ul>
+ <p style="color:var(--mute);margin:6px 0 0">※ 위 규칙은 공개된 ISO 2553 해설 자료를 기준으로 정리했습니다. 규격서 원문(유료)과 최신 개정판을 확인해 최종 적용하세요.</p></div></details>`;
+function genPanelHTML(mode){ const G=GEN, tab=mode==='tab', num=(k,l)=>`<label>${l}<input type="number" step="any" data-g="${k}" value="${G[k]}"></label>`, chk=(k,l)=>`<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" data-g="${k}" ${G[k]?'checked':''}>${l}</label>`, sel=(k,l,opts)=>`<label>${l}<select data-g="${k}">${opts.map(([v,t])=>`<option value="${v}" ${G[k]===v?'selected':''}>${t}</option>`).join('')}</select></label>`, txt=(k,l,ph)=>`<label>${l}<input data-g="${k}" value="${esc(G[k])}" placeholder="${ph||''}"></label>`;
+  return `<div class="card" id="genbox" style="border-color:var(--accent);margin-bottom:0"><div class="row" style="margin:0"><h3 style="margin:0;flex:1">${tab?'형상 생성 (값 입력 → 도면)':'형상 생성 (값 입력 → 도면)'}</h3>${tab?'':'<button type="button" class="b sec" onclick="GEN.open=false;vWpsDoc()">닫기</button>'}</div>
+   <h3>① 형상</h3><div class="grid">${sel('type','형상 종류',GEN_TYPES)}${num('t','판 두께 t (mm)')}${num('t2','바닥판 t2 (T·겹치기)')}${num('angle','개선 각도 α (°)')}${num('gap','루트 간격 b (mm)')}${num('face','루트 면 c (mm)')}${num('r','U·J 반지름 R (mm)')}${num('leg','필릿 각장 z (mm)')}
+    ${sel('backing','백킹',[['none','없음'],['ceramic','세라믹(제거형 MR)'],['metal','금속(영구 M)']])}${txt('layers','층별 비드 수 (용접 순서)','1,2,3,3')}${chk('dims','치수 표시')}${chk('weld','용접부 채움(빗금)')}</div>
+   <div class="grid" style="margin-top:6px;grid-template-columns:2fr 1fr 1fr"><label>사용자 정의: 개선면 좌표 "x,깊이; x,깊이; …" (mm, 중심선 기준 오른쪽 판, 위→아래)<textarea data-g="custom" rows="2">${esc(G.custom)}</textarea></label>${chk('mirror','왼쪽 판 대칭')}${sel('symKind','사용자 정의의 기호',[['V','V'],['bevel','베벨 ⊢'],['U','U'],['J','J'],['II','I ║']])}</div>
+   <h3>② 용접 기호 (EN ISO 2553)</h3><div class="grid">${chk('symbol','용접 기호(지시선) 표시')}${sel('symSystem','기준선 체계',[['A','A: 이중 기준선(실선+점선)'],['B','B: 단일 기준선']])}${sel('symSide','기호 위치',[['arrow','화살표 쪽 (Arrow side)'],['other','반대쪽 (Other side)'],['both','양쪽']])}
+    ${sel('symDim','필릿 치수',[['z','각장 z'],['a','목 두께 a']])}${txt('symS','홈 용접 s 치수(선택)','예: 12')}${sel('contour','표면 형상 기호',[['none','없음'],['flush','평탄(—)'],['convex','볼록'],['concave','오목']])}${chk('allAround','전둘레 ○')}${chk('field','현장 용접 ▶')}</div>
+   <div class="grid" style="margin-top:6px">${txt('tailProc','꼬리: 공정 (ISO 4063)','135')}${txt('tailLvl','품질등급 (ISO 5817)','B')}${chk('tailLvlPrefix','등급에 "ISO 5817-" 붙이기')}${txt('tailPos','자세 (ISO 6947)','PA')}${txt('tailFiller','충전재(선택)','')}${txt('tailRef','WPS 참조(선택)','WPS-RM001')}</div>${SYM_GUIDE}
+   <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:8px"><div style="border:1px solid var(--line);border-radius:6px"><div style="font-size:12px;padding:4px 8px;color:var(--mute)">이음부 형상</div><div id="genj" style="height:${tab?300:220}px"></div></div><div style="border:1px solid var(--line);border-radius:6px"><div style="font-size:12px;padding:4px 8px;color:var(--mute)">용접 순서</div><div id="gens" style="height:${tab?300:220}px"></div></div></div>
+   <div class="row">${tab?`<button type="button" class="b" onclick="genSave('joint')">이음부 형상을 라이브러리에 저장</button><button type="button" class="b" onclick="genSave('sequence')">용접 순서를 라이브러리에 저장</button><button type="button" class="b sec" onclick="dlSvg('joint')">SVG 다운로드(형상)</button><button type="button" class="b sec" onclick="dlSvg('sequence')">SVG(순서)</button><button type="button" class="b sec" onclick="dlPng('joint')">PNG(형상)</button><button type="button" class="b sec" onclick="dlPng('sequence')">PNG(순서)</button><button type="button" class="b sec" onclick="Object.assign(GEN,JSON.parse(JSON.stringify(GEN_DEF)));vShape()">초기화</button>`
+   :`<button type="button" class="b sm" onclick="genApply('joint')">이음부 형상에 적용</button><button type="button" class="b sm" onclick="genApply('sequence')">용접 순서에 적용</button><button type="button" class="b sm" onclick="genApply('both')">둘 다 적용</button><button type="button" class="b sm sec" onclick="genSave('joint')">형상을 라이브러리에 저장</button><button type="button" class="b sm sec" onclick="genSave('sequence')">순서를 라이브러리에 저장</button>`}</div></div>`; }
 function genValues(){ document.querySelectorAll('#genbox [data-g]').forEach(el=>{ const k=el.dataset.g; GEN[k]=el.type==='checkbox'?el.checked:el.type==='number'?(parseFloat(el.value)||0):el.value; }); }
 function genDraw(){ genValues(); const j=$('#genj'), q=$('#gens'); if(!j) return; j.innerHTML=genJoint(GEN).replace('<svg ','<svg style="width:100%;height:100%" '); q.innerHTML=genSeq(GEN).replace('<svg ','<svg style="width:100%;height:100%" '); }
 function genApply(w){ genValues(); collectDoc(); if(w!=='sequence') WD.obj.sketches.joint=svgUrl(genJoint(GEN)); if(w!=='joint') WD.obj.sketches.sequence=svgUrl(genSeq(GEN)); vWpsDoc(); toast('생성한 형상을 적용했습니다. 저장을 눌러 확정하세요.',3000); }
-function genSave(k){ genValues(); const nm=GEN_TYPES.find(x=>x[0]===GEN.type)[1].split(' ')[0]; saveToLib(k,k==='joint'?genJoint(GEN):genSeq(GEN),`${nm} t${GEN.t}${GEN.angle&&/groove|bevel/.test(GEN.type)?` ${GEN.angle}°`:''} ${KIND_L[k]}`,{weldType:/tee|lap/.test(GEN.type)?'FW':'BW',thk:`t=${GEN.t}`,backing:GEN.backing==='none'?'':GEN.backing}); }
+function genSave(k){ genValues(); const nm=GEN_TYPES.find(x=>x[0]===GEN.type)[1].split(' ')[0]; const g={...GEN}; delete g.open; saveToLib(k,k==='joint'?genJoint(GEN):genSeq(GEN),`${nm} t${GEN.t}${GEN.angle&&/groove|bevel/.test(GEN.type)?` ${GEN.angle}°`:''} ${KIND_L[k]}`,{weldType:/tee|lap/.test(GEN.type)?'FW':'BW',thk:`t=${GEN.t}`,backing:GEN.backing==='none'?'':GEN.backing},g).then(()=>{ if(tab==='shape') drawLibTab(); }); }
+const GEN_DEF=JSON.parse(JSON.stringify(GEN));
+function svgOf(k){ genValues(); return k==='joint'?genJoint(GEN):genSeq(GEN); }
+function dlSvg(k){ download(`${k==='joint'?'joint':'sequence'}_${GEN.type}_t${GEN.t}.svg`,svgOf(k),'image/svg+xml'); }
+function dlPng(k){ const im=new Image(); im.onload=()=>{ const c=document.createElement('canvas'); c.width=1560; c.height=870; const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(im,0,0,c.width,c.height); c.toBlob(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`${k}_${GEN.type}_t${GEN.t}.png`; a.click(); }); }; im.src=svgUrl(svgOf(k)); }
+function drawLibTab(){ LIBCTX={kind:null,pick:null}; const b=$('#libbody'); if(b) b.innerHTML=libGridHTML(null,null); const t=$('#libt'); if(t) t.textContent=`형상 라이브러리 (${joints.length}개)`; }
+function editGenLib(id){ const j=joints.find(x=>x.id===id); if(!j||!j.gen) return; Object.assign(GEN,JSON.parse(JSON.stringify(j.gen))); if(WF.doc){ GEN.open=true; vWpsDoc(); } else { tab='shape'; render(); } toast(`"${j.name}" 의 생성 값을 불러왔습니다. 수정 후 다시 저장하면 새 형상으로 추가됩니다.`,4000); }
+function vShape(){ GEN.open=false; $('#view').innerHTML=`${genPanelHTML('tab')}<div class="card" style="margin-top:16px"><h2 id="libt" style="margin-top:0">형상 라이브러리</h2><div id="libbody"></div></div>`; genDraw(); drawLibTab(); }
 document.addEventListener('input',e=>{ if(e.target.closest&&e.target.closest('#genbox')) genDraw(); });
 document.addEventListener('change',e=>{ if(e.target.closest&&e.target.closest('#genbox')) genDraw(); });
 
