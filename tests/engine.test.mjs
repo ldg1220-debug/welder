@@ -10,14 +10,14 @@ t('유효기간 = 용접일+3년-1일 (샘플 인증서)',()=>assert.equal(E.cal
 t('윤일 2/29',()=>assert.equal(E.calcExpire('2024-02-29'),'2027-02-27'));
 t('유효기간 문구',()=>assert.equal(E.validityText('2024-08-21','2027-08-20'),'2024-08-21 ~ 2027-08-20 (refer to 9.3 a)'));
 t('샘플: BW 135 t12 PC → 두께 ≥3, PA·PC, FM1·FM2, S·M',()=>{const r=R({});
-  assert.equal(r.thickness,'≥ 3'); assert.equal(r.deposited,'≥ 3'); assert.equal(r.position,'PA, PC');
-  assert.equal(r.fillerGroup,'FM1, FM2'); assert.equal(r.fillerType,'S, M'); assert.equal(r.backing,'ss nb, ss mb, bs'); assert.equal(r.transfer,'Globular or Spray');
+  assert.equal(r.thickness,'≥ 3.0'); assert.equal(r.deposited,'3 ≤ s'); assert.equal(r.position,'PA, PC');
+  assert.equal(r.fillerGroup,'FM1, FM2'); assert.equal(r.fillerType,'S, M'); assert.equal(r.backing,'N/A'); assert.equal(r.details,'ss nb, ss mb, bs'); assert.equal(r.transfer,'Globular or Spray');
   assert.match(r.product,/^P, T/);});
 t('t=2.3 → 2.3 ≤ t ≤ 4.6',()=>assert.equal(R({thickness:2.3,deposited:2.3}).thickness,'2.3 ≤ t ≤ 4.6'));
 t('t=6 → 3 ≤ t ≤ 12',()=>assert.equal(R({thickness:6,deposited:6}).thickness,'3 ≤ t ≤ 12'));
 t('t=3 → 3 ≤ t ≤ 6',()=>assert.equal(R({thickness:3,deposited:3}).thickness,'3 ≤ t ≤ 6'));
 t('t=11.9 → 3 ≤ t ≤ 23.8',()=>assert.equal(R({thickness:11.9,deposited:11.9}).thickness,'3 ≤ t ≤ 23.8'));
-t('FW t=3 → ≥3, PF → PA,PB,PF',()=>{const r=R({joint:'FW',thickness:3,position:'PF'});assert.equal(r.thickness,'≥ 3');assert.equal(r.position,'PA, PB, PF');});
+t('FW t=3 → ≥3, PF → PA,PB,PF',()=>{const r=R({joint:'FW',thickness:3,position:'PF'});assert.equal(r.thickness,'≥ 3.0');assert.equal(r.position,'PA, PB, PF');});
 t('미지원 자세/FM → 수동검토',()=>{
   assert.equal(E.calculateRangeOfApproval({process:'135 MAG',joint:'BW',thickness:6,position:'H-L045',fillerGroup:'FM1'}).manual_review_required,true);
   assert.equal(E.calculateRangeOfApproval({process:'135 MAG',joint:'BW',thickness:6,position:'PC',fillerGroup:'FM5'}).manual_review_required,true);});

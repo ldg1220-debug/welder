@@ -51,41 +51,52 @@ table.list th{background:#eef2f6;font-size:12px}
 .msg{padding:8px 12px;border-radius:6px;margin:8px 0}.msg.err{background:#fdecea;color:var(--bad)}.msg.info{background:#eaf2fb}
 .thumb{height:64px;border:1px solid var(--line);border-radius:4px}
 .hide{display:none}
-#modal{position:fixed;inset:0;background:rgba(0,0,0,.55);overflow:auto;padding:20px;z-index:10}
-#modal .sheet{margin:0 auto;background:#fff;width:210mm;padding:0}
-#modal .bar{position:sticky;top:0;text-align:right;padding:6px;background:#14314f}
+#modal{position:fixed;inset:0;background:#6b7785;overflow:auto;z-index:10}
+#modal .bar{position:sticky;top:0;z-index:2;padding:8px 14px;background:#14314f;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#modal .tip{color:#cfe0f3;font-size:12px}#modal .tip b{color:#fff}
+#modal .sheet{width:max-content;max-width:100%;margin:16px auto;background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.4)}
 /* ---- 인증서 (화면 미리보기 & 인쇄 공용) ---- */
-.cert{width:210mm;min-height:297mm;padding:9mm 10mm;background:#fff;color:#000;font:8.6pt/1.3 "Malgun Gothic",Arial,sans-serif}
-.cert table{width:100%;border-collapse:collapse}
-.cert td,.cert th{border:1px solid #000;padding:2px 5px;vertical-align:middle}
-.cert .noborder td{border:0;padding:1px 3px}
-.cert .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4mm}
-.cert .top .co{width:52mm;font-weight:700;font-size:13pt}
-.cert .top .ti{text-align:center;flex:1}.cert .top .ti b{font-size:14pt;display:block}
-.cert .top .tm{width:42mm;border:1px solid #000;text-align:center;padding:3px}
-.cert .lab{color:#000}.cert .val{color:#0033cc}
-.cert .c{text-align:center}.cert .sm{font-size:7pt}
-.cert .sigbox{position:relative;height:17mm}.cert .sigbox .stamp{position:absolute;left:36mm;top:0;height:16mm;opacity:.9}.cert .sigbox .sign{position:absolute;left:47mm;top:0;height:16mm;max-width:30mm}
-.cert img.photo{width:30mm;height:38mm;object-fit:cover}.cert img.sign{max-height:14mm;max-width:40mm}
+.cert{width:210mm;height:296.5mm;overflow:hidden;padding:6mm 9mm;background:#fff;color:#000;font:9pt/1.35 "Malgun Gothic",Arial,sans-serif;position:relative;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cert table{width:100%;border-collapse:collapse}.cert td,.cert th{border:1px solid #000;padding:1.5px 4px;vertical-align:middle}
+.cert th{font-size:9pt}.cert .sm{font-size:7pt}
+.cert .top{display:flex;justify-content:space-between;align-items:center;gap:5mm;margin-bottom:2mm}
+.cert .co{width:52mm;font-weight:700;font-size:13pt}.cert .co img{max-height:16mm;max-width:52mm;display:block}
+.cert .ti{flex:1;text-align:center}.cert .ti b{display:block;font-size:14pt}.cert .ti span{font-size:12pt;font-weight:700}
+.cert .tm{width:38mm;border:1px solid #000;text-align:center;padding:2mm}.cert .tm b{display:block;font-size:13pt}.cert .tm span{font-size:8pt;font-weight:700}
+.cert .val{color:#1a33d6;font-weight:700}.cert .c{text-align:center;font-weight:700}
+.cert .ln{margin:.8mm 0}.cert .two{display:flex;justify-content:space-between;gap:6mm}.cert .two>div:first-child{flex:1}
+.cert .info{display:flex;margin-bottom:2.5mm}.cert .lf{width:60%}.cert .ph{flex:1;display:flex;gap:3mm;align-items:flex-start}
+.cert .phb{width:34mm}.cert .phb td{height:38mm;text-align:center;padding:0}.cert .en{color:#1a33d6;font-weight:700;padding-top:1mm}
+.cert img.photo{width:33mm;height:37mm;object-fit:cover;display:block;margin:0 auto}
+.cert .rng th{background:#fff}.cert .rng td{height:6.3mm;padding-top:0;padding-bottom:0}.cert .rng td:first-child{width:30%}
+.cert .lb{text-align:center;line-height:1.1}.cert .lb b{display:block;font-size:9pt}.cert .lb i{display:block;font-size:6.5pt;font-style:normal;font-weight:700}
+.cert .bot{display:flex;gap:6mm;margin-top:1mm}.cert .tt{width:45%}.cert .tt td,.cert .tt th{height:5.8mm;padding-top:0;padding-bottom:0}.cert .lb1 i{font-size:7pt;font-style:normal;font-weight:700}
+.cert .mk{color:#d10000;font-weight:700;font-size:11pt}
+.cert .rt{flex:1;position:relative}.cert .sigbox{position:absolute;right:0;top:3mm;width:44mm;height:19mm}
+.cert .sigbox .stamp{position:absolute;left:0;top:0;height:18mm;opacity:.92}.cert .sigbox .sign{position:absolute;left:12mm;top:2mm;height:14mm;max-width:31mm}
+.cert .prol{display:flex;gap:4mm;margin-top:1.5mm}.cert .prol table{flex:1}
+.cert .wm{position:absolute;left:0;right:0;top:105mm;text-align:center;font-size:40pt;font-weight:900;color:rgba(200,0,0,.14);transform:rotate(-22deg);pointer-events:none;z-index:3}
 @media print{
   @page{size:A4;margin:0}
   body{background:#fff}
   header,main,#modal .bar{display:none!important}
-  #modal{position:static;background:none;padding:0;overflow:visible}
-  #modal .sheet{width:auto}
+  #modal{position:static;background:none;overflow:visible}
+  #modal .sheet{margin:0;box-shadow:none;width:auto}
+  #modalBody{zoom:1!important}
 }
-body.printing header,body.printing main{display:none}
 </style>
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v10 · 재시험 묶음</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v12 · 인증서 양식</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
-<div id="modal" class="hide"><div class="sheet"><div class="bar">
+<div id="modal" class="hide"><div class="bar">
   <button class="b" onclick="window.print()">🖨 인쇄 / PDF로 저장</button>
-  <button class="b sec" onclick="closeModal()">닫기</button></div><div id="modalBody"></div></div></div>
+  <button class="b sec" onclick="closeModal()">닫기 (Esc)</button>
+  <span class="tip">열리는 인쇄 창에서 <b>대상 → "PDF로 저장"</b> 선택 → 용지 <b>A4</b> · 여백 <b>없음</b> · <b>배경 그래픽</b> 체크 → 저장</span></div>
+  <div class="sheet"><div id="modalBody"></div></div></div>
 
 <script>
 /*ENGINE-START*/
@@ -154,7 +165,7 @@ function thicknessRange(joint,t){
   }
   return t<3?{lo:t,hi:2*t}:{lo:3,hi:INF}; // FW
 }
-function rangeText(r,sym){ if(!r) return '-'; return r.hi===INF?`≥ ${fmtN(r.lo)}`:`${fmtN(r.lo)} ≤ ${sym} ≤ ${fmtN(r.hi)}`; }
+function rangeText(r,sym){ if(!r) return '-'; if(r.hi===INF) return sym==='t'?`≥ ${r.lo.toFixed(1)}`:`${fmtN(r.lo)} ≤ ${sym}`; return `${fmtN(r.lo)} ≤ ${sym} ≤ ${fmtN(r.hi)}`; } // 양식: 두께 '≥ 3.0', 용접두께 '3 ≤ s'
 function processCode(p){ return String(p||'').trim().split(/\s+/)[0]; }
 
 // input: {process,productType:'P'|'T',pipeDiameter,joint:'BW'|'FW',transfer,fillerGroup,fillerType,fillerDesignation,
@@ -187,7 +198,7 @@ function calculateRangeOfApproval(input, standard){
   if(/^13/.test(code)){
     const tr=i.transfer||'globular/spray';
     const rng=tr==='short'?'Short circuit':tr==='pulsed'?'Pulsed':'Globular or Spray';
-    add('transfer','용접 이행 Transfer mode',tr,rng,'ISO 9606-1 5.3(샘플 인증서)', tr==='globular/spray'?'high':'check');
+    add('transfer','용접 이행 Transfer mode',tr==='globular/spray'?'Globular or Spray':tr==='short'?'Short circuit':'Pulsed',rng,'ISO 9606-1 5.3(샘플 인증서)', tr==='globular/spray'?'high':'check');
   }else add('transfer','용접 이행 Transfer mode','-','-','—');
 
   add('material','모재 그룹 Material Group',i.materialGroup||'-','-','ISO 9606-1 (샘플 인증서)','check');
@@ -201,8 +212,7 @@ function calculateRangeOfApproval(input, standard){
 
   // 백킹/이면 처리
   const bk=i.backing||'N/A';
-  if(j==='BW') add('backing','가우징/배킹 Gouging/Backing',bk,(BACKING[bk]||[bk]).join(', '),'ISO 9606-1 Table 7', bk==='ss nb'?'high':'check');
-  else add('backing','가우징/배킹 Gouging/Backing','N/A','N/A','—');
+  add('backing','가우징/배킹 Gouging/Backing','N/A','N/A','양식(샘플 인증서)'); // ss nb/ss mb 는 아래 '기타 Weld details' 행에 표기
 
   // 두께
   const tr=thicknessRange(j,t), sr=thicknessRange(j,s);
@@ -214,7 +224,7 @@ function calculateRangeOfApproval(input, standard){
   if(posTable[pos]) add('position','용접자세 Welding Position',pos,posTable[pos].join(', '),'ISO 9606-1 Table 9', (POS_HIGH[j]||[]).includes(pos)?'high':'check');
   else { manual=true; W.push(`자세 ${pos||'(미입력)'}: 자동 산출표에 없음 → 수동 검토`); add('position','용접자세 Welding Position',pos||'-','수동 확인','ISO 9606-1 Table 9','check'); }
 
-  add('details','기타 Weld details',j==='BW'?bk+(bk==='ss nb'?'':''):'-', j==='BW'?(BACKING[bk]||[bk]).join(', '):'-','ISO 9606-1 5.7','check');
+  add('details','기타 Weld details',j==='BW'?bk:'-', j==='BW'?(BACKING[bk]||[bk]).join(', '):'-','ISO 9606-1 Table 7', bk==='ss nb'?'high':'check');
   return {items, warnings:W, manual_review_required:manual, expire: i.weldingDate?calcExpire(i.weldingDate):null};
 }
 
@@ -243,7 +253,7 @@ const DB={db:null,
   del(s,id){return this.tx(s,'readwrite',o=>o.delete(id));},
   clear(s){return this.tx(s,'readwrite',o=>o.clear());}
 };
-const DEFAULT_SETTINGS={company:'',team:'',examiner:'',location:'',standardLabel:'KS B ISO 9606-1:2012',refPrefix:'EN ISO 9606-1-RM',strict:false,impliedVT:true,logo:'',signature:'',stamp:''};
+const DEFAULT_SETTINGS={company:'',team:'',examiner:'',location:'',standardLabel:'KS B ISO 9606-1:2012',refPrefix:'EN ISO 9606-1-RM',strict:false,impliedVT:true,examBody:'',logo:'',signature:'',stamp:''};
 let S={...DEFAULT_SETTINGS}, welders=[], records=[], images=[];
 async function load(){
   welders=await DB.all('welders'); records=await DB.all('records');
@@ -311,7 +321,7 @@ document.addEventListener('dragleave',e=>{const z=e.target.closest&&e.target.clo
 document.addEventListener('drop',async e=>{const z=e.target.closest&&e.target.closest('.pz'); if(!z) return; e.preventDefault(); z.classList.remove('over');
   const f=[...e.dataTransfer.files].find(x=>x.type.startsWith('image/')); if(f) await setPz(z.dataset.key,f); else toast('이미지 파일이 아닙니다.');});
 function syncSettingsForm(){ const f=$('#sf'); if(!f) return; const fd=new FormData(f);
-  for(const k of ['company','team','examiner','location','standardLabel','refPrefix']) if(fd.has(k)) S[k]=fd.get(k); S.strict=fd.get('strict')==='on'; S.impliedVT=fd.get('impliedVT')==='on'; }
+  for(const k of ['company','team','examiner','location','standardLabel','refPrefix','examBody']) if(fd.has(k)) S[k]=fd.get(k); S.strict=fd.get('strict')==='on'; S.impliedVT=fd.get('impliedVT')==='on'; }
 async function setPz(key,file){
   try{
     const url=await fileToDataURL(file,key==='logo'?500:400,key!=='photo');
@@ -384,6 +394,7 @@ function vWelders(){
    <div class="grid">
     <label>용접사 번호*<input name="welderNo" required placeholder="RM-WD-24001"></label>
     <label>성명*<input name="name" required></label>
+    <label>영문 성명 (인증서 사진 옆)<input name="nameEn" placeholder="KIM MYEONG GWAN"></label>
     <label>생년월일<input type="date" name="birthDate"></label>
     <label>출생지 (인증서 표기)<input name="birthPlace" placeholder="SA CHEON" list="dl-place"></label>
     <label>소속<input name="company" list="dl-company"></label>
@@ -405,11 +416,11 @@ function vWelders(){
   $('#wf').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target),o=Object.fromEntries(fd);
     const id=o.id?+o.id:undefined; const old=id?welders.find(w=>w.id===id):{};
     if(welders.some(w=>w.welderNo===o.welderNo.trim()&&w.id!==id)) return alert('이미 등록된 용접사 번호입니다.');
-    const w={...old,welderNo:o.welderNo.trim(),name:o.name.trim(),birthDate:o.birthDate,birthPlace:o.birthPlace,company:o.company,role:o.role,status:o.status};
+    const w={...old,welderNo:o.welderNo.trim(),name:o.name.trim(),nameEn:(o.nameEn||'').trim(),birthDate:o.birthDate,birthPlace:o.birthPlace,company:o.company,role:o.role,status:o.status};
     if(id) w.id=id; if(window._photo!==null&&window._photo!==undefined){ if(window._photo) w.photo=window._photo; else delete w.photo; }
     await DB.put('welders',w); await load(); vWelders();};
 }
-function editWelder(id){const w=welders.find(x=>x.id===id),f=$('#wf');for(const k of ['id','welderNo','name','birthDate','birthPlace','company','role','status']) f.elements[k].value=w[k]??'';window._photo=null;$('.pz[data-key=photo]').outerHTML=pzHTML('photo',w.photo||null,w.photo?'현재 사진 (새로 붙여넣으면 교체)':null);scrollTo(0,0);}
+function editWelder(id){const w=welders.find(x=>x.id===id),f=$('#wf');for(const k of ['id','welderNo','name','nameEn','birthDate','birthPlace','company','role','status']) f.elements[k].value=w[k]??'';window._photo=null;$('.pz[data-key=photo]').outerHTML=pzHTML('photo',w.photo||null,w.photo?'현재 사진 (새로 붙여넣으면 교체)':null);scrollTo(0,0);}
 function copyWelder(id){const w=welders.find(x=>x.id===id),f=$('#wf');f.reset();f.elements.id.value='';for(const k of ['birthPlace','company','role','status']) f.elements[k].value=w[k]??'';window._photo=null;scrollTo(0,0);f.elements.welderNo.focus();}
 async function delWelder(id){
   const n=records.filter(r=>r.welderId===id).length, w=welders.find(x=>x.id===id);
@@ -663,7 +674,7 @@ function vRecForm(){
    <label>Job knowledge${sel('jobKnowledge',['Acceptable','Not tested'],r.jobKnowledge||'Acceptable')}</label>
    <label>Supplementary fillet weld test${sel('suppFillet',['No','Yes'],r.suppFillet||'No')}</label></div></div>
   <div class="card"><h2>승인 범위 (자동 산출) <span id="pj"></span></h2><div id="rng"></div></div>
-  <div class="row"><button class="b">저장</button><button type="button" class="b sec" onclick="editRec=null;vRecords()">취소</button></div></form>`;
+  <div class="row"><button class="b">저장</button><button type="button" class="b sec" onclick="previewForm()">📄 인증서 미리보기</button><button type="button" class="b sec" onclick="editRec=null;vRecords()">취소</button></div></form>`;
   const f=$('#rf');
   const collect=()=>{const o=Object.fromEntries(new FormData(f));
     return {...r,welderId:+o.welderId,weldingDate:o.weldingDate,project:o.project,wpsNo:o.wpsNo,process:o.process,productType:o.productType,pipeDiameter:o.pipeDiameter,
@@ -676,7 +687,7 @@ function vRecForm(){
      res.warnings.map(w=>`<div class="msg info">${esc(w)}</div>`).join('')+
      `<table class="range" style="width:100%"><tr><th align=left>항목</th><th align=left>시험 조건</th><th align=left>승인 범위</th><th align=left>근거</th></tr>${res.items.map(x=>
      `<tr><td>${esc(x.label)}</td><td>${esc(x.test)}</td><td><b>${esc(x.range)}</b></td><td><small>${esc(x.source)}</small> ${x.confidence==='check'?'<span class="chk">⚠ 원문 대조</span>':''}</td></tr>`).join('')}</table>`;};
-  f.oninput=upd; f.onchange=upd; upd();
+  window._collect=collect; f.oninput=upd; f.onchange=upd; upd();
   $('#cond').onchange=e=>{ if(e.target.value==='') return; const src=CL[+e.target.value].r;
     editRec={...collect(),...Object.fromEntries(COND.map(k=>[k,src[k]]))}; vRecForm(); };
   f.onsubmit=async e=>{e.preventDefault();const c=collect();
@@ -686,52 +697,69 @@ function vRecForm(){
 }
 
 // ===================== 인증서 =====================
-function certHTML(r){
-  const w=welders.find(x=>x.id===r.welderId)||{}, res=calculateRangeOfApproval(r), R=Object.fromEntries(res.items.map(x=>[x.key,x]));
-  const exp=calcExpire(r.weldingDate), T=r.tests||{}, mk=v=>v==='pass'?'o':'X', issued=r.issueDate||today();
-  const row=(lbl,k)=>`<tr><td class="c">${lbl}</td><td class="c">${esc(R[k].test)}</td><td class="c">${esc(R[k].range)}</td></tr>`;
-  const bw=r.joint==='BW';
-  return `<div class="cert">
-  <div class="top"><div class="co">${S.logo?`<img src="${S.logo}" style="max-height:14mm">`:esc(S.company)}</div>
-   <div class="ti"><b>용접사 승인 시험 인증서</b><b style="font-size:11pt">Welder's Approval test certificate</b></div>
-   <div class="tm">${esc(S.team)}</div></div>
-  <table class="noborder" style="margin-bottom:2mm"><tr><td colspan="2"><b>Designation :</b> <span class="val">${esc(designation(r))}</span></td></tr>
-   <tr><td style="width:60%"><b>인증번호 Reference No. :</b> <span class="val">${esc(r.refNo)}</span></td><td><b>용접사 성명 Welder's Name :</b> <span class="val">${esc(w.name)}</span></td></tr></table>
-  <table class="noborder"><tr><td style="width:60%;vertical-align:top">
-    <div><b>용접사 번호 Welder's ID No. :</b> <span class="val">${esc(w.welderNo)}</span></div>
-    <div><b>ID 확인 Method of identification :</b> Personal I.D No.</div>
-    <div><b>출생지, 생년월일 :</b> <span class="val">${esc(w.birthPlace)}${w.birthPlace&&w.birthDate?', ':''}${(w.birthDate||'').replace(/-/g,'.')}</span></div>
-    <div><b>Code/Testing Standard :</b> ${esc(S.standardLabel)}</div>
-    <div><b>소속 Employer :</b> ${esc(w.company)}</div>
-    <div><b>Supplementary fillet weld test :</b> <span class="val">${esc(r.suppFillet||'No')}</span></div>
-    <div><b>Job knowledge :</b> <span class="val">${esc(r.jobKnowledge||'Acceptable')}</span></div></td>
-   <td style="vertical-align:top"><table><tr><th>Photo</th></tr><tr><td class="c" style="height:40mm">${w.photo?`<img class="photo" src="${w.photo}">`:''}</td></tr></table></td></tr></table>
-  <table style="margin-top:2mm"><tr><th style="width:26%">Division</th><th>Weld Test Detail</th><th>Range of Approval</th></tr>
-   ${row('용접방법 Welding process','process')}${row('판재 또는 파이프 Plate or pipe','product')}${row('용접 유형 Type of Weld','joint')}${row('용접 이행 Transfer mode','transfer')}${row('모재 그룹 Material Group','material')}
-   ${row('용가재 그룹 Filler material group','fillerGroup')}${row('용가재 Filler material designation','fillerType')}${row('보호가스 Shielding gas','gas')}${row('가우징/배킹 Gouging/Backing','backing')}
-   ${row('시험재 두께 Material Thickness','thickness')}${row('용접 두께 Deposited Thickness','deposited')}${row('파이프 직경 Pipe diameter','diameter')}${row('용접자세 Welding Position','position')}${row('기타 Weld details','details')}</table>
-  <div style="margin:2mm 0"><b>Additional Information</b> is available on attached sheet and / or WPS No : ${esc(r.wpsNo)}</div>
-  <table class="noborder"><tr><td style="width:50%;vertical-align:top"><table>
-    <tr><th>Type of test</th><th>Performed and accepted</th></tr>
-    <tr><td>육안검사 Visual Testing</td><td class="c">${mk(T.vt)}</td></tr>
-    <tr><td>X-ray or UT 방사선/초음파</td><td class="c">${mk(T.rtut)}</td></tr>
-    <tr><td>단면검사 Macroscopic examination</td><td class="c">${mk(T.macro)}</td></tr>
-    <tr><td>파단시험 Fracture Test</td><td class="c">${mk(T.fracture)}</td></tr>
-    <tr><td>굽힘 시험 Bend Test</td><td class="c">${mk(T.bend)}</td></tr>
-    <tr><td>기타 시험 Additional Test</td><td class="c">${mk(T.additional)}</td></tr></table></td>
-   <td style="vertical-align:top"><div><b>시험기관 Examiner :</b> ${esc(S.company)}</div><div><b>성명 Name :</b> ${esc(S.examiner)}</div>
-    <div class="sigbox"><b>서명 Signature :</b>${S.stamp?`<img class="stamp" src="${S.stamp}">`:''}${S.signature?`<img class="sign" src="${S.signature}">`:''}</div>
-    <div><b>장소 Location :</b> ${esc(S.location)}</div>
-    <div><b>용접일자 Date of Welding :</b> ${r.weldingDate}</div><div><b>발행일자 Date of issue :</b> ${issued}</div></td></tr></table>
-  <div style="margin:3mm 0"><b>유효기간 Validity of approval :</b> <span class="val">${validityText(r.weldingDate,exp)}</span></div>
-  <div><b>Prolongation for approval by employer/coordinator following 6months (refer to 9.2)</b></div>
-  <table style="margin-top:1mm"><tr><th>Date</th><th>Signature</th><th>Position or title</th><th>Date</th><th>Signature</th><th>Position or title</th></tr>
-   ${[0,1,2].map(i=>`<tr><td style="height:7mm">${esc((r.renewals||[])[i]||'')}</td><td></td><td></td><td>${esc((r.renewals||[])[i+3]||'')}</td><td></td><td></td></tr>`).join('')}</table>
+function autoRef(c){ const n=records.filter(x=>x.welderId===c.welderId&&x.id!==c.id).length+1;
+  return `${S.refPrefix}-${n}-${processCode(c.process)}-T${fmtN(c.thickness)}-${c.joint}-${c.position}`; }
+function certHTML(r,o){
+  o=o||{}; const w=o.w||welders.find(x=>x.id===r.welderId)||{}, res=calculateRangeOfApproval(r), R=Object.fromEntries(res.items.map(x=>[x.key,x]));
+  const exp=calcExpire(r.weldingDate), T=r.tests||{}, issued=r.issueDate||today(), pass=judge(r.joint,T,S.strict)==='pass', bw=r.joint==='BW';
+  const wm=o.mark||(pass?'':'미합격 · 미리보기 (발행 불가)');
+  const mk=v=>`<span class="mk">${v==='pass'?'o':'X'}</span>`;
+  const row=(kr,en,k)=>`<tr><td class="lb"><b>${kr}</b><i>${en}</i></td><td class="c">${esc(R[k].test)}</td><td class="c">${esc(R[k].range)}</td></tr>`;
+  const tl=String(S.team||'').trim(), tp=tl.includes('\n')?tl.split('\n'):[tl.split(/\s+/)[0]||'',tl.split(/\s+/).slice(1).join(' ')];
+  const ren=r.renewals||[], prol=(a)=>[0,1,2].map(i=>`<tr><td style="height:6mm">${esc(ren[i+a]||'')}</td><td></td><td></td></tr>`).join('');
+  const bd=(w.birthDate||'').replace(/-/g,'.');
+  return `<div class="cert">${wm?`<div class="wm">${esc(wm)}</div>`:''}
+  <div class="top"><div class="co">${S.logo?`<img src="${S.logo}">`:esc(S.company)}</div>
+   <div class="ti"><b>용접사 승인 시험 인증서</b><span>Welder's Approval test certificate</span></div>
+   <div class="tm"><b>${esc(tp[0])}</b><span>${esc(tp.slice(1).join(' '))}</span></div></div>
+  <div class="ln"><b>Designation :</b> <span class="val">${esc(designation(r))}</span></div>
+  <div class="ln two"><div><b>인증번호 Reference No. :</b> <span class="val">${esc(r.refNo||autoRef(r))}</span></div><div><b>용접사 성명 Welder's Name :</b> <span class="val">${esc(w.name)}</span></div></div>
+  <div class="info"><div class="lf">
+    <div class="ln"><b>용접사 번호 Welder's ID No. :</b> <span class="val">${esc(w.welderNo)}</span></div>
+    <div class="ln"><b>ID 확인 Method of identification :</b> <span class="val">Personal I.D No.</span></div>
+    <div class="ln"><b>출생지, 생년월일 :</b> <span class="val">${esc(w.birthPlace)}${w.birthPlace&&bd?', ':''}${bd}</span></div>
+    <div class="ln"><b>Code/Testing Standard :</b> <span class="val">${esc(S.standardLabel)}</span></div>
+    <div class="ln"><b>소속 Employer :</b> ${esc(w.company)}</div>
+    <div class="ln"><b>Supplementary fillet weld test :</b> <span class="val">${esc(r.suppFillet||'No')}</span></div>
+    <div class="ln"><b>Job knowledge :</b> <span class="val">${esc(r.jobKnowledge||'Acceptable')}</span></div></div>
+   <div class="ph"><table class="phb"><tr><th>Photo</th></tr><tr><td>${w.photo?`<img class="photo" src="${w.photo}">`:''}</td></tr></table><div class="en">${esc(w.nameEn||'')}</div></div></div>
+  <table class="rng"><tr><th>Division</th><th>Weld Test Detail</th><th>Range of Approval</th></tr>
+   ${row('용접방법','Welding process','process')}${row('판재 또는 파이프','Plate or pipe','product')}${row('용접 유형','Type of Weld','joint')}${row('용접 이행','Transfer mode','transfer')}
+   ${row('모재그룹','Material Group','material')}${row('용가재 그룹','Filler material group','fillerGroup')}${row('용가재','Filler material designation','fillerType')}${row('보호가스','shielding gas','gas')}
+   ${row('가우징/배킹','Gouging/Backing','backing')}${row('시험재 두께','Material Thickness','thickness')}${row('용접 두께','Deposited Thickness','deposited')}${row('파이프 직경','Pipe diameter','diameter')}
+   ${row('용접자세','Welding Position','position')}${row('기타','Weld details','details')}</table>
+  <div class="ln" style="margin:1.5mm 0"><b>Additional Information</b> is available on attached sheet and / or WPS No : <b>${esc(r.wpsNo)}</b></div>
+  <div class="bot"><table class="tt"><tr><th>Type of test</th><th class="sm">Performed and accepted</th></tr>
+    <tr><td class="lb1"><b>육안검사</b> <i>Visual Testing</i></td><td class="c">${mk(T.vt)}</td></tr>
+    <tr><td class="lb1"><b>X-ray or UT testing</b></td><td class="c">${bw?mk(T.rtut):mk()}</td></tr>
+    <tr><td class="lb1"><b>단면검사</b> <i>Macroscopic examination</i></td><td class="c">${mk(T.macro)}</td></tr>
+    <tr><td class="lb1"><b>파단시험</b> <i>Fracture Test</i></td><td class="c">${mk(T.fracture)}</td></tr>
+    <tr><td class="lb1"><b>굽힘 시험</b> <i>Bend Test</i></td><td class="c">${mk(T.bend)}</td></tr>
+    <tr><td class="lb1"><b>기타 시험</b> <i>Additional Test</i></td><td class="c">${mk(T.additional)}</td></tr></table>
+   <div class="rt"><div class="sigbox">${S.stamp?`<img class="stamp" src="${S.stamp}">`:''}${S.signature?`<img class="sign" src="${S.signature}">`:''}</div>
+    <div class="ln"><b>시험기관(자) Examiner or Examining Body :</b> ${esc(S.examBody)}</div>
+    <div class="ln"><b>Responsible Welding Coordinator</b></div>
+    <div class="ln"><b>성명 Name :</b> <b>${esc(S.examiner)}</b></div>
+    <div class="ln"><b>서명 Signature :</b></div>
+    <div class="ln"><b>장소 Location :</b> <b>${esc(S.location)}</b></div>
+    <div class="ln"><b>용접일자 Date of Welding :</b> <b>${r.weldingDate}</b></div>
+    <div class="ln"><b>발행일자 Date of issue :</b> <b>${issued}</b></div></div></div>
+  <div class="ln" style="margin:3mm 0 2mm"><b>유효기간 Validity of approval :</b> <span class="val">${validityText(r.weldingDate,exp)}</span></div>
+  <div class="ln"><b>Prolongation for approval by employer/coordinator following 6months (refer to 9.2)</b> [자격 유효 9.2에 따라 6개월]</div>
+  <div class="prol"><table><tr><th>Date</th><th>Signature</th><th>Position or title</th></tr>${prol(0)}</table><table><tr><th>Date</th><th>Signature</th><th>Position or title</th></tr>${prol(3)}</table></div>
   </div>`;
 }
+function openCert(html){ $('#modalBody').innerHTML=html; $('#modal').classList.remove('hide'); $('#modal').scrollTop=0; fitCert(); }
+function fitCert(){ const b=$('#modalBody'); if(b) b.style.zoom=Math.min(1,(innerWidth-40)/794); } // 화면이 좁으면 축소 표시 (인쇄는 원본 크기)
+addEventListener('resize',fitCert); addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
+function sampleCert(){
+  const r={...FIELDS_DEFAULT,weldingDate:'2024-08-21',project:'샘플',wpsNo:'WPS-RM013',process:'135 MAG',joint:'BW',thickness:12,deposited:12,position:'PC',fillerGroup:'FM 1',
+    tests:{vt:'pass',rtut:'pass',bend:'pass'},refNo:'EN ISO 9606-1-RM-1-135-T12-BW-PC',issueDate:'2024-08-22',renewals:[]};
+  openCert(certHTML(r,{w:{name:'홍길동',nameEn:'HONG GIL DONG',welderNo:'RM-WD-24xxx',birthPlace:'SA CHEON',birthDate:'1980-01-01',company:'소속 회사'},mark:'SAMPLE'})); }
+function previewForm(){ const c=window._collect&&window._collect(); if(!c) return; openCert(certHTML(c)); }
 function showCert(id){const r=records.find(x=>x.id===id),res=calculateRangeOfApproval(r);
   if(res.manual_review_required&&!confirm('수동 검토가 필요한 항목이 있습니다 (승인 범위 "수동 확인" 표시). 그래도 미리보기를 열까요?')) return;
-  $('#modalBody').innerHTML=certHTML(r); $('#modal').classList.remove('hide'); }
+  openCert(certHTML(r)); }
 function closeModal(){$('#modal').classList.add('hide');}
 
 // ===================== 설정 · 백업 =====================
@@ -743,19 +771,20 @@ function vSettings(){
    <label>장소 Location<input name="location" value="${esc(S.location)}"></label>
    <label>Code/Testing Standard 표기<input name="standardLabel" value="${esc(S.standardLabel)}"></label>
    <label>Reference No. 접두어<input name="refPrefix" value="${esc(S.refPrefix)}"></label>
+   <label>시험기관 Examining Body (비우면 공란)<input name="examBody" value="${esc(S.examBody)}"></label>
    </div>
    <h3>로고 · 서명 · 직인 (붙여넣은 이미지는 보관함에 계속 저장됩니다)</h3>${imgSection()}
    <label style="flex-direction:row;align-items:center;gap:8px;margin-top:10px;color:var(--ink)"><input type="checkbox" name="impliedVT" ${S.impliedVT?'checked':''}>
    VT 자동 통과 처리: VT를 따로 기록하지 않아도 RT/UT·굽힘·단면 결과가 있으면 VT는 이미 통과한 것으로 간주 (입력·가져오기 시 적용)</label>
    <label style="flex-direction:row;align-items:center;gap:8px;margin-top:10px;color:var(--ink)"><input type="checkbox" name="strict" ${S.strict?'checked':''}>
    사내 엄격 기준 사용 (BW: VT+RT/UT+Bend 모두 Pass, FW: VT+Macro Pass). 해제 시 ISO 9606-1 Table 1 기준(BW: VT + RT/UT 또는 Bend/Fracture)</label>
-   <div class="row"><button class="b">저장</button></div></form></div>
+   <div class="row"><button class="b">저장</button><button type="button" class="b sec" onclick="syncSettingsForm();sampleCert()">📄 샘플 인증서 미리보기 (현재 설정 반영)</button></div></form></div>
   <div class="card"><h2>표시</h2><button class="b sec" onclick="resetWidths()">표 열 너비 초기화</button> <small style="color:var(--mute)">표 머리글 경계를 드래그해서 열 너비를 조절할 수 있습니다 (브라우저에 저장).</small></div>
   <div class="card"><h2>백업 / 복원</h2><div class="row"><button class="b" onclick="exportAll()">JSON 백업 다운로드</button>
    <input type="file" accept=".json" onchange="importAll(this.files[0])"><small style="color:var(--mute)">복원하면 현재 데이터가 모두 대체됩니다.</small></div>
    <p style="color:var(--mute)">데이터는 이 브라우저(IndexedDB)에만 저장됩니다. 브라우저 데이터를 지우면 사라지므로 주기적으로 백업하세요.</p></div>`;
   $('#sf').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);
-    for(const k of ['company','team','examiner','location','standardLabel','refPrefix']) S[k]=fd.get(k);
+    for(const k of ['company','team','examiner','location','standardLabel','refPrefix','examBody']) S[k]=fd.get(k);
     S.strict=fd.get('strict')==='on'; S.impliedVT=fd.get('impliedVT')==='on';
     await saveSettings(); vSettings(); alert('저장했습니다.');};
 }
