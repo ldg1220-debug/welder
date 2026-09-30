@@ -77,6 +77,7 @@ table.list th{background:#eef2f6;font-size:12px}
 .cert .rt{flex:1;position:relative}.cert .sigbox{position:absolute;right:0;top:3mm;width:44mm;height:19mm}
 .cert .sigbox .stamp{position:absolute;left:0;top:0;height:18mm;opacity:.92}.cert .sigbox .sign{position:absolute;left:21mm;top:2mm;height:14mm;max-width:23mm}
 .cert .prol{display:flex;gap:4mm;margin-top:1.5mm}.cert .prol table{flex:1}
+.cert+.cert{margin-top:14px}
 .cert .wm{position:absolute;left:0;right:0;top:105mm;text-align:center;font-size:40pt;font-weight:900;color:rgba(200,0,0,.14);transform:rotate(-22deg);pointer-events:none;z-index:3}
 @media print{
   @page{size:A4;margin:0}
@@ -85,12 +86,13 @@ table.list th{background:#eef2f6;font-size:12px}
   #modal{position:static;background:none;overflow:visible}
   #modal .sheet{margin:0;box-shadow:none;width:auto}
   #modalBody{zoom:1!important}
+  .cert{break-after:page;page-break-after:always}.cert:last-child{break-after:auto;page-break-after:auto}.cert+.cert{margin-top:0}
 }
 </style>
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v23 · WPS 저장 시 지정</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v24 · 용접사별 인증서</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -387,6 +389,21 @@ function vDash(){
     ${list('expired','🔴 만료')}${list('renewal','🟡 6개월 서명 갱신 필요')}`;
 }
 
+const WL={open:new Set()};
+function toggleWelder(id){ WL.open.has(id)?WL.open.delete(id):WL.open.add(id); drawWelders(); }
+// 한 용접사에게 발행된 인증서 전체 (합격 기록 기준) - 조인트별 화면과 달리 사람 기준으로 모두 보여준다
+function certDetail(w,certs){
+  const t=today(); const rows=certs.map(r=>{ const exp=calcExpire(r.weldingDate), al=certAlert(r.weldingDate,exp,(r.renewals||[]).length,t);
+    const stt=al==='expired'?'<span class="pill fail">만료</span>':al==='renewal'?'<span class="pill pending">서명 갱신 필요</span>':'<span class="pill pass">유효</span>';
+    return `<tr class="kid"><td>${r.weldingDate}</td><td class="num">${r.joint}</td><td>${esc(r.process)}</td><td class="num">${fmtN(r.thickness)}</td><td class="num">${esc(r.position)}</td><td>${esc(r.fillerGroup)}</td><td>${wpsCell(r)}</td><td>${esc(r.refNo||autoRef(r))}</td><td>${r.issueDate||defaultIssue(r.weldingDate)}</td><td>${exp}</td><td class="num">${(r.renewals||[]).length}/5</td><td class="num">${stt}</td>
+      <td class="bx"><button class="b sm" onclick="showCert(${r.id})">인증서</button> <button class="b sm sec" onclick="addRenewal(${r.id})">6개월 서명</button> <button class="b sm sec" onclick="editRec=null;tab='records';editR(${r.id});render()">수정</button></td></tr>`; }).join('');
+  return `<tr class="nom"><td></td><td colspan="12" style="padding:0;white-space:normal;overflow:visible;max-width:none"><div style="padding:6px 0 12px 8px"><b style="font-size:13px">${esc(w.name)} 발행 인증서 (${certs.length}건)</b>
+   <table class="list nested" style="width:100%;font-size:13px;margin-top:4px"><thead><tr><th>용접일</th><th class="num">유형</th><th>공정</th><th class="num">t</th><th class="num">자세</th><th>용가재</th><th>WPS</th><th>인증번호</th><th>발행일</th><th>만료일</th><th class="num">서명</th><th class="num">상태</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+   <div class="row" style="margin-top:6px"><button class="b sm" onclick="printWelderCerts(${w.id})">이 용접사 인증서 ${certs.length}장 모두 보기/인쇄</button><small style="color:var(--mute)">한 번에 여러 장을 PDF 한 파일로 저장할 수 있습니다</small></div></div></td></tr>`; }
+function printWelderCerts(wid){ const cs=records.filter(r=>r.welderId===wid&&recStatus(r)==='pass').sort((a,b)=>a.weldingDate.localeCompare(b.weldingDate)||a.id-b.id);
+  if(!cs.length) return; const bad=cs.filter(r=>calculateRangeOfApproval(r).manual_review_required).length;
+  if(bad&&!confirm(`수동 검토가 필요한 항목(승인 범위 "수동 확인")이 있는 인증서가 ${bad}장 있습니다. 그래도 미리보기를 열까요?`)) return;
+  openCert(cs.map(r=>certHTML(r)).join('')); }
 function drawWelders(){
   const f=window._wf||'전체', q=(window._wq||'').trim().toLowerCase();
   const cnt={}, ok={}, prj={}, passes={};
@@ -396,14 +413,16 @@ function drawWelders(){
     .sort((a,b)=>(/^미부여/.test(a.welderNo)-/^미부여/.test(b.welderNo))||a.welderNo.localeCompare(b.welderNo,undefined,{numeric:true}));
   $('#wtitle').textContent=`용접사 목록 (${rows.length} / 전체 ${welders.length})`;
   // 합격날짜 = 최초 합격 용접일, 만기 = 합격 인증서 중 가장 늦은 만료일 (용접일+3년-1일)
-  $('#wlist').innerHTML=`<table class="list"><thead><tr><th class="num">연번</th><th>프로젝트 및 제작품목</th><th>소속</th><th>성명</th><th>생년월일</th><th>용접사 No</th><th title="최초 합격 용접일">합격날짜</th><th title="합격 인증서 중 가장 늦은 만료일">만기</th><th>비고</th><th class="num">상태</th><th class="num">합격 / 시험</th><th></th></tr></thead><tbody>${rows.map((w,n)=>{
+  $('#wlist').innerHTML=`<table class="list"><thead><tr><th class="num" title="이 용접사에게 발행된 인증서 (▸ 를 누르면 전체 목록)">인증서</th><th class="num">연번</th><th>프로젝트 및 제작품목</th><th>소속</th><th>성명</th><th>생년월일</th><th>용접사 No</th><th title="최초 합격 용접일">합격날짜</th><th title="합격 인증서 중 가장 늦은 만료일">만기</th><th>비고</th><th class="num">상태</th><th class="num">합격 / 시험</th><th></th></tr></thead><tbody>${rows.map((w,n)=>{
    const ps=(passes[w.id]||[]).map(r=>r.weldingDate).sort(), first=ps[0]||'', last=ps.length?calcExpire(ps[ps.length-1]):'';
    const pj=Object.entries(prj[w.id]||{}).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
-   return `<tr class="${w.status==='퇴사'?'gone':''}"><td class="num">${n+1}</td><td title="${esc(pj.join(' / '))}">${esc(pj[0]||'')}${pj.length>1?` <small style="color:var(--mute)">외 ${pj.length-1}</small>`:''}</td><td>${esc(w.company)}</td><td>${esc(w.name)}</td><td>${w.birthDate||''}</td><td>${esc(w.welderNo)}</td>
+   const certs=(passes[w.id]||[]).slice().sort((a,b)=>b.weldingDate.localeCompare(a.weldingDate)||b.id-a.id), open=WL.open.has(w.id);
+   const tog=certs.length?`<button class="b sm sec" style="padding:1px 7px" onclick="toggleWelder(${w.id})" title="발행된 인증서 ${certs.length}건">${open?'▾':'▸'} ${certs.length}</button>`:'<span style="color:var(--mute)">-</span>';
+   return `<tr class="${w.status==='퇴사'?'gone':''}"><td class="num">${tog}</td><td class="num">${n+1}</td><td title="${esc(pj.join(' / '))}">${esc(pj[0]||'')}${pj.length>1?` <small style="color:var(--mute)">외 ${pj.length-1}</small>`:''}</td><td>${esc(w.company)}</td><td>${esc(w.name)}</td><td>${w.birthDate||''}</td><td>${esc(w.welderNo)}</td>
    <td>${first}</td><td>${last}</td><td>${esc(w.role)}</td>
    <td class="num"><span class="pill" style="background:${w.status==='재직'?'var(--ok)':w.status==='퇴사'?'#8a94a0':'var(--warn)'}">${w.status}</span></td><td class="num">${ok[w.id]||0} / ${cnt[w.id]||0}</td>
-   <td class="bx"><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm sec" title="소속·직무·출생지·상태를 복사해 새 용접사 등록" onclick="copyWelder(${w.id})">복사</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>`;}).join('')||'<tr><td colspan="12" style="color:var(--mute)">해당하는 용접사가 없습니다.</td></tr>'}</tbody></table>`;
-  rz($('#wlist'),'welders2');
+   <td class="bx"><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm sec" title="소속·직무·출생지·상태를 복사해 새 용접사 등록" onclick="copyWelder(${w.id})">복사</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>${open&&certs.length?certDetail(w,certs):''}`;}).join('')||'<tr><td colspan="13" style="color:var(--mute)">해당하는 용접사가 없습니다.</td></tr>'}</tbody></table>`;
+  rz($('#wlist'),'welders3');
 }
 function vWelders(){
   window._photo=null; // null=변경없음, ''=삭제, 문자열=새 사진
@@ -921,7 +940,7 @@ function editR(id){editRec=JSON.parse(JSON.stringify(records.find(r=>r.id===id))
 async function delRec(id){if(confirm('삭제할까요?')){await DB.del('records',id);await load();vRecords();}}
 async function addRenewal(id){const r=records.find(x=>x.id===id);r.renewals=r.renewals||[];
   if(r.renewals.length>=5) return alert('서명 갱신은 최대 5회입니다.');
-  const d=prompt('서명 갱신일 (YYYY-MM-DD)',today()); if(!d) return; r.renewals.push(d); await DB.put('records',r); await load(); vRecords();}
+  const d=prompt('서명 갱신일 (YYYY-MM-DD)',today()); if(!d) return; r.renewals.push(d); await DB.put('records',r); await load(); render();}
 
 function sel(name,opts,val){return `<select name="${name}">${opts.map(o=>{const [v,l]=Array.isArray(o)?o:[o,o];return `<option value="${esc(v)}" ${String(v)===String(val)?'selected':''}>${esc(l)}</option>`}).join('')}</select>`;}
 function vRecForm(){
