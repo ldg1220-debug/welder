@@ -102,7 +102,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v38 · 형상 도구</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v42 · 지시선 사내기준</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -711,20 +711,21 @@ function dmlColor(el,TH){ if(!el) return null; const c=[...el.children].find(x=>
     if(k==='lumMod'||k==='lumOff'){ let [h,s2,l]=r2hsl(...rgb); l=k==='lumMod'?l*v:l+v; rgb=hsl2r(h,s2,Math.max(0,Math.min(1,l))); }
     else if(k==='tint') rgb=rgb.map(x=>255-(255-x)*v); else if(k==='shade') rgb=rgb.map(x=>x*v); }
   return r2h(rgb); }
+const EMU=12700; // 1pt = 12700 EMU
 function dmlXfrm(el){ const x=dsc(el,'xfrm')[0]; if(!x) return null; const o=dsc(x,'off')[0], e=dsc(x,'ext')[0]; if(!o||!e) return null;
-  const co=dsc(x,'chOff')[0], ce=dsc(x,'chExt')[0]; return {x:+o.getAttribute('x'),y:+o.getAttribute('y'),cx:+e.getAttribute('cx'),cy:+e.getAttribute('cy'),rot:+(x.getAttribute('rot')||0)/60000,fh:x.getAttribute('flipH')==='1',fv:x.getAttribute('flipV')==='1',
-    chx:co?+co.getAttribute('x'):0,chy:co?+co.getAttribute('y'):0,chcx:ce?+ce.getAttribute('cx'):0,chcy:ce?+ce.getAttribute('cy'):0}; }
+  const co=dsc(x,'chOff')[0], ce=dsc(x,'chExt')[0]; return {x:+o.getAttribute('x')/EMU,y:+o.getAttribute('y')/EMU,cx:+e.getAttribute('cx')/EMU,cy:+e.getAttribute('cy')/EMU,rot:+(x.getAttribute('rot')||0)/60000,fh:x.getAttribute('flipH')==='1',fv:x.getAttribute('flipV')==='1',
+    chx:co?+co.getAttribute('x')/EMU:0,chy:co?+co.getAttribute('y')/EMU:0,chcx:ce?+ce.getAttribute('cx')/EMU:0,chcy:ce?+ce.getAttribute('cy')/EMU:0}; }
 const dmlPlace=f=>`translate(${f.x+f.cx/2} ${f.y+f.cy/2}) rotate(${f.rot}) scale(${f.fh?-1:1} ${f.fv?-1:1}) translate(${-f.cx/2} ${-f.cy/2})`;
 function dmlEsc(t){ return String(t).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-function dmlShape(el,st,k){
-  k=k||1; const ln=el.localName;
+function dmlShape(el,st,k,fl){
+  k=k||1; fl=fl||{h:false,v:false}; const ln=el.localName;
   if(ln==='grpSp'){ const gp=DML(el,'grpSpPr'), f=gp&&dmlXfrm(gp); if(!f) return '';
-    const sx=f.chcx?f.cx/f.chcx:1, sy=f.chcy?f.cy/f.chcy:1, kids=[...el.children].filter(c=>/^(sp|cxnSp|grpSp)$/.test(c.localName)).map(c=>dmlShape(c,st,k*Math.sqrt(Math.abs(sx*sy))||k)).join('');
+    const sx=f.chcx?f.cx/f.chcx:1, sy=f.chcy?f.cy/f.chcy:1, kids=[...el.children].filter(c=>/^(sp|cxnSp|grpSp)$/.test(c.localName)).map(c=>dmlShape(c,st,k*Math.sqrt(Math.abs(sx*sy))||k,{h:fl.h!==f.fh,v:fl.v!==f.fv})).join('');
     return `<g transform="translate(${f.x+f.cx/2} ${f.y+f.cy/2}) rotate(${f.rot}) scale(${f.fh?-1:1} ${f.fv?-1:1}) translate(${-f.cx/2} ${-f.cy/2})"><g transform="scale(${sx} ${sy}) translate(${-f.chx} ${-f.chy})">${kids}</g></g>`; }
   const nv=el.getElementsByTagNameNS('*','cNvPr')[0]; if(nv&&nv.getAttribute('hidden')==='1') return '';
   const spPr=DML(el,'spPr'); if(!spPr) return ''; const f=dmlXfrm(spPr); if(!f) return '';
   const TH=st.th, stl=DML(el,'style'), lref=stl&&DML(stl,'lnRef'), fref=stl&&DML(stl,'fillRef'), lnEl=DML(spPr,'ln'), lIdx=lref?+lref.getAttribute('idx'):-1;
-  let stroke=(lIdx>0&&dmlColor(lref,TH))||'#000', sw=Math.max(9525,lnEl&&lnEl.getAttribute('w')?+lnEl.getAttribute('w'):9525)/k, noLine=false, dash='', head='', tail='';
+  let stroke=(lIdx>0&&dmlColor(lref,TH))||'#000', sw=Math.max(0.75,(lnEl&&lnEl.getAttribute('w')?+lnEl.getAttribute('w'):9525)/EMU)/k, noLine=false, dash='', head='', tail='';
   if(lnEl){ if(DML(lnEl,'noFill')) noLine=true; const sf=DML(lnEl,'solidFill'); if(sf){ const c=dmlColor(sf,TH); if(c) stroke=c; }
     const d=DML(lnEl,'prstDash'); if(d&&d.getAttribute('val')!=='solid') dash=` stroke-dasharray="${sw*4} ${sw*3}"`;
     const he=DML(lnEl,'headEnd'), te=DML(lnEl,'tailEnd'); if(he&&he.getAttribute('type')&&he.getAttribute('type')!=='none') head=' marker-start="url(#ah)"'; if(te&&te.getAttribute('type')&&te.getAttribute('type')!=='none') tail=' marker-end="url(#ah)"'; if(head||tail) st.arrow=true; }
@@ -754,9 +755,9 @@ function dmlShape(el,st,k){
   else if(prst==='triangle') g=`<polygon points="0,${h} ${w/2},0 ${w},${h}" ${sa}/>`;
   else if(prst==='rect'||prst==='roundRect'||prst==='snip1Rect'||prst==='snip2SameRect') g=`<rect x="0" y="0" width="${w}" height="${h}" ${sa}/>`;
   // 텍스트 (도형 뒤집기에 영향받지 않게 상쇄)
-  let txt=''; const tb=DML(el,'txBody'); if(tb){ const bp=DML(tb,'bodyPr'), anchor=bp&&bp.getAttribute('anchor')||'t', paras=DMLall(tb,'p'); const lines=paras.map(pp=>{ const rs=[...pp.children].filter(x=>x.localName==='r'); const t=rs.map(r=>(DML(r,'t')||{textContent:''}).textContent).join(''); const rp=rs[0]&&DML(rs[0],'rPr'); const sz=(rp&&rp.getAttribute('sz'))||((DML(pp,'endParaRPr')||{getAttribute:()=>null}).getAttribute('sz'))||'1100'; const pPr=DML(pp,'pPr'); return {t,sz:+sz/100*12700/k,al:pPr&&pPr.getAttribute('algn')||'l'}; }).filter(l=>l.t.trim());
-    if(lines.length){ const tot=lines.reduce((a,l)=>a+l.sz*1.2,0); let y=anchor==='ctr'?(h-tot)/2:anchor==='b'?h-tot:45720; const parts=lines.map(l=>{ const yy=y+l.sz; y+=l.sz*1.2; const x=l.al==='ctr'?w/2:l.al==='r'?w-91440:91440, ta=l.al==='ctr'?'middle':l.al==='r'?'end':'start'; return `<text x="${x}" y="${yy}" font-size="${l.sz}" text-anchor="${ta}" font-family="Malgun Gothic,Arial,sans-serif" fill="#000">${dmlEsc(l.t)}</text>`; }).join('');
-      txt=`<g transform="translate(${w/2} ${h/2}) scale(${f.fh?-1:1} ${f.fv?-1:1}) translate(${-w/2} ${-h/2})">${parts}</g>`; } }
+  let txt=''; const tb=DML(el,'txBody'); if(tb){ const bp=DML(tb,'bodyPr'), anchor=bp&&bp.getAttribute('anchor')||'t', paras=DMLall(tb,'p'); const lines=paras.map(pp=>{ const rs=[...pp.children].filter(x=>x.localName==='r'); const t=rs.map(r=>(DML(r,'t')||{textContent:''}).textContent).join(''); const rp=rs[0]&&DML(rs[0],'rPr'); const sz=(rp&&rp.getAttribute('sz'))||((DML(pp,'endParaRPr')||{getAttribute:()=>null}).getAttribute('sz'))||'1100'; const pPr=DML(pp,'pPr'); return {t,sz:+sz/100/k,al:pPr&&pPr.getAttribute('algn')||'l'}; }).filter(l=>l.t.trim());
+    if(lines.length){ const tot=lines.reduce((a,l)=>a+l.sz*1.2,0); let y=anchor==='ctr'?(h-tot)/2:anchor==='b'?h-tot:3.6; const parts=lines.map(l=>{ const yy=y+l.sz; y+=l.sz*1.2; const x=l.al==='ctr'?w/2:l.al==='r'?w-7.2:7.2, ta=l.al==='ctr'?'middle':l.al==='r'?'end':'start'; return `<text x="${x}" y="${yy}" font-size="${l.sz}" text-anchor="${ta}" font-family="Malgun Gothic,Arial,sans-serif" fill="#000">${dmlEsc(l.t)}</text>`; }).join('');
+      txt=`<g transform="translate(${w/2} ${h/2}) scale(${(fl.h!==f.fh)?-1:1} ${(fl.v!==f.fv)?-1:1}) translate(${-w/2} ${-h/2})">${parts}</g>`; } }
   return `<g transform="${dmlPlace(f)}">${g}${txt}</g>`; }
 // 시트 drawing XML에서 스케치 영역(이음부 형상: B~F열, 용접 순서: G~K열, 14~21행)의 도형만 SVG로
 function drawingSketches(xml,th){
@@ -767,8 +768,8 @@ function drawingSketches(xml,th){
   for(const k of ['joint','sequence']){ if(!groups[k].length) continue;
     const st={th:th||THEME_DEF}, body=groups[k].map(e=>dmlShape(e,st,1)).join(''); if(!body) continue;
     let x0=1e18,y0=1e18,x1=-1e18,y1=-1e18; for(const e of groups[k]){ const f=dmlXfrm(e.localName==='grpSp'?DML(e,'grpSpPr'):DML(e,'spPr')); if(!f) continue; x0=Math.min(x0,f.x); y0=Math.min(y0,f.y); x1=Math.max(x1,f.x+f.cx); y1=Math.max(y1,f.y+f.cy); }
-    if(!isFinite(x0)||x1<=x0||y1<=y0) continue; const pad=Math.max(x1-x0,y1-y0)*.04, W=x1-x0+2*pad, H=y1-y0+2*pad;
-    res[k]=`<svg xmlns="${SVGNS}" viewBox="0 0 ${Math.round(W)} ${Math.round(H)}" preserveAspectRatio="xMidYMid meet"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs><rect width="100%" height="100%" fill="#fff"/><g transform="translate(${Math.round(pad-x0)} ${Math.round(pad-y0)})">${body}</g></svg>`; }
+    if(!isFinite(x0)||x1<=x0||y1<=y0) continue; const pad=Math.max(x1-x0,y1-y0)*.04, W=x1-x0+2*pad, H=y1-y0+2*pad, f1=v=>Number(v.toFixed(2));
+    res[k]=`<svg xmlns="${SVGNS}" viewBox="0 0 ${f1(W)} ${f1(H)}" preserveAspectRatio="xMidYMid meet"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs><rect width="100%" height="100%" fill="#fff"/><g transform="translate(${f1(pad-x0)} ${f1(pad-y0)})">${body}</g></svg>`; }
   return res; }
 const svgUrl=svg=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
 
@@ -1191,7 +1192,7 @@ function saveSlotToLib(slot){ collectDoc(); const sv=svgFromUrl(WD.obj.sketches[
   saveToLib(slot,sv,`${WD.obj.wpsNo||'새 WPS'} ${KIND_L[slot]}`,{weldType:WD.obj.weldType,process:WD.obj.process,thk:WD.obj.thk,backing:WD.obj.backing}); }
 
 // ---- 형상 생성기 (값 입력 -> SVG)
-const GEN={open:false,type:'vgroove',t:12,t2:12,angle:60,gap:2,face:1.5,r:6,leg:6,backing:'none',layers:'1,2,3',dims:true,weld:true,symbol:true,symSystem:'A',symSide:'arrow',symDim:'z',symS:'',contour:'none',allAround:false,field:false,tailProc:'135',tailLvl:'B',tailLvlPrefix:false,tailPos:'PA',tailFiller:'',tailRef:'',custom:'9,0; 1.5,10.5; 1.5,12',mirror:true,symKind:'V'};
+const GEN={open:false,type:'vgroove',t:12,t2:12,angle:60,gap:2,face:1.5,r:6,leg:6,backing:'none',layers:'1,2,3',dims:true,weld:true,symbol:true,symSystem:'A',symSide:'arrow',symDim:'z',symS:'',symN:'',symL:'',symE:'',contour:'none',allAround:false,field:false,tailProc:'135',tailLvl:'B',tailLvlPrefix:false,tailPos:'PA',tailFiller:'',tailRef:'',custom:'9,0; 1.5,10.5; 1.5,12',mirror:true,symKind:'V'};
 const GEN_TYPES=[['square','I형 맞대기 (Square butt)'],['vgroove','단면 V형 맞대기'],['xgroove','양면 V형(X) 맞대기'],['bevel','단면 베벨 맞대기'],['kgroove','양면 베벨(K형) 맞대기'],['ugroove','U형 맞대기'],['jgroove','단면 J형 맞대기'],['tee','T이음 필릿'],['tbevel','T이음 베벨(개선)'],['lap','겹치기 필릿'],['custom','사용자 정의 (개선면 좌표 입력)']];
 // ---------- 기하 유틸 ----------
 function polyExt(poly,y){ const xs=[]; for(let i=0;i<poly.length;i++){ const a=poly[i], b=poly[(i+1)%poly.length]; if((a[1]<=y&&b[1]>y)||(b[1]<=y&&a[1]>y)) xs.push(a[0]+(y-a[1])*(b[0]-a[0])/(b[1]-a[1])); } return xs.length>=2?[Math.min(...xs),Math.max(...xs)]:null; }
@@ -1206,32 +1207,44 @@ function symGlyph(kind,sx,sy,s){ const h=12*s, st=`fill="none" stroke="#000" str
   if(kind==='U') return `<path d="M${sx-8},${sy+h} L${sx-8},${sy+h*.35} A8,8 0 0 ${s<0?0:1} ${sx+8},${sy+h*.35} L${sx+8},${sy+h}" ${st}/>`;
   if(kind==='J') return `<path d="M${sx-7},${sy+h} L${sx-7},${sy+h*.3} M${sx-7},${sy+h*.3} A9,9 0 0 ${s<0?0:1} ${sx+8},${sy+h}" ${st}/>`;
   if(kind==='fillet') return `<polygon points="${sx-7},${sy} ${sx-7},${sy+h} ${sx+7},${sy}" ${st}/>`; return ''; }
-// EN ISO 2553 : 기준선 체계 A(실선+점선 이중 기준선) / B(단일 기준선, AWS와 동일 배치)
-//  A: 기호가 점선의 '반대쪽'에 있으면 화살표 쪽 용접, 점선과 '같은 쪽'에 붙으면 반대쪽 용접, 양쪽(대칭)은 점선 없이 양쪽에 기호
-//  B: 기준선 아래 = 화살표 쪽, 위 = 반대쪽
-//  주 치수(z/a/s)는 기호 왼쪽, 길이·피치는 오른쪽. 꼬리에는 공정(ISO 4063)/품질등급(ISO 5817)/자세(ISO 6947)/충전재/WPS 참조를 '/'로 구분
-function tailText(o){ return [o.tailProc,o.tailLvl?(o.tailLvlPrefix?'ISO 5817-'+o.tailLvl:o.tailLvl):'',o.tailPos,o.tailFiller,o.tailRef].map(x=>String(x||'').trim()).filter(Boolean).join('/'); }
+// ===== 용접 기호(지시선): 사내 교육자료(AWS D1.1 & ISO 용접기호, 2025.01.07) + EN ISO 2553 기준 =====
+//  [ISO / EN ISO 2553]  화살표는 기준선 '왼쪽 끝', 꼬리는 '오른쪽 끝'. 기준선은 실선 + 점선(실선 바로 아래).
+//     화살표 방향(Arrow side) 용접 = 기호가 '실선'에 붙음(실선 위) / 화살표 반대(Other side) 용접 = 기호가 '점선'에 붙음(점선 아래)
+//     치수: S(용접 깊이) 기호 왼쪽, n x L(E) 기호 오른쪽 (E = 용접 끝단~끝단 거리). 필릿은 a(각목)·z(각장) 둘 다 표기 가능.
+//     백킹 M/MR 상자는 용접 기호의 반대편(실선 아래, 점선을 가로질러)에 둔다.
+//  [AWS A2.4]  화살표는 기준선 '오른쪽 끝', 꼬리는 '왼쪽 끝'. 단일 실선. 기호가 선 아래 = 화살표 방향, 선 위 = 반대. 치수 L-P (P = 중심~중심 피치).
+function tailText(o){ return [o.tailProc,o.tailLvl?(o.tailLvlPrefix?'ISO 5817-'+o.tailLvl:o.tailLvl):'',o.tailPos,o.tailFiller,o.tailRef].map(x=>String(x||'').trim()).filter(Boolean).join(o.symSystem==='AWS'?' ':'/'); }
 function weldSymbol(o,kinds,anc,ref,bent){
-  if(!o.symbol) return ''; const {x0,y,len}=ref, sx=x0+len*0.42, K='#000', side=o.symSide||'arrow', sys=o.symSystem||'A', both=side==='both', kind=kinds[0];
-  const arrowD=bent?(()=>{ const bx=anc[0]+(x0-anc[0])*0.55, by=anc[1]-22; return `M${x0},${y} L${bx},${by} L${anc[0]},${anc[1]}`; })():`M${x0},${y} L${anc[0]},${anc[1]}`;
-  let out=`<path d="${arrowD}" fill="none" stroke="${K}" stroke-width="1.3" stroke-linejoin="round" marker-end="url(#ah2)"/><line x1="${x0}" y1="${y}" x2="${x0+len}" y2="${y}" stroke="${K}" stroke-width="1.5"/>`;
-  let bases=[]; // [기호 기준선 y, 방향 s]
-  if(sys==='A'){ if(side==='arrow'){ out+=`<line x1="${x0}" y1="${y+3.5}" x2="${x0+len}" y2="${y+3.5}" stroke="${K}" stroke-width="1" stroke-dasharray="6 4"/>`; bases=[[y,-1]]; }
-    else if(side==='other'){ out+=`<line x1="${x0}" y1="${y-3.5}" x2="${x0+len}" y2="${y-3.5}" stroke="${K}" stroke-width="1" stroke-dasharray="6 4"/>`; bases=[[y-3.5,-1]]; }
-    else bases=[[y,-1],[y,1]]; }
-  else { bases=both?[[y,-1],[y,1]]:side==='arrow'?[[y,1]]:[[y,-1]]; }
-  for(const [by,s] of bases){ for(const k of kinds) out+=symGlyph(k,sx,by,s);
-    const top=by+s*12; // 표면 형상 보조기호: 용접 기호 바깥쪽
+  if(!o.symbol) return ''; const K='#000', sys=o.symSystem||'A', aws=sys==='AWS', single=sys!=='A', side=o.symSide||'arrow', kind=kinds[0], hasR=+o.symL>0, len=hasR?Math.max(ref.len,175):ref.len, y=Math.max(ref.y,40);
+  let x0=ref.x0-(hasR?(len-ref.len)*0.65:0); if(aws) x0=2*anc[0]-x0-len;                       // AWS: 기준선을 접합부 왼쪽으로 뒤집어 배치(화살표 오른쪽 끝)
+  const ax=aws?x0+len:x0, tx=aws?x0:x0+len, sx=x0+len*0.5, dir=aws?-1:1; // 화살표 시작점 / 꼬리 위치 / 기호 중심
+  const arrowD=bent?(()=>{ const bx=anc[0]+(ax-anc[0])*0.55, by=anc[1]-22; return `M${ax},${y} L${bx},${by} L${anc[0]},${anc[1]}`; })():`M${ax},${y} L${anc[0]},${anc[1]}`;
+  let out=`<path d="${arrowD}" fill="none" stroke="${K}" stroke-width="1.4" stroke-linejoin="round" marker-end="url(#ah2)"/><line x1="${x0}" y1="${y}" x2="${x0+len}" y2="${y}" stroke="${K}" stroke-width="1.6"/>`;
+  if(!single) out+=`<line x1="${x0}" y1="${y+3.6}" x2="${x0+len}" y2="${y+3.6}" stroke="${K}" stroke-width="1.1" stroke-dasharray="6 4"/>`;
+  // 기호 기준선 y 와 방향 s (s=-1: 선 위쪽으로, +1: 아래쪽으로)
+  let bases=[]; if(!single){ if(side==='arrow') bases=[[y,-1]]; else if(side==='other') bases=[[y+3.6,1]]; else bases=[[y,-1],[y+3.6,1]]; }
+  else { if(side==='arrow') bases=[[y,1]]; else if(side==='other') bases=[[y,-1]]; else bases=[[y,-1],[y,1]]; }
+  bases.forEach(([by,s],bi)=>{ for(const k of kinds) out+=symGlyph(k,sx,by,s);
+    const top=by+s*12;
     if(o.contour==='flush') out+=`<line x1="${sx-8}" y1="${top+s*4}" x2="${sx+8}" y2="${top+s*4}" stroke="${K}" stroke-width="1.4"/>`;
     else if(o.contour==='convex') out+=`<path d="M${sx-8},${top+s*3} Q${sx},${top+s*11} ${sx+8},${top+s*3}" fill="none" stroke="${K}" stroke-width="1.4"/>`;
     else if(o.contour==='concave') out+=`<path d="M${sx-8},${top+s*9} Q${sx},${top+s*1} ${sx+8},${top+s*9}" fill="none" stroke="${K}" stroke-width="1.4"/>`;
-    let dim=''; if(kinds.includes('fillet')) dim=o.symDim==='a'?`a${r2(o.leg/Math.SQRT2)}`:`z${o.leg}`; else if(o.symS) dim=`s${o.symS}`;
-    if(dim) out+=`<text x="${sx-13}" y="${by+s*7+4}" font-size="11" text-anchor="end" font-family="Arial" fill="${K}">${dmlEsc(dim)}</text>`;
-    if(o.backing!=='none'&&['II','V','bevel','U','J'].includes(kind)){ const t=o.backing==='ceramic'?'MR':'M'; const ry=s<0?by-13:by+1; out+=`<rect x="${sx+16}" y="${ry}" width="${t.length*8+4}" height="12" fill="#fff" stroke="${K}" stroke-width="1"/><text x="${sx+18}" y="${ry+10}" font-size="10" font-family="Arial" fill="${K}">${t}</text>`; } }
-  if(o.allAround) out+=`<circle cx="${x0}" cy="${y}" r="4.5" fill="#fff" stroke="${K}" stroke-width="1.2"/>`;
-  if(o.field) out+=`<line x1="${x0}" y1="${y}" x2="${x0}" y2="${y-17}" stroke="${K}" stroke-width="1.2"/><polygon points="${x0},${y-17} ${x0+11},${y-12} ${x0},${y-7}" fill="${K}"/>`;
-  const tx=x0+len; out+=`<polyline points="${tx+9},${y-8} ${tx},${y} ${tx+9},${y+8}" fill="none" stroke="${K}" stroke-width="1.3"/>`;
-  const tt=tailText(o); if(tt) out+=`<text x="${tx+13}" y="${y+4}" font-size="10.5" font-family="Arial" fill="${K}">${dmlEsc(tt)}</text>`;
+    const my=by+s*7+4; // 치수 글자 세로 위치 (기호 중간 높이)
+    let left=''; if(kinds.includes('fillet')){ const a=r2(o.leg/Math.SQRT2);
+      left=aws?`${o.leg}`:o.symDim==='a'?`a${a}`:o.symDim==='both'?`a${a} z${o.leg}`:`z${o.leg}`; } else if(o.symS) left=aws?`${o.symS}`:`s${o.symS}`;
+    if(left) out+=`<text x="${sx-13}" y="${my}" font-size="11" text-anchor="end" font-family="Arial" fill="${K}">${dmlEsc(left)}</text>`;
+    // 단속 용접: ISO  n x L(E) (E=끝단~끝단) / AWS  L-P (P=중심~중심)
+    let right=''; const L=+o.symL, E=+o.symE, n=+o.symN; if(L>0){ right=aws?`${L}-${L+(E||0)}`:`${n>1?n+' x ':''}${L}${E>0?`(${E})`:''}`; }
+    if(right) out+=`<text x="${sx+13}" y="${my}" font-size="11" text-anchor="start" font-family="Arial" fill="${K}">${dmlEsc(right)}</text>`;
+    // 백킹 M / MR: 용접 기호 반대편 (ISO: 실선 아래로 점선을 가로지름)
+    if(bi===0&&o.backing!=='none'&&['II','V','bevel','U','J'].includes(kind)){ const t=o.backing==='ceramic'?'MR':'M', bw=t.length*9+8, up=s>0; const ry=up?y-13:(single?y+0:y+0.5);
+      out+=`<rect x="${sx-bw/2}" y="${ry}" width="${bw}" height="13" fill="#fff" stroke="${K}" stroke-width="1.1"/><text x="${sx}" y="${ry+10.5}" font-size="10.5" text-anchor="middle" font-family="Arial" fill="${K}">${t}</text>`; }
+    // AWS: 개선각(A) · 루트갭(R)을 기호 위에 표기
+    if(aws&&bi===0&&['V','bevel','U','J'].includes(kind)) out+=`<text x="${sx}" y="${by+s*-0+(s>0?32:-18)}" font-size="9.5" text-anchor="middle" font-family="Arial" fill="${K}">${o.angle?o.angle+'° ':''}${o.gap>0?'R'+o.gap:''}</text>`; });
+  if(o.allAround) out+=`<circle cx="${ax}" cy="${y}" r="4.6" fill="#fff" stroke="${K}" stroke-width="1.3"/>`;
+  if(o.field) out+=`<line x1="${ax}" y1="${y}" x2="${ax}" y2="${y-17}" stroke="${K}" stroke-width="1.2"/><polygon points="${ax},${y-17} ${ax+dir*11},${y-12} ${ax},${y-7}" fill="${K}"/>`;
+  out+=`<polyline points="${tx+dir*9},${y-8} ${tx},${y} ${tx+dir*9},${y+8}" fill="none" stroke="${K}" stroke-width="1.4"/>`;
+  const tt=tailText(o); if(tt) out+=`<text x="${tx+dir*13}" y="${y+4}" font-size="10.5" text-anchor="${aws?'end':'start'}" font-family="Arial" fill="${K}">${dmlEsc(tt)}</text>`;
   return out; }
 // ---------- 이음부 형상 생성 ----------
 function genJoint(o,seq){
@@ -1334,28 +1347,27 @@ function genSeq(o){
       for(let j=0;j<k;j++){ n++; const t=(j+.5)/k, p0=pt(li,t), p1=last?[xa+(xb-xa)*t,ys0+dir*hb*0.55]:pt(li+1,t); out+=num((p0[0]+p1[0])/2,(p0[1]+p1[1])/2); } }); });
   return svg.replace('</svg>',out+'</svg>'); }
 // ---------- 용접부 지시선 가이드라인 ----------
-const SYM_GUIDE=`<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--accent)"><b>용접 기호(지시선) 가이드라인 — EN ISO 2553</b></summary><div style="font-size:12.5px;line-height:1.55;margin-top:6px">
- <svg viewBox="0 0 520 150" style="width:100%;max-width:520px;background:#fff;border:1px solid var(--line);border-radius:6px"><defs><marker id="gah" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs>
-  <rect x="20" y="105" width="150" height="24" fill="#fff" stroke="#000"/><rect x="185" y="105" width="150" height="24" fill="#fff" stroke="#000"/><polyline points="170,105 178,105 183,129 172,129" fill="none"/>
-  <line x1="200" y1="40" x2="178" y2="103" stroke="#000" stroke-width="1.3" marker-end="url(#gah)"/><line x1="200" y1="40" x2="330" y2="40" stroke="#000" stroke-width="1.6"/><line x1="200" y1="43.5" x2="330" y2="43.5" stroke="#000" stroke-dasharray="6 4"/>
-  <polyline points="255,28 263,40 271,28" fill="none" stroke="#000" stroke-width="1.6"/><polyline points="339,32 330,40 339,48" fill="none" stroke="#000" stroke-width="1.3"/><text x="345" y="44" font-size="11" font-family="Arial">135/B/PA</text>
-  <text x="176" y="24" font-size="11" fill="#c00">① 화살표선</text><text x="262" y="62" font-size="11" fill="#c00">② 기준선(실선)</text><text x="262" y="74" font-size="11" fill="#c00">③ 식별선(점선)</text><text x="238" y="22" font-size="11" fill="#c00">④ 기호</text><text x="345" y="28" font-size="11" fill="#c00">⑤ 꼬리</text></svg>
- <ul style="margin:6px 0 0 18px;padding:0"><li><b>기준선 체계 (EN ISO 2553:2019)</b>: <b>A = 이중 기준선</b>(실선+점선, 유럽 표준 도면), <b>B = 단일 기준선</b>(AWS A2.4와 같은 배치). 앱에서 체계를 고를 수 있습니다.</li>
-  <li><b>A체계 위치 규칙</b>: 실선이 기준선입니다. 기호가 <u>점선의 반대쪽</u>(실선 바깥)에 있으면 <b>화살표 쪽</b> 용접, 점선과 <u>같은 쪽</u>(점선에 붙여서)에 두면 <b>반대쪽</b> 용접입니다. <b>양쪽(대칭)</b>은 점선 없이 양쪽에 기호를 둡니다.</li>
-  <li><b>B체계 위치 규칙</b>: 기준선 <u>아래</u> = 화살표 쪽, <u>위</u> = 반대쪽, 양쪽은 위아래 모두.</li>
-  <li><b>① 화살표선</b>: 기준선 왼쪽 끝에서 접합부를 가리킵니다. 베벨·J·K형처럼 한쪽 판만 개선하는 경우 화살표선을 <b>꺾어서</b> 개선한 판 쪽을 가리킵니다(앱이 자동으로 꺾음).</li>
-  <li><b>④ 기호</b>: I형 <b>║</b> · V형 <b>V</b> · 베벨 <b>⊢</b>(수직변은 항상 왼쪽) · U형 <b>U</b> · J형 <b>J</b> · 필릿 <b>◣</b>(수직변은 항상 왼쪽) · X·K는 위아래 모두. 백킹은 <b>MR</b>(제거형/세라믹) 또는 <b>M</b>(영구).</li>
-  <li><b>치수</b>: 주 치수(필릿 <b>z</b> 각장 / <b>a</b> 목 두께, 홈 <b>s</b> 용입 깊이)는 기호 <u>왼쪽</u>, 길이·피치는 오른쪽. 표면 형상은 기호 바깥에 평탄(—)·볼록·오목 보조기호.</li>
-  <li><b>⑤ 꼬리(포크)</b>: <b>공정(ISO 4063)/품질등급(ISO 5817)/자세(ISO 6947)/충전재/WPS 참조</b>를 <b>/</b>로 구분해 적습니다 (예: <b>135/B/PA</b>). 표기 세부는 사내 도면 규칙에 맞게 조정하세요.</li>
-  <li><b>보조 기호</b>: 전둘레 <b>○</b>(화살표선과 기준선의 접점), 현장 용접 <b>▶</b>(깃발).</li></ul>
- <p style="color:var(--mute);margin:6px 0 0">※ 위 규칙은 공개된 ISO 2553 해설 자료를 기준으로 정리했습니다. 규격서 원문(유료)과 최신 개정판을 확인해 최종 적용하세요.</p></div></details>`;
+const SYM_GUIDE=`<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--accent)"><b>용접 기호(지시선) 가이드라인 — 사내 교육자료 · EN ISO 2553 기준</b></summary><div style="font-size:12.5px;line-height:1.55;margin-top:6px">
+ <svg viewBox="0 0 560 175" style="width:100%;max-width:560px;background:#fff;border:1px solid var(--line);border-radius:6px"><defs><marker id="gah" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs>
+  <line x1="92" y1="100" x2="30" y2="160" stroke="#000" stroke-width="2" marker-end="url(#gah)"/><circle cx="92" cy="100" r="6" fill="#fff" stroke="#000"/><line x1="92" y1="100" x2="420" y2="100" stroke="#000" stroke-width="2"/><line x1="98" y1="104" x2="420" y2="104" stroke="#000" stroke-width="1.3" stroke-dasharray="7 5"/>
+  <polyline points="250,82 262,100 274,82" fill="none" stroke="#000" stroke-width="2"/><text x="226" y="95" font-size="12" text-anchor="end" font-family="Arial">S</text><text x="290" y="95" font-size="12" font-family="Arial">n x L(E)</text>
+  <polyline points="432,90 420,100 432,110" fill="none" stroke="#000" stroke-width="1.6"/><text x="438" y="104" font-size="12" font-family="Arial">135/B/PA</text>
+  <rect x="242" y="101" width="40" height="15" fill="#fff" stroke="#000"/><text x="262" y="113" font-size="11" text-anchor="middle" font-family="Arial">M</text>
+  <text x="14" y="138" font-size="11" fill="#c00">화살표(왼쪽 끝)</text><text x="60" y="76" font-size="11" fill="#c00">○ 전둘레</text><text x="150" y="68" font-size="11" fill="#c00">화살표 방향 = 실선</text><text x="150" y="132" font-size="11" fill="#c00">화살표 반대 = 점선</text><text x="236" y="70" font-size="11" fill="#c00">용접 기호</text><text x="290" y="132" font-size="11" fill="#c00">백킹 M/MR(반대편)</text><text x="440" y="128" font-size="11" fill="#c00">꼬리(오른쪽 끝)</text></svg>
+ <ul style="margin:6px 0 0 18px;padding:0"><li><b>구조 (ISO)</b>: 화살표는 기준선 <u>왼쪽 끝</u>, 꼬리는 <u>오른쪽 끝</u>. 기준선은 <b>실선</b>이고 그 <u>바로 아래에 점선</u>이 있습니다.</li>
+  <li><b>기호 위치</b>: <b>화살표 방향 용접 = 실선</b>에 기호를 붙임(실선 위) · <b>화살표 반대 용접 = 점선</b>에 기호를 붙임(점선 아래). 양쪽이면 위·아래 모두.</li>
+  <li><b>치수</b>: 기호 왼쪽 <b>S</b>(용접 깊이), 오른쪽 <b>n x L(E)</b> — <b>E는 용접 끝단~끝단</b> 거리. 필릿은 <b>a(각목)</b>·<b>z(각장)</b> 둘 다 표기 가능(AWS는 각장만).</li>
+  <li><b>백킹</b>: <b>M</b>(영구) / <b>MR</b>(제거형)을 <u>네모 안에</u> 넣어 용접 기호의 <u>반대편</u>(실선 아래, 점선을 가로질러)에 둡니다.</li>
+  <li><b>보조</b>: 전둘레 <b>○</b>(화살표와 기준선 접점) · 현장 용접 ▶ · 표면 형상(평탄/볼록/오목). 꼬리: 공정(ISO 4063)/품질등급(ISO 5817)/자세(ISO 6947)/충전재/WPS — <b>/</b> 로 구분.</li>
+  <li><b>ISO ↔ AWS 차이 (사내 자료)</b>: AWS는 단일 실선·화살표 <u>오른쪽 끝</u>·꼬리 <u>왼쪽 끝</u>, 기호가 선 <u>아래=화살표 방향</u>/위=반대, 피치는 <b>L-P</b>(중심~중심). 예) AWS <b>30-120</b> = ISO <b>30(120)</b>. <b>당사는 대부분 프로젝트가 ISO(EN, KS)를 따릅니다.</b></li></ul>
+ <p style="color:var(--mute);margin:6px 0 0">출처: 사내 교육자료 「AWS D1.1 & ISO 용접기호」(2025.01.07) 및 EN ISO 2553 공개 해설. 최종 적용 전 규격서 원문을 확인하세요.</p></div></details>`;
 function genPanelHTML(mode){ const G=GEN, tab=mode==='tab', num=(k,l)=>`<label>${l}<input type="number" step="any" data-g="${k}" value="${G[k]}"></label>`, chk=(k,l)=>`<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" data-g="${k}" ${G[k]?'checked':''}>${l}</label>`, sel=(k,l,opts)=>`<label>${l}<select data-g="${k}">${opts.map(([v,t])=>`<option value="${v}" ${G[k]===v?'selected':''}>${t}</option>`).join('')}</select></label>`, txt=(k,l,ph)=>`<label>${l}<input data-g="${k}" value="${esc(G[k])}" placeholder="${ph||''}"></label>`;
   return `<div class="card" id="genbox" style="border-color:var(--accent);margin-bottom:0"><div class="row" style="margin:0"><h3 style="margin:0;flex:1">${tab?'형상 생성 (값 입력 → 도면)':'형상 생성 (값 입력 → 도면)'}</h3>${tab?'':'<button type="button" class="b sec" onclick="GEN.open=false;vWpsDoc()">닫기</button>'}</div>
    <h3>① 형상</h3><div class="grid">${sel('type','형상 종류',GEN_TYPES)}${num('t','판 두께 t (mm)')}${num('t2','바닥판 t2 (T·겹치기)')}${num('angle','개선 각도 α (°)')}${num('gap','루트 간격 b (mm)')}${num('face','루트 면 c (mm)')}${num('r','U·J 반지름 R (mm)')}${num('leg','필릿 각장 z (mm)')}
     ${sel('backing','백킹',[['none','없음'],['ceramic','세라믹(제거형 MR)'],['metal','금속(영구 M)']])}${txt('layers','층별 비드 수 (용접 순서)','1,2,3,3')}${chk('dims','치수 표시')}${chk('weld','용접부 채움(빗금)')}</div>
    <div class="grid" style="margin-top:6px;grid-template-columns:2fr 1fr 1fr"><label>사용자 정의: 개선면 좌표 "x,깊이; x,깊이; …" (mm, 중심선 기준 오른쪽 판, 위→아래)<textarea data-g="custom" rows="2">${esc(G.custom)}</textarea></label>${chk('mirror','왼쪽 판 대칭')}${sel('symKind','사용자 정의의 기호',[['V','V'],['bevel','베벨 ⊢'],['U','U'],['J','J'],['II','I ║']])}</div>
-   <h3>② 용접 기호 (EN ISO 2553)</h3><div class="grid">${chk('symbol','용접 기호(지시선) 표시')}${sel('symSystem','기준선 체계',[['A','A: 이중 기준선(실선+점선)'],['B','B: 단일 기준선']])}${sel('symSide','기호 위치',[['arrow','화살표 쪽 (Arrow side)'],['other','반대쪽 (Other side)'],['both','양쪽']])}
-    ${sel('symDim','필릿 치수',[['z','각장 z'],['a','목 두께 a']])}${txt('symS','홈 용접 s 치수(선택)','예: 12')}${sel('contour','표면 형상 기호',[['none','없음'],['flush','평탄(—)'],['convex','볼록'],['concave','오목']])}${chk('allAround','전둘레 ○')}${chk('field','현장 용접 ▶')}</div>
+   <h3>② 용접 기호 (EN ISO 2553)</h3><div class="grid">${chk('symbol','용접 기호(지시선) 표시')}${sel('symSystem','규격/기준선',[['A','ISO(EN) · 실선+점선 (사내 기준)'],['AWS','AWS A2.4 · 단일 실선'],['B','ISO 단일 기준선(B체계)']])}${sel('symSide','기호 위치',[['arrow','화살표 쪽 (Arrow side)'],['other','반대쪽 (Other side)'],['both','양쪽']])}
+    ${sel('symDim','필릿 치수 (ISO)',[['z','각장 z'],['a','각목 a'],['both','a, z 모두']])}${num('symN','단속: 개수 n')}${num('symL','단속: 길이 L')}${num('symE','단속: 간격 E(끝단~끝단)')}${txt('symS','홈 용접 s 치수(선택)','예: 12')}${sel('contour','표면 형상 기호',[['none','없음'],['flush','평탄(—)'],['convex','볼록'],['concave','오목']])}${chk('allAround','전둘레 ○')}${chk('field','현장 용접 ▶')}</div>
    <div class="grid" style="margin-top:6px">${txt('tailProc','꼬리: 공정 (ISO 4063)','135')}${txt('tailLvl','품질등급 (ISO 5817)','B')}${chk('tailLvlPrefix','등급에 "ISO 5817-" 붙이기')}${txt('tailPos','자세 (ISO 6947)','PA')}${txt('tailFiller','충전재(선택)','')}${txt('tailRef','WPS 참조(선택)','WPS-RM001')}</div>${SYM_GUIDE}
    <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:8px"><div style="border:1px solid var(--line);border-radius:6px"><div style="font-size:12px;padding:4px 8px;color:var(--mute)">이음부 형상</div><div id="genj" style="height:${tab?300:220}px"></div></div><div style="border:1px solid var(--line);border-radius:6px"><div style="font-size:12px;padding:4px 8px;color:var(--mute)">용접 순서</div><div id="gens" style="height:${tab?300:220}px"></div></div></div>
    <div class="row">${tab?`<button type="button" class="b" onclick="genSave('joint')">이음부 형상을 라이브러리에 저장</button><button type="button" class="b" onclick="genSave('sequence')">용접 순서를 라이브러리에 저장</button><button type="button" class="b sec" onclick="dlSvg('joint')">SVG 다운로드(형상)</button><button type="button" class="b sec" onclick="dlSvg('sequence')">SVG(순서)</button><button type="button" class="b sec" onclick="dlPng('joint')">PNG(형상)</button><button type="button" class="b sec" onclick="dlPng('sequence')">PNG(순서)</button><button type="button" class="b sec" onclick="Object.assign(GEN,JSON.parse(JSON.stringify(GEN_DEF)));vShape()">초기화</button>`
