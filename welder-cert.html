@@ -78,7 +78,7 @@ body.printing header,body.printing main{display:none}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v7 · 이미지 보관함</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v8 · VT 자동 통과</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -131,6 +131,11 @@ function judge(joint, t, companyStrict){
   if(companyStrict) return v('macro')==='pass'?'pass':'pending';
   return (v('macro')==='pass'||v('fracture')==='pass')?'pass':'pending';
 }
+
+// VT는 RT/UT·굽힘·단면 시험보다 먼저 수행하므로, 다음 단계 결과(Pass/Fail)가 있으면 VT는 통과한 것으로 본다.
+// VT에 Fail이 명시된 경우는 그대로 둔다.
+function applyImpliedVT(t){ const v=k=>t[k]||'na'; if(v('vt')!=='na') return t;
+  return ['rtut','bend','macro','fracture','additional'].some(k=>v(k)==='pass'||v(k)==='fail')?{...t,vt:'pass'}:t; }
 
 const POS_BW={PA:['PA'],PC:['PA','PC'],PE:['PA','PC','PD','PE'],PF:['PA','PF'],PG:['PG']};
 const POS_FW={PA:['PA'],PB:['PA','PB'],PC:['PA','PB','PC'],PD:['PA','PB','PD'],PF:['PA','PB','PF'],PG:['PG']};
@@ -237,7 +242,7 @@ const DB={db:null,
   del(s,id){return this.tx(s,'readwrite',o=>o.delete(id));},
   clear(s){return this.tx(s,'readwrite',o=>o.clear());}
 };
-const DEFAULT_SETTINGS={company:'',team:'',examiner:'',location:'',standardLabel:'KS B ISO 9606-1:2012',refPrefix:'EN ISO 9606-1-RM',strict:false,logo:'',signature:'',stamp:''};
+const DEFAULT_SETTINGS={company:'',team:'',examiner:'',location:'',standardLabel:'KS B ISO 9606-1:2012',refPrefix:'EN ISO 9606-1-RM',strict:false,impliedVT:true,logo:'',signature:'',stamp:''};
 let S={...DEFAULT_SETTINGS}, welders=[], records=[], images=[];
 async function load(){
   welders=await DB.all('welders'); records=await DB.all('records');
@@ -305,7 +310,7 @@ document.addEventListener('dragleave',e=>{const z=e.target.closest&&e.target.clo
 document.addEventListener('drop',async e=>{const z=e.target.closest&&e.target.closest('.pz'); if(!z) return; e.preventDefault(); z.classList.remove('over');
   const f=[...e.dataTransfer.files].find(x=>x.type.startsWith('image/')); if(f) await setPz(z.dataset.key,f); else toast('이미지 파일이 아닙니다.');});
 function syncSettingsForm(){ const f=$('#sf'); if(!f) return; const fd=new FormData(f);
-  for(const k of ['company','team','examiner','location','standardLabel','refPrefix']) if(fd.has(k)) S[k]=fd.get(k); S.strict=fd.get('strict')==='on'; }
+  for(const k of ['company','team','examiner','location','standardLabel','refPrefix']) if(fd.has(k)) S[k]=fd.get(k); S.strict=fd.get('strict')==='on'; S.impliedVT=fd.get('impliedVT')==='on'; }
 async function setPz(key,file){
   try{
     const url=await fileToDataURL(file,key==='logo'?500:400,key!=='photo');
@@ -508,7 +513,7 @@ function mapWorkbook(sheets){
           rec:{weldingDate:wd,project:String(row[c.project]??'').trim(),wpsNo:'',process:pr,productType:'P',pipeDiameter:'',joint,transfer:'globular/spray',
           fillerGroup:String(row[c.filler]??'').trim().replace(/^FM\s*(\d)/i,'FM $1'),fillerType:'S',materialGroup:'1.1',gas:/M21/i.test(row[c.gas])?'EN ISO 14175-M21':String(row[c.gas]??'').trim(),
           backing:xBack(row[c.back],joint),thickness:th?+th[0]:0,deposited:th?+th[0]:0,position:String(row[c.pos]??'').trim().toUpperCase(),
-          tests:{vt:xRes(row[c.vt]),rtut:xRes(row[c.rt]),bend:joint==='BW'?xRes(row[c.bend]):'na',macro:joint==='FW'?xRes(row[c.macro]):'na',fracture:'na',additional:'na'},renewals:[]}}); n++; }
+          tests:applyImpliedVT({vt:xRes(row[c.vt]),rtut:xRes(row[c.rt]),bend:joint==='BW'?xRes(row[c.bend]):'na',macro:joint==='FW'?xRes(row[c.macro]):'na',fracture:'na',additional:'na'}),renewals:[]}}); n++; }
     }
     info.push(`${sh.name}: ${isTests?'시험 기록':'용접사'} ${n}건 인식`);
   }
@@ -553,7 +558,7 @@ const RF={q:'',st:'전체',joint:'전체',proc:'전체',page:0}, PAGE=50;
 function vRecords(){
   if(editRec) return vRecForm();
   const procs=[...new Set(records.map(r=>r.process))].sort();
-  $('#view').innerHTML=`<div class="card"><div class="row" style="margin:0"><h2 style="margin:0;flex:1" id="rtitle">시험 기록</h2><button class="b" onclick="newRec()">+ 새 시험 기록</button></div>
+  $('#view').innerHTML=`<div class="card"><div class="row" style="margin:0"><h2 style="margin:0;flex:1" id="rtitle">시험 기록</h2><button class="b sec" onclick="fixImpliedVT()" title="RT/UT·굽힘·단면 결과가 있는데 VT가 미기록인 기록의 VT를 Pass로 보정">VT 미기록 일괄 보정</button><button class="b" onclick="newRec()">+ 새 시험 기록</button></div>
    <div class="row"><input id="rq" placeholder="용접사 이름 / 번호 / 프로젝트 검색" style="min-width:260px" value="${esc(RF.q)}">
     ${sel('rst',['전체','합격','진행중','불합격'],RF.st)}${sel('rjoint',['전체','BW','FW'],RF.joint)}${sel('rproc',['전체',...procs],RF.proc)}</div>
    <div class="tw" id="rlist" style="margin-top:10px"></div><div class="row" id="rpager"></div>
@@ -562,6 +567,13 @@ function vRecords(){
   for(const [n,k] of [['rst','st'],['rjoint','joint'],['rproc','proc']]) $(`[name=${n}]`).onchange=e=>{RF[k]=e.target.value;RF.page=0;drawRecs();};
   drawRecs();
 }
+async function fixImpliedVT(){
+  const t=records.filter(r=>applyImpliedVT(r.tests||{})!==(r.tests||{}));
+  if(!t.length) return alert('보정할 기록이 없습니다.');
+  const before=t.filter(r=>recStatus(r)!=='pass').length;
+  const after=t.filter(r=>judge(r.joint,applyImpliedVT(r.tests||{}),S.strict)==='pass'&&recStatus(r)!=='pass').length;
+  if(!confirm(`VT가 미기록이고 RT/UT·굽힘·단면 결과가 있는 기록 ${t.length}건의 VT를 Pass로 보정합니다.\n(VT는 다음 시험 전에 통과한 것으로 간주. VT에 Fail이 적힌 기록은 건드리지 않음)\n\n이 중 판정이 새로 '합격'이 되는 기록: ${after}건\n계속할까요?`)) return;
+  await DB.putMany('records',t.map(r=>({...r,tests:applyImpliedVT(r.tests||{})}))); await load(); vRecords(); toast(`${t.length}건 보정했습니다 (새 합격 ${after}건).`,5000); }
 const mk3=v=>v==='pass'?'<span class="m p">●</span>':v==='fail'?'<span class="m f">✕</span>':'<span class="m n">–</span>';
 function drawRecs(){
   const wm=new Map(welders.map(w=>[w.id,w])), q=RF.q.trim().toLowerCase();
@@ -637,8 +649,9 @@ function vRecForm(){
   const collect=()=>{const o=Object.fromEntries(new FormData(f));
     return {...r,welderId:+o.welderId,weldingDate:o.weldingDate,project:o.project,wpsNo:o.wpsNo,process:o.process,productType:o.productType,pipeDiameter:o.pipeDiameter,
      joint:o.joint,transfer:o.transfer,fillerGroup:o.fillerGroup,fillerType:o.fillerType,materialGroup:o.materialGroup,gas:o.gas,backing:o.backing,thickness:+o.thickness,deposited:+o.deposited||+o.thickness,position:o.position.trim().toUpperCase(),
-     tests:{vt:o.vt,rtut:o.rtut,bend:o.bend,macro:o.macro,fracture:o.fracture,additional:o.additional},refNo:o.refNo,issueDate:o.issueDate,jobKnowledge:o.jobKnowledge,suppFillet:o.suppFillet};};
+     tests:(S.impliedVT?applyImpliedVT:x=>x)({vt:o.vt,rtut:o.rtut,bend:o.bend,macro:o.macro,fracture:o.fracture,additional:o.additional}),refNo:o.refNo,issueDate:o.issueDate,jobKnowledge:o.jobKnowledge,suppFillet:o.suppFillet};};
   const upd=()=>{const c=collect(),res=calculateRangeOfApproval(c),st=judge(c.joint,c.tests,S.strict);
+    if(f.elements.vt.value!==(c.tests.vt||'na')) f.elements.vt.value=c.tests.vt; // 자동 통과 처리 표시
     $('#pj').innerHTML=pill(st)+` <small style="font-weight:400">유효: ${validityText(c.weldingDate,res.expire||'')}</small>`;
     $('#rng').innerHTML=(res.manual_review_required?'<div class="msg err">⚠ 자동 산출 불가 항목이 있습니다. 규격서를 보고 인증서 발행 전에 확인하세요.</div>':'')+
      res.warnings.map(w=>`<div class="msg info">${esc(w)}</div>`).join('')+
@@ -713,6 +726,8 @@ function vSettings(){
    <label>Reference No. 접두어<input name="refPrefix" value="${esc(S.refPrefix)}"></label>
    </div>
    <h3>로고 · 서명 · 직인 (붙여넣은 이미지는 보관함에 계속 저장됩니다)</h3>${imgSection()}
+   <label style="flex-direction:row;align-items:center;gap:8px;margin-top:10px;color:var(--ink)"><input type="checkbox" name="impliedVT" ${S.impliedVT?'checked':''}>
+   VT 자동 통과 처리: VT를 따로 기록하지 않아도 RT/UT·굽힘·단면 결과가 있으면 VT는 이미 통과한 것으로 간주 (입력·가져오기 시 적용)</label>
    <label style="flex-direction:row;align-items:center;gap:8px;margin-top:10px;color:var(--ink)"><input type="checkbox" name="strict" ${S.strict?'checked':''}>
    사내 엄격 기준 사용 (BW: VT+RT/UT+Bend 모두 Pass, FW: VT+Macro Pass). 해제 시 ISO 9606-1 Table 1 기준(BW: VT + RT/UT 또는 Bend/Fracture)</label>
    <div class="row"><button class="b">저장</button></div></form></div>
@@ -722,7 +737,7 @@ function vSettings(){
    <p style="color:var(--mute)">데이터는 이 브라우저(IndexedDB)에만 저장됩니다. 브라우저 데이터를 지우면 사라지므로 주기적으로 백업하세요.</p></div>`;
   $('#sf').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);
     for(const k of ['company','team','examiner','location','standardLabel','refPrefix']) S[k]=fd.get(k);
-    S.strict=fd.get('strict')==='on';
+    S.strict=fd.get('strict')==='on'; S.impliedVT=fd.get('impliedVT')==='on';
     await saveSettings(); vSettings(); alert('저장했습니다.');};
 }
 function exportAll(){download(`welder-backup-${today()}.json`,JSON.stringify({version:2,welders,records,settings:S,images}),'application/json');}

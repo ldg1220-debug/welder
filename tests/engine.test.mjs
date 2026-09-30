@@ -2,7 +2,7 @@
 import fs from 'node:fs'; import assert from 'node:assert/strict';
 const html = fs.readFileSync(new URL('../welder-cert.html', import.meta.url), 'utf8');
 const src = html.split('/*ENGINE-START*/')[1].split('/*ENGINE-END*/')[0];
-const E = new Function(src + '; return {calcExpire,validityText,monthsBetween,certAlert,judge,calculateRangeOfApproval,designation};')();
+const E = new Function(src + '; return {calcExpire,validityText,monthsBetween,certAlert,judge,calculateRangeOfApproval,designation,applyImpliedVT};')();
 const R = (o) => Object.fromEntries(E.calculateRangeOfApproval({process:'135 MAG',productType:'P',joint:'BW',fillerGroup:'FM 1',fillerType:'S',backing:'ss nb',position:'PC',weldingDate:'2024-08-21',transfer:'globular/spray',gas:'M21',thickness:12,...o}).items.map(x=>[x.key,x.range]));
 let n=0; const t=(name,fn)=>{fn(); n++; console.log('ok -',name);};
 
@@ -36,4 +36,8 @@ t('개월 수·경고',()=>{
   assert.equal(E.monthsBetween('2024-08-21','2025-02-20'),5); assert.equal(E.monthsBetween('2024-08-21','2025-02-21'),6); assert.equal(E.monthsBetween('2024-01-31','2024-02-29'),1);
   assert.equal(E.certAlert('2024-08-21','2027-08-20',0,'2025-02-21'),null); assert.equal(E.certAlert('2024-08-21','2027-08-20',0,'2025-03-21'),'renewal');
   assert.equal(E.certAlert('2024-08-21','2027-08-20',1,'2025-03-21'),null); assert.equal(E.certAlert('2024-08-21','2027-08-20',5,'2027-08-21'),'expired');});
+t('VT 미기록: 다음 검사 결과가 있으면 VT=Pass (RT Fail이어도), 명시된 Fail·결과 없음은 유지',()=>{
+  assert.equal(E.applyImpliedVT({rtut:'pass',bend:'pass'}).vt,'pass'); assert.equal(E.applyImpliedVT({rtut:'fail'}).vt,'pass'); assert.equal(E.applyImpliedVT({macro:'pass'}).vt,'pass');
+  assert.equal(E.applyImpliedVT({vt:'fail',rtut:'pass'}).vt,'fail'); assert.equal(E.applyImpliedVT({}).vt,undefined); assert.equal(E.applyImpliedVT({vt:'na'}).vt,'na');
+  assert.equal(E.judge('BW',E.applyImpliedVT({rtut:'pass',bend:'pass'}),true),'pass'); assert.equal(E.judge('BW',E.applyImpliedVT({rtut:'fail'}),false),'fail');});
 console.log(`\n${n} passed`);
