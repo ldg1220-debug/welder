@@ -21,9 +21,15 @@ input,select,textarea{font:inherit;padding:6px 8px;border:1px solid var(--line);
 button.b{background:var(--accent);color:#fff;border:0;padding:7px 14px;border-radius:5px;cursor:pointer;font:inherit}
 button.b.sec{background:#e8edf2;color:var(--ink)}button.b.red{background:var(--bad)}button.b.sm{padding:3px 8px;font-size:12px}
 table.list{width:100%;border-collapse:collapse}
-table.list th,table.list td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.list th,table.list td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap}
+.tw{overflow-x:auto;max-height:70vh;overflow-y:auto;border:1px solid var(--line);border-radius:6px}
+.tw table.list th{position:sticky;top:0;z-index:1}
+table.list tbody tr:hover{background:#f5f8fb}
+.m{display:inline-block;width:20px;text-align:center;font-weight:700}.m.p{color:var(--ok)}.m.f{color:var(--bad)}.m.n{color:#b5bcc5}
+td.num,th.num{text-align:center!important}
+.bx{white-space:nowrap}
 table.list th{background:#eef2f6;font-size:12px}
-.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff}
+.pill{white-space:nowrap;display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff}
 .pass{background:var(--ok)}.fail{background:var(--bad)}.pending{background:var(--warn)}
 .stats{display:flex;gap:12px;flex-wrap:wrap}.stat{flex:1;min-width:150px;text-align:center}.stat b{display:block;font-size:26px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
@@ -265,9 +271,18 @@ function vDash(){
     ${list('expired','🔴 만료')}${list('renewal','🟡 6개월 서명 갱신 필요')}`;
 }
 
+function drawWelders(){
+  const f=window._wf||'전체', q=(window._wq||'').trim().toLowerCase();
+  const cnt={}, ok={}; for(const r of records){cnt[r.welderId]=(cnt[r.welderId]||0)+1; if(recStatus(r)==='pass') ok[r.welderId]=(ok[r.welderId]||0)+1;}
+  const rows=welders.filter(w=>(f==='전체'||w.status===f)&&(!q||[w.welderNo,w.name,w.company].join(' ').toLowerCase().includes(q)))
+    .sort((a,b)=>a.welderNo.localeCompare(b.welderNo,undefined,{numeric:true}));
+  $('#wtitle').textContent=`용접사 목록 (${rows.length} / 전체 ${welders.length})`;
+  $('#wlist').innerHTML=`<table class="list"><thead><tr><th></th><th>번호</th><th>성명</th><th>생년월일</th><th>소속</th><th>직무</th><th class="num">상태</th><th class="num">합격 / 시험</th><th></th></tr></thead><tbody>${rows.map(w=>
+   `<tr><td>${w.photo?`<img class="thumb" style="height:28px" src="${w.photo}">`:''}</td><td>${esc(w.welderNo)}</td><td>${esc(w.name)}</td><td>${w.birthDate||''}</td><td>${esc(w.company)}</td><td>${esc(w.role)}</td>
+   <td class="num"><span class="pill" style="background:${w.status==='재직'?'var(--ok)':w.status==='퇴사'?'#8a94a0':'var(--warn)'}">${w.status}</span></td><td class="num">${ok[w.id]||0} / ${cnt[w.id]||0}</td>
+   <td class="bx"><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">해당하는 용접사가 없습니다.</td></tr>'}</tbody></table>`;
+}
 function vWelders(){
-  const f=window._wf||'전체';
-  const rows=welders.filter(w=>f==='전체'||w.status===f).sort((a,b)=>a.welderNo.localeCompare(b.welderNo));
   $('#view').innerHTML=`<div class="card"><h2>용접사 등록 / 수정</h2><form id="wf"><input type="hidden" name="id">
    <div class="grid">
     <label>용접사 번호*<input name="welderNo" required placeholder="RM-WD-24001"></label>
@@ -279,14 +294,16 @@ function vWelders(){
     <label>상태<select name="status"><option>재직</option><option>퇴사</option><option>미확인</option></select></label>
     <label>사진<input type="file" name="photo" accept="image/*"></label>
    </div><div class="row"><button class="b">저장</button><button type="button" class="b sec" onclick="vWelders()">초기화</button></div></form></div>
-   <div class="card"><h2>용접사 목록 (${rows.length})</h2>
-   <div class="row" style="margin:0 0 8px">상태 <select onchange="window._wf=this.value;vWelders()">${['전체','재직','퇴사','미확인'].map(x=>`<option ${x===f?'selected':''}>${x}</option>`).join('')}</select>
-   <span style="color:var(--mute)">엑셀(.xlsx) / CSV 가져오기</span><input type="file" accept=".xlsx,.csv" onchange="importFile(this.files[0]);this.value=''">
-   <button class="b sm red" onclick="cleanupWelders()">깨진 데이터 정리</button></div>
+   <div class="card"><h2 id="wtitle">용접사 목록</h2>
+   <div class="row" style="margin:0 0 8px">
+    <input id="wq" placeholder="번호 / 성명 / 소속 검색" style="min-width:220px" value="${esc(window._wq||'')}" oninput="window._wq=this.value;drawWelders()">
+    <select onchange="window._wf=this.value;drawWelders()">${['전체','재직','퇴사','미확인'].map(x=>`<option ${x===(window._wf||'전체')?'selected':''}>${x}</option>`).join('')}</select>
+    <span style="flex:1"></span>
+    <span style="color:var(--mute)">엑셀(.xlsx) / CSV 가져오기</span><input type="file" accept=".xlsx,.csv" onchange="importFile(this.files[0]);this.value=''">
+    <button class="b sm red" onclick="cleanupWelders()">깨진 데이터 정리</button></div>
    <div style="color:var(--mute);font-size:12px;margin-bottom:6px">엑셀: '1.Welder list'(명단)와 '2.자격 시험 기록서'(시험 기록)를 자동 인식합니다. CSV: 번호,성명,생년월일,소속,직무,상태</div>
-   <table class="list"><tr><th></th><th>번호</th><th>성명</th><th>생년월일</th><th>소속</th><th>직무</th><th>상태</th><th></th></tr>${rows.map(w=>
-   `<tr><td>${w.photo?`<img class="thumb" style="height:32px" src="${w.photo}">`:''}</td><td>${esc(w.welderNo)}</td><td>${esc(w.name)}</td><td>${w.birthDate||''}</td><td>${esc(w.company)}</td><td>${esc(w.role)}</td><td>${w.status}</td>
-   <td><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>`).join('')}</table></div>`;
+   <div class="tw" id="wlist"></div></div>`;
+  drawWelders();
   $('#wf').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target),o=Object.fromEntries(fd);
     const id=o.id?+o.id:undefined; const old=id?welders.find(w=>w.id===id):{};
     if(welders.some(w=>w.welderNo===o.welderNo.trim()&&w.id!==id)) return alert('이미 등록된 용접사 번호입니다.');
@@ -295,8 +312,12 @@ function vWelders(){
     await DB.put('welders',w); await load(); vWelders();};
 }
 function editWelder(id){const w=welders.find(x=>x.id===id),f=$('#wf');for(const k of ['id','welderNo','name','birthDate','birthPlace','company','role','status']) f.elements[k].value=w[k]??'';scrollTo(0,0);}
-async function delWelder(id){ if(records.some(r=>r.welderId===id)) return alert('시험 기록이 있는 용접사는 삭제할 수 없습니다. 상태를 퇴사로 변경하세요.');
-  if(confirm('삭제할까요?')){await DB.del('welders',id);await load();vWelders();}}
+async function delWelder(id){
+  const n=records.filter(r=>r.welderId===id).length, w=welders.find(x=>x.id===id);
+  if(n){ if(!confirm(`${w.welderNo} ${w.name}: 시험 기록 ${n}건이 있습니다.\n용접사와 시험 기록 ${n}건을 모두 삭제할까요? (되돌릴 수 없음)`)) return;
+    for(const r of records.filter(r=>r.welderId===id)) await DB.del('records',r.id); }
+  else if(!confirm(`${w.welderNo} ${w.name} 을(를) 삭제할까요?`)) return;
+  await DB.del('welders',id); await load(); vWelders(); }
 async function cleanupWelders(){
   const used=new Set(records.map(r=>r.welderId));
   const bad=w=>/[\uFFFD\u0000-\u0008]/.test(w.name+w.welderNo+(w.company||''))||String(w.welderNo).length<3||!String(w.name).trim();
@@ -366,6 +387,7 @@ function findCols(rows,labels){ // 상단 8행에서 라벨 위치 찾기 (위�
   for(let r=0;r<Math.min(8,rows.length);r++) (rows[r]||[]).forEach((v,i)=>{ const t=String(v??'').replace(/\s+/g,' ').trim();
     for(const [k,lab] of Object.entries(labels)) if(t===lab&&!(k in c)){c[k]=i; if(k==='no') hdr=r;} });
   return {c,hdr}; }
+const validNo=n=>String(n).length>=3&&/[A-Za-z]/.test(n)&&/\d/.test(n); // 예: RM-WD-24001 (빈 번호/0 같은 값 제외)
 function mapWorkbook(sheets){
   const W=[],R=[],info=[],done={};
   for(const sh of sheets){
@@ -377,12 +399,14 @@ function mapWorkbook(sheets){
     done[isTests?'t':'w']=true;
     let n=0;
     for(let r=hdr+1;r<sh.rows.length;r++){ const row=sh.rows[r]; if(!row||typeof row[0]!=='number') continue;
-      const no=String(row[c.no]??'').trim(); if(!/^[A-Za-z0-9][A-Za-z0-9\-_.]*$/.test(no)) continue;
+      const no=String(row[c.no]??'').trim(), okNo=validNo(no);
       if(!isTests){
+        if(!okNo){info.push(`${sh.name} ${r+1}행 건너뜀 (용접사 번호 없음/이상: '${no}')`);continue;}
         W.push({welderNo:no,name:String(row[c.name]??'').trim(),birthDate:xBirth(row[c.birth]),birthPlace:'',company:String(row[c.company]??'').trim(),
           role:['용접사','취부사','LBW 용접 오퍼레이터'].includes(row[c.role])?row[c.role]:'용접사',status:row[c.status]==='재직'||row[c.status]==='퇴사'?row[c.status]:'미확인'}); n++;
       }else{
         const joint=String(row[c.joint]??'').trim().toUpperCase(), wd=xDate(row[c.date]), pr=xProc(row[c.process]);
+        if(!okNo&&!String(row[c.name]??'').trim()) continue;
         if(!wd||!['BW','FW'].includes(joint)||!pr){ info.push(`${sh.name} ${r+1}행 건너뜀 (용접일/시편형태/공정 누락)`); continue; }
         const th=String(row[c.thick]??'').match(/\d+(\.\d+)?/);
         R.push({welderNo:no,name:String(row[c.name]??'').trim(),birthDate:xBirth(row[c.birth]),company:String(row[c.company]??'').trim(),
@@ -400,10 +424,15 @@ async function importXlsx(buf){
   if(!W.length&&!R.length) return alert('용접사 명단/시험 기록 시트를 찾지 못했습니다.\n(필요한 머리글: 용접사 No, 성명, 소속 / Process, 시편 형태 등)');
   const have=new Set(welders.map(w=>w.welderNo)), newW=W.filter((w,i)=>!have.has(w.welderNo)&&W.findIndex(x=>x.welderNo===w.welderNo)===i);
   const known=new Set([...have,...newW.map(w=>w.welderNo)]); const extra=[];
+  // 번호가 없거나 이상한 시험 기록 행: 이름(+생년월일)이 하나로 특정될 때만 해당 용접사에 연결
+  const pool=[...welders,...newW]; let linked=0; const lost=[];
+  for(let k=R.length-1;k>=0;k--){ const r=R[k]; if(validNo(r.welderNo)) continue;
+    const c=pool.filter(w=>w.name===r.name&&(!r.birthDate||!w.birthDate||w.birthDate===r.birthDate));
+    if(c.length===1){r.welderNo=c[0].welderNo;linked++;} else {r.welderNo='미부여-'+(r.name||'이름없음')+(r.birthDate?'-'+r.birthDate.slice(2,4):'');lost.push(r.welderNo);} }
   for(const r of R) if(!known.has(r.welderNo)){known.add(r.welderNo);extra.push({welderNo:r.welderNo,name:r.name,birthDate:r.birthDate,birthPlace:'',company:r.company,role:'용접사',status:'미확인'});}
   const key=(wid,x)=>[wid,x.weldingDate,x.joint,x.process,x.thickness,x.position,x.fillerGroup,JSON.stringify(x.tests)].join('|');
   const ex=new Set(records.map(x=>key(x.welderId,x)));
-  const msg=`${info.join('\n')}\n\n새 용접사 ${newW.length+extra.length}명 (명단에 없어 자동 등록 ${extra.length}명 포함)\n시험 기록 ${R.length}건 (이미 있는 동일 기록은 제외)\n\n가져올까요?`;
+  const msg=`${info.filter(x=>!/번호 없음\/이상/.test(x)).join('\n')}${info.filter(x=>/번호 없음\/이상/.test(x)).length?`\n용접사 번호가 이상해 건너뜀 ${info.filter(x=>/번호 없음\/이상/.test(x)).length}건`:''}\n\n번호 없는 시험 기록: 이름으로 기존 용접사에 연결 ${linked}건, '미부여-이름' 용접사로 등록 ${lost.length}건${lost.length?` (${[...new Set(lost)].slice(0,4).join(', ')} …)\n→ 용접사 화면에서 번호를 수정하면 기록이 그대로 따라갑니다`:''}\n\n새 용접사 ${newW.length+extra.length}명 (명단에 없어 자동 등록 ${extra.length}명 포함)\n시험 기록 ${R.length}건 (이미 있는 동일 기록은 제외)\n\n가져올까요?`;
   if(!confirm(msg)) return;
   await DB.putMany('welders',[...newW,...extra]); await load();
   const idOf=Object.fromEntries(welders.map(w=>[w.welderNo,w.id])), add=[]; let dup=0;
@@ -425,17 +454,36 @@ async function importCSV(text){
 
 const FIELDS_DEFAULT={weldingDate:today(),process:'135 MAG',productType:'P',pipeDiameter:'',joint:'BW',transfer:'globular/spray',fillerGroup:'FM 1',fillerType:'S',
   materialGroup:'1.1',gas:'EN ISO 14175-M21',backing:'ss nb',thickness:12,deposited:12,position:'PC',project:'',wpsNo:'',tests:{}};
+const RF={q:'',st:'전체',joint:'전체',proc:'전체',page:0}, PAGE=50;
 function vRecords(){
   if(editRec) return vRecForm();
-  const rows=[...records].sort((a,b)=>b.weldingDate.localeCompare(a.weldingDate));
-  $('#view').innerHTML=`<div class="card"><div class="row" style="margin:0"><h2 style="margin:0;flex:1">시험 기록 (${rows.length})</h2><button class="b" onclick="newRec()">+ 새 시험 기록</button></div>
-   <table class="list" style="margin-top:10px"><tr><th>용접일</th><th>용접사</th><th>시험 편</th><th>판정</th><th>만료일</th><th>서명갱신</th><th></th></tr>${rows.map(r=>{
-   const w=welders.find(x=>x.id===r.welderId)||{},st=recStatus(r);
-   return `<tr><td>${r.weldingDate}</td><td>${esc(w.name)}<br><small>${esc(w.welderNo)}</small></td><td>${r.joint} ${esc(r.process)} t${fmtN(r.thickness)} ${esc(r.position)} ${esc(r.fillerGroup)}</td><td>${pill(st)}</td>
-   <td>${calcExpire(r.weldingDate)}</td><td>${(r.renewals||[]).length}/5</td><td>
-   <button class="b sm sec" onclick="editR(${r.id})">수정</button>
+  const procs=[...new Set(records.map(r=>r.process))].sort();
+  $('#view').innerHTML=`<div class="card"><div class="row" style="margin:0"><h2 style="margin:0;flex:1" id="rtitle">시험 기록</h2><button class="b" onclick="newRec()">+ 새 시험 기록</button></div>
+   <div class="row"><input id="rq" placeholder="용접사 이름 / 번호 / 프로젝트 검색" style="min-width:260px" value="${esc(RF.q)}">
+    ${sel('rst',['전체','합격','진행중','불합격'],RF.st)}${sel('rjoint',['전체','BW','FW'],RF.joint)}${sel('rproc',['전체',...procs],RF.proc)}</div>
+   <div class="tw" id="rlist" style="margin-top:10px"></div><div class="row" id="rpager"></div>
+   <div style="color:var(--mute);font-size:12px;margin-top:8px">검사 결과: <span class="m p">●</span> Pass <span class="m f">✕</span> Fail <span class="m n">–</span> 미실시. 판정은 검사 결과로 자동 계산됩니다(설정의 판정 기준 적용).</div></div>`;
+  $('#rq').oninput=e=>{RF.q=e.target.value;RF.page=0;drawRecs();};
+  for(const [n,k] of [['rst','st'],['rjoint','joint'],['rproc','proc']]) $(`[name=${n}]`).onchange=e=>{RF[k]=e.target.value;RF.page=0;drawRecs();};
+  drawRecs();
+}
+const mk3=v=>v==='pass'?'<span class="m p">●</span>':v==='fail'?'<span class="m f">✕</span>':'<span class="m n">–</span>';
+function drawRecs(){
+  const wm=new Map(welders.map(w=>[w.id,w])), q=RF.q.trim().toLowerCase();
+  let rows=records.map(r=>({r,w:wm.get(r.welderId)||{},st:recStatus(r)})).filter(x=>
+    (RF.st==='전체'||JLBL[x.st]===RF.st)&&(RF.joint==='전체'||x.r.joint===RF.joint)&&(RF.proc==='전체'||x.r.process===RF.proc)&&
+    (!q||[x.w.name,x.w.welderNo,x.r.project].join(' ').toLowerCase().includes(q)));
+  rows.sort((a,b)=>b.r.weldingDate.localeCompare(a.r.weldingDate)||b.r.id-a.r.id);
+  const pages=Math.max(1,Math.ceil(rows.length/PAGE)); RF.page=Math.min(RF.page,pages-1);
+  $('#rtitle').textContent=`시험 기록 (${rows.length} / 전체 ${records.length})`;
+  $('#rlist').innerHTML=`<table class="list"><thead><tr><th>용접일</th><th>용접사</th><th class="num">유형</th><th>공정</th><th class="num">두께</th><th class="num">자세</th><th>용가재</th>
+   <th class="num">VT</th><th class="num">RT/UT</th><th class="num">Bend/Macro</th><th class="num">판정</th><th>만료일</th><th class="num">서명</th><th></th></tr></thead><tbody>${rows.slice(RF.page*PAGE,RF.page*PAGE+PAGE).map(({r,w,st})=>{const T=r.tests||{};
+   return `<tr><td>${r.weldingDate}</td><td>${esc(w.name)} <small style="color:var(--mute)">${esc(w.welderNo)}</small></td><td class="num">${r.joint}</td><td>${esc(r.process)}</td><td class="num">${fmtN(r.thickness)}</td><td class="num">${esc(r.position)}</td><td>${esc(r.fillerGroup)}</td>
+   <td class="num">${mk3(T.vt)}</td><td class="num">${mk3(T.rtut)}</td><td class="num">${mk3(r.joint==='BW'?T.bend:T.macro)}</td><td class="num">${pill(st)}</td><td>${calcExpire(r.weldingDate)}</td><td class="num">${(r.renewals||[]).length}/5</td>
+   <td class="bx"><button class="b sm sec" onclick="editR(${r.id})">수정</button>
    ${st==='pass'?`<button class="b sm" onclick="showCert(${r.id})">인증서</button> <button class="b sm sec" onclick="addRenewal(${r.id})">6개월 서명</button>`:''}
-   <button class="b sm red" onclick="delRec(${r.id})">삭제</button></td></tr>`;}).join('')}</table></div>`;
+   <button class="b sm red" onclick="delRec(${r.id})">삭제</button></td></tr>`;}).join('')||'<tr><td colspan="14" style="color:var(--mute)">조건에 맞는 기록이 없습니다.</td></tr>'}</tbody></table>`;
+  $('#rpager').innerHTML=pages>1?`<button class="b sm sec" ${RF.page?'':'disabled'} onclick="RF.page--;drawRecs()">← 이전</button><span>${RF.page+1} / ${pages} 페이지</span><button class="b sm sec" ${RF.page<pages-1?'':'disabled'} onclick="RF.page++;drawRecs()">다음 →</button>`:'';
 }
 function newRec(){ if(!welders.length) return alert('먼저 용접사를 등록하세요.'); editRec={...FIELDS_DEFAULT,tests:{},renewals:[],welderId:welders[0].id}; vRecords(); }
 function editR(id){editRec=JSON.parse(JSON.stringify(records.find(r=>r.id===id)));vRecords();}
