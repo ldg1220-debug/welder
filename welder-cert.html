@@ -12,7 +12,7 @@ header{background:#14314f;color:#fff;padding:10px 20px;display:flex;gap:18px;ali
 header h1{font-size:16px;margin:0 12px 0 0}
 nav button{background:none;border:0;color:#cfe0f3;padding:8px 12px;cursor:pointer;font:inherit;border-radius:6px}
 nav button.on{background:#fff;color:#14314f;font-weight:600}
-main{max-width:1180px;margin:0 auto;padding:18px}
+main{max-width:1560px;margin:0 auto;padding:18px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
 h2{font-size:16px;margin:0 0 12px}h3{font-size:14px;margin:14px 0 8px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
@@ -28,6 +28,14 @@ table.list tbody tr:hover{background:#f5f8fb}
 .m{display:inline-block;width:20px;text-align:center;font-weight:700}.m.p{color:var(--ok)}.m.f{color:var(--bad)}.m.n{color:#b5bcc5}
 td.num,th.num{text-align:center!important}
 .bx{white-space:nowrap}
+table.list td{overflow:hidden;text-overflow:ellipsis;max-width:0}
+table.list td.bx{max-width:none}
+table.list.measure td{max-width:none;overflow:visible}
+table.list th{position:relative}
+.rh{position:absolute;right:0;top:0;bottom:0;width:7px;cursor:col-resize;user-select:none}.rh:hover,.rh:active{background:var(--accent);opacity:.5}
+.pz{border:2px dashed var(--line);border-radius:6px;min-height:64px;padding:6px;display:flex;align-items:center;gap:8px;color:var(--mute);font-size:12px;cursor:pointer;background:#fafbfc}
+.pz:focus,.pz.over{border-color:var(--accent);outline:0;background:#eef5fd;color:var(--accent)}
+.pz img{max-height:52px;max-width:90px;border:1px solid var(--line);border-radius:3px;background:#fff}
 table.list th{background:#eef2f6;font-size:12px}
 .pill{white-space:nowrap;display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff}
 .pass{background:var(--ok)}.fail{background:var(--bad)}.pending{background:var(--warn)}
@@ -245,6 +253,47 @@ function fileToDataURL(file,max,png){ // 이미지를 축소해 DB 용량을 줄
 }
 function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();}
 
+// ===================== 공통 유틸: 열 너비 조절, 이미지 붙여넣기, 자동완성 =====================
+function rz(box,key){ // 표 머리글 경계를 끌어 열 너비 조절 (엑셀처럼), 너비는 브라우저에 기억
+  const t=box.querySelector('table'); if(!t) return;
+  const ths=[...t.querySelectorAll('thead th')]; let saved=null;
+  try{saved=JSON.parse(localStorage.getItem('cw-'+key));}catch(e){}
+  t.classList.add('measure'); t.style.width='max-content'; t.style.tableLayout='auto';
+  const nat=ths.map(th=>Math.min(Math.max(Math.ceil(th.getBoundingClientRect().width)+6,48),th.textContent.trim()?280:620));
+  const w=saved&&saved.length===ths.length?saved.slice():nat.slice();
+  const cg=document.createElement('colgroup'); w.forEach(x=>{const c=document.createElement('col');c.style.width=x+'px';cg.appendChild(c);}); t.prepend(cg);
+  const total=()=>{t.style.width=w.reduce((a,b)=>a+b,0)+'px';}; t.style.tableLayout='fixed'; t.classList.remove('measure'); total();
+  const save=()=>{try{localStorage.setItem('cw-'+key,JSON.stringify(w));}catch(e){}};
+  ths.forEach((th,i)=>{ const h=document.createElement('span'); h.className='rh'; h.title='드래그: 너비 조절 / 더블클릭: 자동 맞춤'; th.appendChild(h);
+    h.onmousedown=e=>{e.preventDefault();e.stopPropagation();const x0=e.clientX,w0=w[i];
+      const mv=ev=>{w[i]=Math.max(36,w0+ev.clientX-x0);cg.children[i].style.width=w[i]+'px';total();};
+      const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);save();};
+      document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);};
+    h.ondblclick=()=>{w[i]=nat[i];cg.children[i].style.width=w[i]+'px';total();save();}; });
+}
+function resetWidths(){ try{Object.keys(localStorage).filter(k=>k.startsWith('cw-')).forEach(k=>localStorage.removeItem(k));}catch(e){} render(); }
+const uniq=(arr)=>{const c={};arr.forEach(v=>{v=String(v??'').trim();if(v)c[v]=(c[v]||0)+1;});return Object.keys(c).sort((a,b)=>c[b]-c[a]);}; // 많이 쓴 순
+const dl=(id,arr)=>`<datalist id="${id}">${arr.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+// 이미지 붙여넣기 칸(.pz): 클릭 후 Ctrl+V, 이미지 끌어놓기
+const pzHTML=(key,url,hint)=>`<div class="pz" tabindex="0" data-key="${key}">${url?`<img src="${url}">`:''}<span>${hint||'클릭 후 Ctrl+V (이미지 붙여넣기) · 이미지 파일 끌어놓기'}</span></div>`;
+let PZ=null;
+document.addEventListener('focusin',e=>{const z=e.target.closest&&e.target.closest('.pz'); if(z) PZ=z;});
+document.addEventListener('click',e=>{const z=e.target.closest&&e.target.closest('.pz'); if(z){PZ=z;z.focus();}});
+document.addEventListener('paste',async e=>{
+  const z=(PZ&&document.body.contains(PZ))?PZ:document.querySelector('.pz'); if(!z) return;
+  const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/')); if(!it) return;
+  e.preventDefault(); await setPz(z.dataset.key,it.getAsFile()); });
+document.addEventListener('dragover',e=>{const z=e.target.closest&&e.target.closest('.pz'); if(z){e.preventDefault();z.classList.add('over');}});
+document.addEventListener('dragleave',e=>{const z=e.target.closest&&e.target.closest('.pz'); if(z) z.classList.remove('over');});
+document.addEventListener('drop',async e=>{const z=e.target.closest&&e.target.closest('.pz'); if(!z) return; e.preventDefault(); z.classList.remove('over');
+  const f=[...e.dataTransfer.files].find(x=>x.type.startsWith('image/')); if(f) await setPz(z.dataset.key,f);});
+async function setPz(key,file){
+  const url=await fileToDataURL(file,key==='logo'?500:400,key!=='photo');
+  if(key==='photo'){ window._photo=url; const z=document.querySelector('.pz[data-key=photo]'); if(z) z.outerHTML=pzHTML('photo',url,'사진 적용됨 — 저장을 누르세요'); }
+  else { S[key]=url; await saveSettings(); vSettings(); }
+}
+async function pickPhoto(inp){ const f=inp.files[0]; if(f) await setPz('photo',f); }
+
 // ===================== 화면 =====================
 const TABS=[['dash','대시보드'],['welders','용접사'],['records','시험기록(WQT)'],['settings','설정 · 백업']];
 let tab='dash', editRec=null;
@@ -280,20 +329,23 @@ function drawWelders(){
   $('#wlist').innerHTML=`<table class="list"><thead><tr><th></th><th>번호</th><th>성명</th><th>생년월일</th><th>소속</th><th>직무</th><th class="num">상태</th><th class="num">합격 / 시험</th><th></th></tr></thead><tbody>${rows.map(w=>
    `<tr><td>${w.photo?`<img class="thumb" style="height:28px" src="${w.photo}">`:''}</td><td>${esc(w.welderNo)}</td><td>${esc(w.name)}</td><td>${w.birthDate||''}</td><td>${esc(w.company)}</td><td>${esc(w.role)}</td>
    <td class="num"><span class="pill" style="background:${w.status==='재직'?'var(--ok)':w.status==='퇴사'?'#8a94a0':'var(--warn)'}">${w.status}</span></td><td class="num">${ok[w.id]||0} / ${cnt[w.id]||0}</td>
-   <td class="bx"><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">해당하는 용접사가 없습니다.</td></tr>'}</tbody></table>`;
+   <td class="bx"><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm sec" title="소속·직무·출생지·상태를 복사해 새 용접사 등록" onclick="copyWelder(${w.id})">복사</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">해당하는 용접사가 없습니다.</td></tr>'}</tbody></table>`;
+  rz($('#wlist'),'welders');
 }
 function vWelders(){
+  window._photo=null; // null=변경없음, ''=삭제, 문자열=새 사진
   $('#view').innerHTML=`<div class="card"><h2>용접사 등록 / 수정</h2><form id="wf"><input type="hidden" name="id">
    <div class="grid">
     <label>용접사 번호*<input name="welderNo" required placeholder="RM-WD-24001"></label>
     <label>성명*<input name="name" required></label>
     <label>생년월일<input type="date" name="birthDate"></label>
-    <label>출생지 (인증서 표기)<input name="birthPlace" placeholder="SA CHEON"></label>
-    <label>소속<input name="company"></label>
+    <label>출생지 (인증서 표기)<input name="birthPlace" placeholder="SA CHEON" list="dl-place"></label>
+    <label>소속<input name="company" list="dl-company"></label>
     <label>직무<select name="role"><option>용접사</option><option>취부사</option><option>LBW 용접 오퍼레이터</option></select></label>
     <label>상태<select name="status"><option>재직</option><option>퇴사</option><option>미확인</option></select></label>
-    <label>사진<input type="file" name="photo" accept="image/*"></label>
-   </div><div class="row"><button class="b">저장</button><button type="button" class="b sec" onclick="vWelders()">초기화</button></div></form></div>
+    <label>사진 파일<input type="file" name="photo" accept="image/*" onchange="pickPhoto(this)"></label>
+    <div><div style="font-size:12px;color:var(--mute);margin-bottom:3px">사진 붙여넣기</div>${pzHTML('photo',null)}</div>
+   </div>${dl('dl-company',uniq(welders.map(w=>w.company)))}${dl('dl-place',uniq(welders.map(w=>w.birthPlace)))}<div class="row"><button class="b">저장</button><button type="button" class="b sec" onclick="vWelders()">초기화</button></div></form></div>
    <div class="card"><h2 id="wtitle">용접사 목록</h2>
    <div class="row" style="margin:0 0 8px">
     <input id="wq" placeholder="번호 / 성명 / 소속 검색" style="min-width:220px" value="${esc(window._wq||'')}" oninput="window._wq=this.value;drawWelders()">
@@ -308,10 +360,11 @@ function vWelders(){
     const id=o.id?+o.id:undefined; const old=id?welders.find(w=>w.id===id):{};
     if(welders.some(w=>w.welderNo===o.welderNo.trim()&&w.id!==id)) return alert('이미 등록된 용접사 번호입니다.');
     const w={...old,welderNo:o.welderNo.trim(),name:o.name.trim(),birthDate:o.birthDate,birthPlace:o.birthPlace,company:o.company,role:o.role,status:o.status};
-    if(id) w.id=id; const file=fd.get('photo'); if(file&&file.size) w.photo=await fileToDataURL(file,400);
+    if(id) w.id=id; if(window._photo!==null&&window._photo!==undefined){ if(window._photo) w.photo=window._photo; else delete w.photo; }
     await DB.put('welders',w); await load(); vWelders();};
 }
-function editWelder(id){const w=welders.find(x=>x.id===id),f=$('#wf');for(const k of ['id','welderNo','name','birthDate','birthPlace','company','role','status']) f.elements[k].value=w[k]??'';scrollTo(0,0);}
+function editWelder(id){const w=welders.find(x=>x.id===id),f=$('#wf');for(const k of ['id','welderNo','name','birthDate','birthPlace','company','role','status']) f.elements[k].value=w[k]??'';window._photo=null;$('.pz[data-key=photo]').outerHTML=pzHTML('photo',w.photo||null,w.photo?'현재 사진 (새로 붙여넣으면 교체)':null);scrollTo(0,0);}
+function copyWelder(id){const w=welders.find(x=>x.id===id),f=$('#wf');f.reset();f.elements.id.value='';for(const k of ['birthPlace','company','role','status']) f.elements[k].value=w[k]??'';window._photo=null;scrollTo(0,0);f.elements.welderNo.focus();}
 async function delWelder(id){
   const n=records.filter(r=>r.welderId===id).length, w=welders.find(x=>x.id===id);
   if(n){ if(!confirm(`${w.welderNo} ${w.name}: 시험 기록 ${n}건이 있습니다.\n용접사와 시험 기록 ${n}건을 모두 삭제할까요? (되돌릴 수 없음)`)) return;
@@ -319,11 +372,13 @@ async function delWelder(id){
   else if(!confirm(`${w.welderNo} ${w.name} 을(를) 삭제할까요?`)) return;
   await DB.del('welders',id); await load(); vWelders(); }
 async function cleanupWelders(){
-  const used=new Set(records.map(r=>r.welderId));
-  const bad=w=>/[\uFFFD\u0000-\u0008]/.test(w.name+w.welderNo+(w.company||''))||String(w.welderNo).length<3||!String(w.name).trim();
-  const del=welders.filter(w=>!used.has(w.id)&&bad(w));
+  const cnt={}; records.forEach(r=>cnt[r.welderId]=(cnt[r.welderId]||0)+1);
+  const garbled=w=>/[�\u0000-\u0008]/.test(w.name+w.welderNo+(w.company||''));
+  const del=welders.filter(w=>garbled(w)||(!cnt[w.id]&&(String(w.welderNo).length<3||!String(w.name).trim())));
   if(!del.length) return alert('깨진 데이터로 보이는 용접사가 없습니다.');
-  if(!confirm(`깨진 데이터로 보이는 용접사 ${del.length}명을 삭제합니다.\n(시험 기록이 없고, 이름/번호에 깨진 문자가 있거나 번호가 3자 미만인 항목)\n예: ${del.slice(0,3).map(w=>w.welderNo).join(', ')}\n되돌릴 수 없습니다. 계속할까요?`)) return;
+  const nrec=del.reduce((a,w)=>a+(cnt[w.id]||0),0);
+  if(!confirm(`깨진 데이터로 보이는 용접사 ${del.length}명을 삭제합니다.\n(이름/번호에 깨진 문자가 있거나, 기록 없이 번호가 3자 미만인 항목)\n${nrec?`※ 이 용접사들에 붙은 시험 기록 ${nrec}건도 함께 삭제됩니다.\n`:''}예: ${del.slice(0,3).map(w=>w.welderNo).join(', ')}\n\n되돌릴 수 없습니다. 계속할까요?`)) return;
+  for(const r of records.filter(r=>del.some(w=>w.id===r.welderId))) await DB.del('records',r.id);
   for(const w of del) await DB.del('welders',w.id); await load(); vWelders(); }
 
 // ---------- 가져오기 (xlsx는 브라우저 내장 DecompressionStream으로 직접 해석, 외부 라이브러리 없음) ----------
@@ -480,12 +535,21 @@ function drawRecs(){
    <th class="num">VT</th><th class="num">RT/UT</th><th class="num">Bend/Macro</th><th class="num">판정</th><th>만료일</th><th class="num">서명</th><th></th></tr></thead><tbody>${rows.slice(RF.page*PAGE,RF.page*PAGE+PAGE).map(({r,w,st})=>{const T=r.tests||{};
    return `<tr><td>${r.weldingDate}</td><td>${esc(w.name)} <small style="color:var(--mute)">${esc(w.welderNo)}</small></td><td class="num">${r.joint}</td><td>${esc(r.process)}</td><td class="num">${fmtN(r.thickness)}</td><td class="num">${esc(r.position)}</td><td>${esc(r.fillerGroup)}</td>
    <td class="num">${mk3(T.vt)}</td><td class="num">${mk3(T.rtut)}</td><td class="num">${mk3(r.joint==='BW'?T.bend:T.macro)}</td><td class="num">${pill(st)}</td><td>${calcExpire(r.weldingDate)}</td><td class="num">${(r.renewals||[]).length}/5</td>
-   <td class="bx"><button class="b sm sec" onclick="editR(${r.id})">수정</button>
+   <td class="bx"><button class="b sm sec" onclick="editR(${r.id})">수정</button> <button class="b sm sec" title="같은 조건으로 새 기록 만들기" onclick="copyRec(${r.id})">복사</button>
    ${st==='pass'?`<button class="b sm" onclick="showCert(${r.id})">인증서</button> <button class="b sm sec" onclick="addRenewal(${r.id})">6개월 서명</button>`:''}
    <button class="b sm red" onclick="delRec(${r.id})">삭제</button></td></tr>`;}).join('')||'<tr><td colspan="14" style="color:var(--mute)">조건에 맞는 기록이 없습니다.</td></tr>'}</tbody></table>`;
+  rz($('#rlist'),'records');
   $('#rpager').innerHTML=pages>1?`<button class="b sm sec" ${RF.page?'':'disabled'} onclick="RF.page--;drawRecs()">← 이전</button><span>${RF.page+1} / ${pages} 페이지</span><button class="b sm sec" ${RF.page<pages-1?'':'disabled'} onclick="RF.page++;drawRecs()">다음 →</button>`:'';
 }
-function newRec(){ if(!welders.length) return alert('먼저 용접사를 등록하세요.'); editRec={...FIELDS_DEFAULT,tests:{},renewals:[],welderId:welders[0].id}; vRecords(); }
+const COND=['project','wpsNo','process','productType','pipeDiameter','joint','transfer','fillerGroup','fillerType','materialGroup','gas','backing','thickness','deposited','position'];
+function newRec(){ if(!welders.length) return alert('먼저 용접사를 등록하세요.');
+  const last=[...records].sort((a,b)=>b.id-a.id)[0]; // 직전에 입력한 기록의 조건을 기본값으로
+  editRec={...FIELDS_DEFAULT,...(last?Object.fromEntries(COND.map(k=>[k,last[k]])):{}),tests:{},renewals:[],welderId:last?last.welderId:welders[0].id}; vRecords(); }
+function copyRec(id){ const r=records.find(x=>x.id===id);
+  editRec={...FIELDS_DEFAULT,...Object.fromEntries(COND.map(k=>[k,r[k]])),welderId:r.welderId,weldingDate:today(),tests:{},renewals:[],refNo:'',issueDate:''}; vRecords(); }
+function condList(){ // 기존 기록의 시험 조건 조합 (자주 쓴 순)
+  const m=new Map(); for(const r of records){const k=COND.map(c=>r[c]).join('|'); const e=m.get(k)||{r,n:0}; e.n++; m.set(k,e);}
+  return [...m.values()].sort((a,b)=>b.n-a.n).slice(0,60); }
 function editR(id){editRec=JSON.parse(JSON.stringify(records.find(r=>r.id===id)));vRecords();}
 async function delRec(id){if(confirm('삭제할까요?')){await DB.del('records',id);await load();vRecords();}}
 async function addRenewal(id){const r=records.find(x=>x.id===id);r.renewals=r.renewals||[];
@@ -495,24 +559,29 @@ async function addRenewal(id){const r=records.find(x=>x.id===id);r.renewals=r.re
 function sel(name,opts,val){return `<select name="${name}">${opts.map(o=>{const [v,l]=Array.isArray(o)?o:[o,o];return `<option value="${esc(v)}" ${String(v)===String(val)?'selected':''}>${esc(l)}</option>`}).join('')}</select>`;}
 function vRecForm(){
   const r=editRec, T=r.tests||{}, R3=[['na','미실시'],['pass','Pass'],['fail','Fail']];
-  $('#view').innerHTML=`<form id="rf"><div class="card"><h2>${r.id?'시험 기록 수정':'새 시험 기록 (WQT)'}</h2><div class="grid">
+  const CL=condList();
+  $('#view').innerHTML=`<form id="rf"><div class="card"><h2>${r.id?'시험 기록 수정':'새 시험 기록 (WQT)'}</h2>
+   <div class="row" style="margin:0 0 10px"><label style="flex:1;max-width:640px">기존 기록의 시험 조건 불러오기 (프로젝트·공정·형상·두께·자세·용가재 등)
+    <select id="cond"><option value="">— 선택하면 아래 조건이 채워집니다 (용접사·용접일·검사결과는 유지) —</option>${CL.map((x,i)=>`<option value="${i}">${esc(x.r.project||'(프로젝트 없음)')} · ${x.r.joint} ${esc(x.r.process)} t${fmtN(x.r.thickness)} ${esc(x.r.position)} ${esc(x.r.fillerGroup)} (${x.n}건)</option>`).join('')}</select></label></div>
+   ${dl('dl-project',uniq(records.map(x=>x.project)))}${dl('dl-wps',uniq(records.map(x=>x.wpsNo)))}${dl('dl-fg',uniq(records.map(x=>x.fillerGroup)))}${dl('dl-gas',uniq(records.map(x=>x.gas)))}${dl('dl-pos',uniq(records.map(x=>x.position)))}
+   <div class="grid">
    <label>용접사*<select name="welderId">${welders.map(w=>`<option value="${w.id}" ${w.id===r.welderId?'selected':''}>${esc(w.welderNo)} · ${esc(w.name)}</option>`).join('')}</select></label>
    <label>시험재 용접일자*<input type="date" name="weldingDate" value="${r.weldingDate}" required></label>
-   <label>프로젝트/제작품목<input name="project" value="${esc(r.project)}"></label>
-   <label>WPS No.<input name="wpsNo" value="${esc(r.wpsNo)}" placeholder="WPS-RM013"></label>
+   <label>프로젝트/제작품목<input name="project" value="${esc(r.project)}" list="dl-project"></label>
+   <label>WPS No.<input name="wpsNo" value="${esc(r.wpsNo)}" placeholder="WPS-RM013" list="dl-wps"></label>
    <label>용접방법<select name="process">${['135 MAG','136 FCAW','141 TIG','111 MMA','121 SAW','521 LBW'].map(x=>`<option ${x===r.process?'selected':''}>${x}</option>`).join('')}</select></label>
    <label>판재/파이프${sel('productType',[['P','P (판재)'],['T','T (파이프)']],r.productType)}</label>
    <label>파이프 외경 D(mm)<input type="number" step="any" name="pipeDiameter" value="${r.pipeDiameter}"></label>
    <label>용접 유형${sel('joint',['BW','FW'],r.joint)}</label>
    <label>용접 이행${sel('transfer',[['globular/spray','Globular/Spray'],['short','Short circuit'],['pulsed','Pulsed']],r.transfer)}</label>
-   <label>용가재 그룹<input name="fillerGroup" value="${esc(r.fillerGroup)}"></label>
+   <label>용가재 그룹<input name="fillerGroup" value="${esc(r.fillerGroup)}" list="dl-fg"></label>
    <label>용가재 종류${sel('fillerType',['S','M','B'],r.fillerType)}</label>
    <label>재질 그룹 (Material Group)<input name="materialGroup" value="${esc(r.materialGroup)}" placeholder="1.1"></label>
-   <label>보호가스<input name="gas" value="${esc(r.gas)}"></label>
+   <label>보호가스<input name="gas" value="${esc(r.gas)}" list="dl-gas"></label>
    <label>배킹${sel('backing',['ss nb','ss mb','bs','N/A'],r.backing)}</label>
    <label>시험재 두께 t (mm)<input type="number" step="any" name="thickness" value="${r.thickness}" required></label>
    <label>용접 두께 s (mm)<input type="number" step="any" name="deposited" value="${r.deposited}"></label>
-   <label>용접 자세<input name="position" value="${esc(r.position)}" placeholder="PA / PC / PF ..."></label></div>
+   <label>용접 자세<input name="position" value="${esc(r.position)}" placeholder="PA / PC / PF ..." list="dl-pos"></label></div>
   <h3>검사 결과</h3><div class="grid">
    <label>VT 육안${sel('vt',R3,T.vt||'na')}</label><label>RT/UT 체적${sel('rtut',R3,T.rtut||'na')}</label>
    <label>Bend 굽힘${sel('bend',R3,T.bend||'na')}</label><label>Macro 단면${sel('macro',R3,T.macro||'na')}</label>
@@ -536,6 +605,8 @@ function vRecForm(){
      `<table class="range" style="width:100%"><tr><th align=left>항목</th><th align=left>시험 조건</th><th align=left>승인 범위</th><th align=left>근거</th></tr>${res.items.map(x=>
      `<tr><td>${esc(x.label)}</td><td>${esc(x.test)}</td><td><b>${esc(x.range)}</b></td><td><small>${esc(x.source)}</small> ${x.confidence==='check'?'<span class="chk">⚠ 원문 대조</span>':''}</td></tr>`).join('')}</table>`;};
   f.oninput=upd; f.onchange=upd; upd();
+  $('#cond').onchange=e=>{ if(e.target.value==='') return; const src=CL[+e.target.value].r;
+    editRec={...collect(),...Object.fromEntries(COND.map(k=>[k,src[k]]))}; vRecForm(); };
   f.onsubmit=async e=>{e.preventDefault();const c=collect();
     if(!c.refNo){const n=records.filter(x=>x.welderId===c.welderId&&x.id!==c.id).length+1;
       c.refNo=`${S.refPrefix}-${n}-${processCode(c.process)}-T${fmtN(c.thickness)}-${c.joint}-${c.position}`;}
@@ -603,9 +674,12 @@ function vSettings(){
    <label>회사 로고 ${S.logo?`<img class="thumb" src="${S.logo}">`:''}<input type="file" name="logo" accept="image/*"></label>
    <label>서명 이미지 (투명 PNG 권장) ${S.signature?`<img class="thumb" src="${S.signature}">`:''}<input type="file" name="signature" accept="image/*"></label>
    <label>직인/도장 이미지 (투명 PNG 권장) ${S.stamp?`<img class="thumb" src="${S.stamp}">`:''}<input type="file" name="stamp" accept="image/*"></label></div>
+   <h3>이미지 붙여넣기 (칸을 클릭한 뒤 Ctrl+V 또는 이미지 끌어놓기 — 바로 저장됩니다)</h3>
+   <div class="grid">${['logo','signature','stamp'].map(k=>`<div><div style="font-size:12px;color:var(--mute);margin-bottom:3px">${{logo:'회사 로고',signature:'서명',stamp:'직인/도장'}[k]}</div>${pzHTML(k,S[k],'클릭 후 Ctrl+V')}</div>`).join('')}</div>
    <label style="flex-direction:row;align-items:center;gap:8px;margin-top:10px;color:var(--ink)"><input type="checkbox" name="strict" ${S.strict?'checked':''}>
    사내 엄격 기준 사용 (BW: VT+RT/UT+Bend 모두 Pass, FW: VT+Macro Pass). 해제 시 ISO 9606-1 Table 1 기준(BW: VT + RT/UT 또는 Bend/Fracture)</label>
    <div class="row"><button class="b">저장</button></div></form></div>
+  <div class="card"><h2>표시</h2><button class="b sec" onclick="resetWidths()">표 열 너비 초기화</button> <small style="color:var(--mute)">표 머리글 경계를 드래그해서 열 너비를 조절할 수 있습니다 (브라우저에 저장).</small></div>
   <div class="card"><h2>백업 / 복원</h2><div class="row"><button class="b" onclick="exportAll()">JSON 백업 다운로드</button>
    <input type="file" accept=".json" onchange="importAll(this.files[0])"><small style="color:var(--mute)">복원하면 현재 데이터가 모두 대체됩니다.</small></div>
    <p style="color:var(--mute)">데이터는 이 브라우저(IndexedDB)에만 저장됩니다. 브라우저 데이터를 지우면 사라지므로 주기적으로 백업하세요.</p></div>`;
