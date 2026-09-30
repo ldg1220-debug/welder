@@ -77,7 +77,13 @@ table.list th{background:#eef2f6;font-size:12px}
 .cert .rt{flex:1;position:relative}.cert .sigbox{position:absolute;right:0;top:3mm;width:44mm;height:19mm}
 .cert .sigbox .stamp{position:absolute;left:0;top:0;height:18mm;opacity:.92}.cert .sigbox .sign{position:absolute;left:21mm;top:2mm;height:14mm;max-width:23mm}
 .cert .prol{display:flex;gap:4mm;margin-top:1.5mm}.cert .prol table{flex:1}
-.cert+.cert{margin-top:14px}
+.wdoc{width:210mm;min-height:297mm;padding:8mm 9mm;background:#fff;color:#000;font:8.6pt/1.35 "Malgun Gothic",Arial,sans-serif;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.wdoc table{width:100%;border-collapse:collapse;margin-bottom:2mm}.wdoc td,.wdoc th{border:1px solid #000;padding:1.5mm 2mm;vertical-align:top}.wdoc th{background:#f2f2f2;font-size:8.5pt}
+.wdoc .wh{display:flex;justify-content:space-between;align-items:center;border:1px solid #000;padding:2mm 4mm;margin-bottom:2mm}.wdoc .wt b{display:block;font-size:15pt}.wdoc .wt span{font-size:10pt;font-weight:700}
+.wdoc .wc{text-align:right;font-weight:700}.wdoc .wc img{max-height:13mm;display:block;margin-left:auto}.wdoc .wl{margin:.6mm 0}.wdoc .val{color:#1a33d6;font-weight:700}
+.wdoc .sk{height:42mm;text-align:center}.wdoc .sk img{max-height:40mm;max-width:100%}.wdoc .wp td{text-align:center;height:6mm;padding:.5mm 1mm}.wdoc .wsig{position:relative;margin-top:6mm;min-height:24mm;text-align:left;padding-left:2mm}
+.wdoc .wsig .stamp{position:absolute;left:38mm;top:0;height:16mm;opacity:.9}.wdoc .wsig .sign{position:absolute;left:56mm;top:2mm;height:13mm;max-width:24mm}
+.cert+.cert,.wdoc+.wdoc{margin-top:14px}
 .cert .wm{position:absolute;left:0;right:0;top:105mm;text-align:center;font-size:40pt;font-weight:900;color:rgba(200,0,0,.14);transform:rotate(-22deg);pointer-events:none;z-index:3}
 @media print{
   @page{size:A4;margin:0}
@@ -87,12 +93,13 @@ table.list th{background:#eef2f6;font-size:12px}
   #modal .sheet{margin:0;box-shadow:none;width:auto}
   #modalBody{zoom:1!important}
   .cert{break-after:page;page-break-after:always}.cert:last-child{break-after:auto;page-break-after:auto}.cert+.cert{margin-top:0}
+  .wdoc{break-after:page}.wdoc:last-child{break-after:auto}.wdoc+.wdoc{margin-top:0}
 }
 </style>
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v24 · 용접사별 인증서</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v28 · WPS 작성</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -334,6 +341,7 @@ function syncSettingsForm(){ const f=$('#sf'); if(!f) return; const fd=new FormD
   for(const k of ['company','team','examiner','location','standardLabel','refPrefix','examBody','refSeqMode']) if(fd.has(k)) S[k]=fd.get(k); S.strict=fd.get('strict')==='on'; S.impliedVT=fd.get('impliedVT')==='on'; }
 async function setPz(key,file){
   try{
+    if(key.startsWith('wps:')&&WD){ const url=await fileToDataURL(file,900,true); collectDoc(); WD.obj.sketches[key.slice(4)]=url; vWpsDoc(); toast('스케치를 적용했습니다. 저장을 눌러 확정하세요.',3000); return; }
     const url=await fileToDataURL(file,key==='logo'?500:400,key!=='photo');
     if(key==='photo'){ window._photo=url; const z=document.querySelector('.pz[data-key=photo]'); if(z) z.outerHTML=pzHTML('photo',url,'사진 적용됨 — 저장을 누르세요'); return; }
     syncSettingsForm(); // 입력 중이던 텍스트가 사라지지 않게
@@ -661,7 +669,7 @@ function parseWpsLists(sheets){
       if(isWps){
         const no=nz(g('wps')); if(!/^p?WPS/i.test(no)) continue;
         const pos=nz(g('pos')), thk=nz(g('thk')), pr=nz(g('proc')), [mn,mx]=thkOf(thk);
-        items.push({wpsNo:no,kind:/^pWPS/i.test(no)||/pwps/i.test(sh.name)?'pWPS':'WPS',rev:nz(g('rev')),revDate:g('revd')!==undefined?(dmy(g('revd'))||''):'',pqrNos:nz(g('pqr')).split(/[\/,]/).map(nz).filter(Boolean),materialGroup:nz(g('mat')),weldType:nz(g('type')).toUpperCase(),
+        items.push({wpsNo:no,kind:/^pWPS/i.test(no)||/pwps/i.test(sh.name)?'pWPS':'WPS',rev:nz(g('rev')),revDate:g('revd')!==undefined?(dmy(g('revd'))||''):'',pqrNos:nz(g('pqr')).split(/[\/,]/).map(nz).filter(Boolean),materialGroup:nz(g('mat')),weldType:nz(g('type')).toUpperCase().replace(/^T-?BW$/,'T-BUTT'),
           process:pr,procCodes:procCodesOf(pr),position:pos,positions:positionsOf(pos),thk,thkMin:mn,thkMax:mx,backing:nz(g('det')),pwht:nz(g('pwht')),part:nz(g('part')),remarks:nz(g('rem')),status:/예비/.test(nz(g('part')))?'예비':'사용'});
       } else {
         const no=nz(g('pqr')); if(!/^PQR|^\d{6,}/i.test(no)) continue;
@@ -681,11 +689,51 @@ async function importWpsLists(wl){
   if(wl.pqr.length) await DB.putMany('pqr',wl.pqr.map(m=>({...(byP.get(m.pqrNo.toUpperCase())||{}),...m})));
   await load(); WF.view=wl.wps.length?'wps':'pqr'; alert(`완료: WPS/pWPS ${wl.wps.length}건, PQR ${wl.pqr.length}건 반영`); go('wps');
 }
+// ---------- WPS 양식(시트별 1장) 엑셀 -> WPS 마스터의 '양식 상세' ----------
+const wpsNoOf=n=>{ const m=String(n||'').match(/RM0*(\d+)/i); return m?'WPS-RM'+String(+m[1]).padStart(3,'0'):String(n||'').trim(); };
+const dotDate=t=>{ const m=String(t||'').trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/); if(!m) return ''; let d=+m[1],mo=+m[2]; if(mo>12&&d<=12) [d,mo]=[mo,d]; const dt=new Date(Date.UTC(+m[3],mo-1,d)); return dt.getUTCMonth()===mo-1?dt.toISOString().slice(0,10):''; };
+function parseWpsForms(sheets){
+  const out=[];
+  for(const sh of sheets){
+    const strs=[]; sh.rows.forEach((row,ri)=>row&&row.forEach((v,ci)=>{ if(typeof v==='string'&&v.trim()) strs.push({ri,ci,v}); }));
+    const all=strs.map(c=>c.v).join('\n');
+    if(!/Welding Procdure Specification/i.test(all)||/pre-Welding/i.test(all)||!/WPS No\.\s*:/i.test(all)) continue;
+    const lines=all.split(/\n/).map(l=>l.trim()).filter(Boolean);
+    const val=re=>{ for(const l of lines){ const m=l.match(re); if(m) return (m[1]||'').trim(); } return ''; };
+    const after=re=>{ const i=lines.findIndex(l=>re.test(l)); return i>=0&&lines[i+1]?lines[i+1].trim():''; };
+    const bodyNo=val(/WPS No\.\s*:\s*(\S+)/), sheetNo=/^\s*\d+\s*$/.test(sh.name)?wpsNoOf('RM'+sh.name.trim()):'';
+    const no=sheetNo||wpsNoOf(bodyNo), pqrs=[];
+    const pw=lines.filter(l=>/^\d\)\s*/.test(l)&&/[:：]/.test(l)).map(l=>l.replace(/\s*[:：]\s*/,': '));
+    const dates=strs.map(c=>dotDate(c.v)).filter(Boolean), signer=(strs.find(c=>/Donggeon|Lee\s+D/i.test(c.v))||{v:''}).v.trim(), rev=(strs.find(c=>/^Rev\.?\s*\S+/i.test(c.v.trim()))||{v:''}).v.trim().replace(/^Rev\.?\s*/i,'');
+    out.push({sheet:sh.name.trim(),wpsNo:no,bodyNo:wpsNoOf(bodyNo),rev,pqr:val(/WPQR No\.\s*:\s*(\S+)/),
+      form:{codeStd:val(/^관련 코드\s*(.+)$/),manufacturer:val(/manufacturer\s*:\s*(.+)$/),processIso:val(/Weld Type\s*:\s*(.+)$/),jointType:val(/Joint Type\s*:\s*(.+)$/),positionIso:val(/Welding Position\s*:\s*(.+)$/),transfer:val(/Mode of metal transfer\s*:\s*(.+)$/),
+        prep:val(/Method of Preparation and Cleaning\s*:\s*(.+)$/),parentSpec:after(/Parent Material Specification/),thickness:val(/Material Thickness\(mm\)\s*:\s*(.+)$/),weldMetalThk:val(/Weld Metal Thickness\(mm\)\s*:\s*(.+)$/),throatThk:val(/Th[a-z]*oat Thickness\(mm\)\s*:\s*(.+)$/),legZ:val(/※\s*각장\s*:?\s*(.+)$/),pipeDia:val(/Outside Pipe Diameter\(mm\)\s*:\s*(.+)$/),
+        filler:after(/Filler Metal Designation/),gas:val(/Gas\/Flux\s*:\s*(.+)$/),gasFlow:val(/Gas Flow Rate\s*:\s*(.+)$/),tungsten:val(/Tungsten Electrode Type \/ Size\s*:\s*(.+)$/),backingDetail:val(/Details of back gouging\/backing\s*:\s*(.+)$/),preheat:val(/Preheat Temperature\s*:\s*(.+)$/),interpass:val(/Interpass temperature\s*:\s*(.+)$/),
+        pwht:val(/Post-Weld Heat Treatment\s*:\s*(.*)$/),pwhtDetail:pw.join('\n'),weaving:val(/^Weaving\s*:\s*(.+)$/),oscillation:val(/^Oscillation\s*:\s*(.+)$/),pulse:val(/Pulse welding details\s*:\s*(.+)$/),ctwd:val(/Distance contact tube\/Work piece\s*:\s*(.+)$/),torch:val(/Torch angle\s*:\s*(.+)$/),
+        signer,signDate:dates[0]||'',firstDate:dates[1]||''},
+      rawRev:rev});
+  }
+  return out;
+}
+async function importWpsForms(forms){
+  const conflicts=forms.filter(f=>f.bodyNo&&f.bodyNo!==f.wpsNo).map(f=>`시트 ${f.sheet}: 본문 ${f.bodyNo} → 시트 번호 기준 ${f.wpsNo}`);
+  const seen=new Set(), dup=[]; const uniq=forms.filter(f=>{ if(seen.has(f.wpsNo)){dup.push(f.wpsNo);return false;} seen.add(f.wpsNo); return true; });
+  const match=uniq.filter(f=>wpsFind(f.wpsNo)).length, fresh=uniq.length-match;
+  const filled=k=>uniq.filter(f=>f.form[k]).length;
+  if(!confirm(`WPS 양식 ${uniq.length}장 인식 (시트 번호를 WPS 번호로 사용)\n\nWPS 마스터와 일치해 양식 내용을 채움: ${match}건\n마스터에 없어 새로 등록: ${fresh}건\n\n항목 인식률: 용접방법 ${filled('processIso')} · 용가재 ${filled('filler')} · 보호가스 ${filled('gas')} · 예열 ${filled('preheat')} · 두께 ${filled('thickness')} / ${uniq.length}\n${conflicts.length?`\n번호 확인 ${conflicts.length}건 (본문 번호가 시트와 다름):\n${conflicts.slice(0,5).join('\n')}${conflicts.length>5?'\n…':''}\n`:''}${dup.length?`\n중복 번호로 건너뜀: ${dup.join(', ')}\n`:''}\n용접 조건표(패스별)·스케치는 가져오지 않습니다. 가져올까요?`)) return;
+  const up=[];
+  for(const f of uniq){ const cur=wpsFind(f.wpsNo);
+    const codeOf=t=>(String(t).match(/\b\d{2,3}\b/)||[''])[0];
+    const base=cur||{wpsNo:f.wpsNo,kind:'WPS',rev:f.rawRev,revDate:'',pqrNos:f.pqr?[f.pqr]:[],materialGroup:(f.form.parentSpec.match(/\d+\.\d+(?:~\d+\.\d+)?/)||[''])[0],weldType:/fillet/i.test(f.form.jointType)?'FW':/t-?butt/i.test(f.form.jointType)?'T-BUTT':'BW',process:codeOf(f.form.processIso)?codeOf(f.form.processIso)+({135:'(MAG)',141:'(TIG)'}[codeOf(f.form.processIso)]||''):'',procCodes:[codeOf(f.form.processIso)].filter(Boolean),position:f.form.positionIso.split('[')[0].trim().toUpperCase(),positions:positionsOf(f.form.positionIso),thk:f.form.thickness?f.form.thickness.replace(/\s/g,'').replace(/(\d+(?:\.\d+)?)~(\d+(?:\.\d+)?)/,'$1≤T≤$2'):'',backing:'',pwht:f.form.pwht,part:'',remarks:'',status:'사용'};
+    if(!cur){ const [mn,mx]=thkOf(base.thk); base.thkMin=mn; base.thkMax=mx; }
+    up.push({...base,form:{...(base.form||{}),...Object.fromEntries(Object.entries(f.form).filter(([,v])=>v!==''))},params:base.params||[],sketches:base.sketches||{}}); }
+  await DB.putMany('wps',up); await load(); alert(`완료: WPS 양식 ${up.length}건 반영 (신규 ${fresh}건)`); go('wps');
+}
 async function importXlsx(buf){
   const sheets=await readXlsx(buf), certs=parseCerts(sheets);
   if(certs.length) return importCerts(certs);   // 발행된 인증서(시트별 1장) 엑셀
   const wl=parseWpsLists(sheets); if(wl.wps.length||wl.pqr.length) return importWpsLists(wl);   // WPS / WPQR 목록
-  if(sheets.some(sh=>(sh.rows.flat().some(v=>/WELDING PROCEDURE QUALIFICATION RECORD|Welding Procdure Specification/i.test(String(v)))))) return alert('이 파일은 WPS/PQR 양식 파일입니다. 목록 파일(List of WPS / List of WPQR)을 올려주세요. (양식의 용접조건 가져오기는 아직 지원하지 않습니다.)');
+  const wf=parseWpsForms(sheets); if(wf.length) return importWpsForms(wf);   // WPS 양식(시트 1장 = WPS 1개)
   const {W,R,info}=mapWorkbook(sheets);
   if(!W.length&&!R.length) return alert('용접사 명단/시험 기록 시트를 찾지 못했습니다.\n(필요한 머리글: 용접사 No, 성명, 소속 / Process, 시편 형태 등)');
   const have=new Set(welders.map(w=>normNo(w.welderNo))), newW=W.filter((w,i)=>!have.has(w.welderNo)&&W.findIndex(x=>x.welderNo===w.welderNo)===i);
@@ -782,7 +830,7 @@ const wpsFind=no=>{const k=String(no||'').trim().toUpperCase(); return k?wpsMast
 const pqrFind=no=>{const k=String(no||'').trim().toUpperCase(); return k?pqrMaster.find(m=>m.pqrNo.toUpperCase()===k)||null:null;};
 function wpsCover(m,r){ // 시험 조건이 WPS 적용 범위에 들어오는지 -> 벗어난 사유 목록
   const why=[]; if(!m) return why;
-  if(m.weldType&&r.joint&&m.weldType!==r.joint&&!(m.weldType==='T-BUTT'&&r.joint==='FW')) why.push(`형식 ${m.weldType} ≠ ${r.joint}`);
+  if(m.weldType&&r.joint&&wt(m.weldType)!==r.joint&&!(wt(m.weldType)==='T-BUTT'&&r.joint==='FW')) why.push(`형식 ${m.weldType} ≠ ${r.joint}`);
   if((m.procCodes||[]).length&&!m.procCodes.includes(processCode(r.process))) why.push(`공정 ${m.process} ≠ ${r.process}`);
   const pos=String(r.position||'').toUpperCase(); if((m.positions||[]).length&&!m.positions.includes('ALL')&&pos&&!m.positions.includes(pos)) why.push(`자세 ${m.position}에 ${pos} 없음`);
   if(m.thkMin!=null&&m.thkMax!=null&&r.thickness>0&&(r.thickness<m.thkMin-1e-9||r.thickness>m.thkMax+1e-9)) why.push(`두께 ${m.thk} 밖 (t${fmtN(r.thickness)})`);
@@ -795,6 +843,7 @@ function wpsCell(r){ const no=(r.wpsNo||'').trim(); if(!no) return ''; const m=w
   return esc(no)+(why.length?` <span class="wn" title="${esc('WPS 범위 밖 의심: '+why.join(' / '))}">⚠</span>`:(!m&&wpsMaster.length?` <span class="wn" title="WPS 마스터에 없는 번호">?</span>`:'')); }
 
 function vWps(){
+  if(WF.doc) return vWpsDoc();
   $('#view').innerHTML=`<div class="card"><div class="row" style="margin:0"><h2 id="wtitle2" style="margin:0;flex:1"></h2>
     <button class="b ${WF.view==='wps'?'':'sec'}" onclick="WF.view='wps';WF.edit=null;vWps()">WPS 마스터</button>
     <button class="b ${WF.view==='pqr'?'':'sec'}" onclick="WF.view='pqr';WF.edit=null;vWps()">PQR / WPQR</button>
@@ -811,7 +860,7 @@ function vWps(){
   for(const [id,k] of [['wused','onlyUsed'],['wwarn','onlyWarn'],['wpass','onlyPass']]){ const el=$('#'+id); if(el) el.onchange=e=>{WF[k]=e.target.checked;drawWps();}; }
   drawWps();
 }
-function drawWps(){ WF.view==='pqr'?drawPqr():drawWpsMaster(); drawWform(); }
+function drawWps(){ if(WF.doc||!$('#wtitle2')) return; WF.view==='pqr'?drawPqr():drawWpsMaster(); drawWform(); }
 function usageMap(){ // WPS 번호(대문자) -> 사용 기록
   const wm=new Map(welders.map(w=>[w.id,w])), g=new Map();
   for(const r of records){ const st=recStatus(r); if(WF.onlyPass&&st!=='pass') continue; const k=(r.wpsNo||'').trim().toUpperCase(), m=wpsFind(r.wpsNo), why=m?wpsCover(m,r):[];
@@ -841,12 +890,12 @@ function drawWpsMaster(){
   $('#wpslist').innerHTML=`<table class="list"><thead><tr><th class="num"></th><th>WPS No.</th><th>구분</th><th class="num">Rev</th><th>PQR</th><th>모재</th><th class="num">형식</th><th>공정</th><th>자세</th><th>두께범위</th><th>백킹</th><th>용도</th><th class="num">상태</th><th class="num">기록</th><th class="num">합격</th><th class="num">용접사</th><th class="num">⚠</th><th></th></tr></thead><tbody>${rows.map(x=>{
     const open=WF.open.has(x.key), m=x.m, l=x.list, pass=l.filter(y=>y.st==='pass').length, warn=l.filter(y=>y.why.length).length, k=esc(x.key);
     const name=m?m.wpsNo:(x.key===''?'(WPS 미지정)':x.name);
-    const head=`<tr class="${x.key===''?'gone':''}"><td class="num"><button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(name)}</b></td>
+    const head=`<tr class="${x.key===''?'gone':''}"><td class="num"><button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(name)}</b>${m&&wpsPqrCheck(m).length?` <span class="wn" title="${esc('PQR/양식 점검: '+wpsPqrCheck(m).join(' / '))}">◆</span>`:''}</td>
      <td>${m?m.kind:(x.key===''?'':'<span class="wn">마스터 미등록</span>')}</td><td class="num">${m?esc(m.rev):''}</td><td>${m?esc(m.pqrNos.join(', ')):''}</td><td>${m?esc(m.materialGroup):''}</td><td class="num">${m?esc(m.weldType):esc(uj(l.map(y=>y.r.joint),3))}</td><td>${m?esc(m.process):esc(uj(l.map(y=>y.r.process),3))}</td><td>${m?esc(m.position):esc(uj(l.map(y=>y.r.position),5))}</td><td>${m?esc(m.thk):esc(uj(l.map(y=>fmtN(y.r.thickness)),5))}</td><td>${m?esc(m.backing):''}</td><td title="${m?esc(m.part):''}">${m?esc(m.part.replace(/\s+/g,' ')):''}</td>
      <td class="num">${m?stPill(m.status,m.status==='사용'?'var(--ok)':m.status==='예비'?'var(--warn)':'#8a94a0'):''}</td><td class="num">${l.length}</td><td class="num">${pass}</td><td class="num">${new Set(l.map(y=>y.r.welderId)).size}</td><td class="num">${warn?`<span class="wn">${warn}</span>`:''}</td>
-     <td class="bx">${m?`<button class="b sm sec" onclick="editMaster('wps',${m.id})">수정</button> <button class="b sm red" onclick="delMaster('wps',${m.id})">삭제</button>`:''}</td></tr>`;
+     <td class="bx">${m?`<button class="b sm" onclick="editMaster('wps',${m.id})">편집</button> <button class="b sm sec" onclick="previewWps(${m.id})">양식</button> <button class="b sm sec" onclick="copyWps(${m.id})">복사</button> <button class="b sm red" onclick="delMaster('wps',${m.id})">삭제</button>`:''}</td></tr>`;
     const detail=open?`<tr class="nom"><td></td><td colspan="17" style="padding:0;white-space:normal;overflow:visible;max-width:none"><div style="padding:6px 0 12px">
-      ${m?`<div style="margin:2px 0 8px;color:var(--mute);font-size:12px">개정일 ${m.revDate||'-'} · PWHT ${esc(m.pwht||'-')} · 비고 ${esc(m.remarks||'-')}</div>${pqrMini(m)}<div style="height:8px"></div>`:''}
+      ${m?`${m&&wpsPqrCheck(m).length?`<div class="msg err" style="margin:4px 0">◆ 점검 필요: ${esc(wpsPqrCheck(m).join(' / '))}</div>`:''}<div style="margin:2px 0 8px;color:var(--mute);font-size:12px">개정일 ${m.revDate||'-'} · PWHT ${esc(m.pwht||'-')} · 비고 ${esc(m.remarks||'-')}</div>${pqrMini(m)}<div style="height:8px"></div>`:''}
       <b style="font-size:13px">사용 기록 (${l.length}건)</b>${usageTbl(x)}</div></td></tr>`:'';
     return head+detail;}).join('')||'<tr><td colspan="18" style="color:var(--mute)">표시할 WPS가 없습니다. 오른쪽 위 "WPS/WPQR 목록 엑셀 가져오기"로 WPS 목록을 올리거나 "+ WPS 추가"로 직접 등록하세요.</td></tr>'}</tbody></table>`;
   rz($('#wpslist'),'wps1');
@@ -868,10 +917,10 @@ function drawPqr(){
 }
 // ---- 편집 폼
 const WPS_FIELDS=[['wpsNo','WPS No.*','text'],['kind','구분','sel:WPS,pWPS'],['rev','Rev','text'],['revDate','개정일','date'],['pqr','연결 PQR (쉼표로 구분)','text'],['materialGroup','모재 그룹','text'],['weldType','용접 형식','sel:BW,FW,T-BUTT'],['process','공정 (예: 135(MAG))','text'],['position','자세 (예: ALL, PF, PA or PC)','text'],['thk','두께 범위 (예: 3≤T≤24)','text'],['backing','백킹/Detail','text'],['pwht','PWHT','text'],['part','용도/적용 부위','text'],['status','상태','sel:사용,예비,폐기'],['remarks','비고','text']];
-const PQR_FIELDS=[['pqrNo','PQR No.*','text'],['standard','적용 규격','text'],['materialGroup','모재 그룹','text'],['weldType','용접 형식','sel:BW,FW,T-BUTT'],['process','공정','text'],['position','자세','text'],['thickness','시험 두께(mm)','text'],['weldDate','시험일','date'],['certBody','인증기관','text'],['approval','승인 범위','text'],['remarks','비고','text']];
+const PQR_FIELDS=[['pqrNo','PQR No.*','text'],['standard','적용 규격','text'],['materialGroup','모재 그룹','text'],['weldType','용접 형식','sel:BW,FW,T-BUTT'],['process','공정','text'],['position','자세','text'],['thickness','시험 두께(mm)','text'],['approval','목 두께 a(필릿) / 승인란','text'],['heat','시험 입열량 (kJ/cm, 범위 계산용)','text'],['weldDate','시험일','date'],['certBody','인증기관','text'],['remarks','비고','text']];
 function setWpsField(no){ const f=$('#rf'); f.elements.wpsNo.value=no; f.dispatchEvent(new Event('input',{bubbles:true})); }
-function newMaster(){ WF.edit={type:WF.view,obj:WF.view==='wps'?{kind:'WPS',status:'사용',weldType:'BW',pqrNos:[]}:{standard:'ISO 15614-1',weldType:'BW'}}; drawWps(); scrollTo(0,0); }
-function editMaster(type,id){ WF.edit={type,obj:{...(type==='wps'?wpsMaster:pqrMaster).find(x=>x.id===id)}}; drawWps(); scrollTo(0,0); }
+function newMaster(){ if(WF.view==='wps') return openWpsDoc(null); WF.edit={type:'pqr',obj:{standard:'ISO 15614-1',weldType:'BW'}}; drawWps(); scrollTo(0,0); }
+function editMaster(type,id){ if(type==='wps') return openWpsDoc(id); WF.edit={type,obj:{...pqrMaster.find(x=>x.id===id)}}; drawWps(); scrollTo(0,0); }
 async function delMaster(type,id){ const o=(type==='wps'?wpsMaster:pqrMaster).find(x=>x.id===id), no=type==='wps'?o.wpsNo:o.pqrNo;
   const n=type==='wps'?records.filter(r=>(r.wpsNo||'').trim().toUpperCase()===no.toUpperCase()).length:wpsMaster.filter(m=>m.pqrNos.some(q=>q.toUpperCase()===no.toUpperCase())).length;
   if(!confirm(`${no} 을(를) 삭제할까요?${n?`\n(${type==='wps'?`이 WPS를 쓰는 시험 기록 ${n}건은 번호만 남고 '마스터 미등록'이 됩니다`:`이 PQR을 참조하는 WPS ${n}건은 번호 참조만 남습니다`})`:''}`)) return;
@@ -887,20 +936,154 @@ function drawWform(){
 }
 async function saveMaster(type,old,f){
   if(type==='wps'){
-    const no=f.wpsNo.trim(); if(wpsMaster.some(m=>m.wpsNo.toUpperCase()===no.toUpperCase()&&m.id!==old.id)) return alert('이미 등록된 WPS 번호입니다.');
+    const no=f.wpsNo.trim(); if(wpsMaster.some(m=>m.wpsNo.toUpperCase()===no.toUpperCase()&&m.id!==old.id)){ alert('이미 등록된 WPS 번호입니다.'); return false; }
     const [mn,mx]=thkOf(f.thk), o={...old,wpsNo:no,kind:f.kind,rev:f.rev.trim(),revDate:f.revDate,pqrNos:f.pqr.split(/[\/,]/).map(nz).filter(Boolean),materialGroup:f.materialGroup.trim(),weldType:f.weldType,process:f.process.trim(),procCodes:procCodesOf(f.process),position:f.position.trim(),positions:positionsOf(f.position),thk:f.thk.trim(),thkMin:mn,thkMax:mx,backing:f.backing.trim(),pwht:f.pwht.trim(),part:f.part.trim(),status:f.status,remarks:f.remarks.trim()};
     await DB.put('wps',o);
     if(old.wpsNo&&old.wpsNo!==no){ const ch=records.filter(r=>(r.wpsNo||'').trim().toUpperCase()===old.wpsNo.toUpperCase()); if(ch.length){ await DB.putMany('records',ch.map(r=>({...r,wpsNo:no}))); toast(`번호가 바뀌어 시험 기록 ${ch.length}건의 WPS 번호도 함께 변경했습니다.`,5000); } }
   } else {
-    const no=f.pqrNo.trim(); if(pqrMaster.some(m=>m.pqrNo.toUpperCase()===no.toUpperCase()&&m.id!==old.id)) return alert('이미 등록된 PQR 번호입니다.');
-    await DB.put('pqr',{...old,pqrNo:no,standard:f.standard.trim(),materialGroup:f.materialGroup.trim(),weldType:f.weldType,process:f.process.trim(),position:f.position.trim(),thickness:f.thickness.trim(),weldDate:f.weldDate,certBody:f.certBody.trim(),approval:f.approval.trim(),remarks:f.remarks.trim()});
+    const no=f.pqrNo.trim(); if(pqrMaster.some(m=>m.pqrNo.toUpperCase()===no.toUpperCase()&&m.id!==old.id)){ alert('이미 등록된 PQR 번호입니다.'); return false; }
+    await DB.put('pqr',{...old,pqrNo:no,standard:f.standard.trim(),materialGroup:f.materialGroup.trim(),weldType:f.weldType,process:f.process.trim(),position:f.position.trim(),thickness:f.thickness.trim(),weldDate:f.weldDate,certBody:f.certBody.trim(),approval:f.approval.trim(),heat:(f.heat||'').trim(),remarks:f.remarks.trim()});
     if(old.pqrNo&&old.pqrNo!==no){ const ch=wpsMaster.filter(m=>m.pqrNos.some(q=>q.toUpperCase()===old.pqrNo.toUpperCase())); if(ch.length){ await DB.putMany('wps',ch.map(m=>({...m,pqrNos:m.pqrNos.map(q=>q.toUpperCase()===old.pqrNo.toUpperCase()?no:q)}))); toast(`이 PQR을 참조하는 WPS ${ch.length}건의 참조 번호도 변경했습니다.`,5000); } }
   }
   WF.edit=null; await load(); drawWps();
   if(type==='wps'){ // 방금 저장한 WPS가 추천 대상이 되는 미지정 시험 기록이 있으면 바로 지정할지 묻는다
     const no=f.wpsNo.trim(), cand=records.filter(r=>!(r.wpsNo||'').trim()&&(suggestWps(r)||{}).wpsNo===no);
     if(cand.length&&confirm(`"${no}" 의 적용 범위(형식·공정·자세·두께)에 맞는 WPS 미지정 시험 기록이 ${cand.length}건 있습니다.\n이 WPS를 지정할까요?`)){ await DB.putMany('records',cand.map(r=>({...r,wpsNo:no}))); await load(); drawWps(); toast(`${cand.length}건에 ${no} 를 지정했습니다.`,5000); } }
+  return true;
 }
+// ===================== PQR 기준 승인 범위 / 점검 =====================
+// 규칙은 회사 자료에서 확인된 해석 (EN ISO 15614-1 Level 2 : 2017):  ※ 규격서 원문 확인 필요
+//   맞대기 t≤3: 0.5t~2t / 필릿 t≤3: 0.7t~2t / 3<t≤12: 3~2t / t>12: 0.5t~2t / 레이저: 0.8t~1.2t
+//   목 두께 0.75a~1.5a / 입열량 0.75~1.25배 / 모재 그룹 1.n → 1.1~1.n / 자세 ALL
+const wt=x=>String(x||'').toUpperCase().replace(/^T-?BW$/,'T-BUTT'); // T-BW = T-BUTT
+const numOf=t=>{ const m=String(t??'').match(/\d+(?:\.\d+)?/); return m?+m[0]:null; };
+const r2=x=>Number(Number(x).toFixed(2));
+function pqrApproval(p){
+  const t=numOf(p.thickness), code=procCodesOf(p.process)[0]||'', fw=p.weldType==='FW', laser=/LBW/i.test(p.process)||['52','521','522'].includes(code), o={code,fw,notes:[]};
+  if(/\+/.test(String(p.thickness||''))){ o.notes.push('이종 재료 조합(두께 A + B)은 자동 계산하지 않습니다'); return o; }
+  if(t==null){ o.notes.push('PQR 시험 두께가 없어 범위를 계산할 수 없습니다'); return o; }
+  let lo,hi;
+  if(laser){ lo=.8*t; hi=1.2*t; o.rule='레이저: 0.8t ~ 1.2t'; }
+  else if(t<=3){ lo=(fw?.7:.5)*t; hi=2*t; o.rule=fw?'t≤3 필릿: 0.7t ~ 2t':'t≤3 맞대기: 0.5t ~ 2t'; }
+  else if(t<=12){ lo=3; hi=2*t; o.rule='3<t≤12: 3 ~ 2t'; }
+  else { lo=.5*t; hi=2*t; o.rule='t>12: 0.5t ~ 2t'; }
+  o.tMin=r2(lo); o.tMax=r2(hi); o.t=t;
+  const a=fw?numOf(p.approval):null; if(a){ o.aMin=r2(.75*a); o.aMax=r2(1.5*a); o.a=a; }
+  const gm=String(p.materialGroup||'').trim().match(/^1\.(\d)$/); o.group=gm?`1.1~1.${gm[1]}`:String(p.materialGroup||'').trim();
+  o.pipe=fw?'N/A':'>500 or >150 welded in rotated PA'; o.position='ALL';
+  const H=numOf(p.heat); if(H){ o.heatMin=r2(.75*H); o.heatMax=r2(1.25*H); }
+  return o; }
+function wpsPqrCheck(m){ // WPS 목록/양식이 연결된 PQR 승인 범위 안에 있는지, 목록과 양식이 서로 맞는지
+  const w=[]; const ps=(m.pqrNos||[]).map(pqrFind).filter(Boolean);
+  if(ps.length===1||ps.length===0&&false){ const p=ps[0], ap=pqrApproval(p);
+    if(p.weldType==='FW'&&wt(m.weldType)==='BW') w.push(`FW 시험(${p.pqrNo})으로 BW WPS는 불가`);
+    const pc=procCodesOf(p.process)[0]; if(pc&&(m.procCodes||[]).length&&!m.procCodes.includes(pc)) w.push(`공정 ${m.process} ≠ ${p.pqrNo} ${p.process}`);
+    if(ap.tMin!=null&&m.thkMin!=null&&(m.thkMin<ap.tMin-1e-9||m.thkMax>ap.tMax+1e-9)) w.push(`두께 ${m.thk} 가 ${p.pqrNo}(${p.thickness}t) 승인범위 ${ap.tMin}~${ap.tMax} 초과`); }
+  const f=m.form; if(f){ const fc=procCodesOf(f.processIso)[0]; if(fc&&(m.procCodes||[]).length&&!m.procCodes.includes(fc)) w.push(`목록 공정 ${m.process} ≠ 양식 ${f.processIso.split('[')[0].trim()}`);
+    const ft=/fillet/i.test(f.jointType)?'FW':/t-?butt/i.test(f.jointType)?'T-BUTT':/butt/i.test(f.jointType)?'BW':''; if(ft&&m.weldType&&ft!==wt(m.weldType)) w.push(`목록 형식 ${m.weldType} ≠ 양식 ${f.jointType}`); }
+  return w; }
+
+// ===================== WPS 작성 편집기 =====================
+const DEF_FORM={codeStd:'EN ISO 15614-1 LEVEL 2 : 2017',manufacturer:'Romansys',prep:'Grinding/ Brushing',transfer:'Globular, Spray',tungsten:'None',preheat:'≥5℃',interpass:'None',pwht:'N/A',oscillation:'N/A',pulse:'N/A',ctwd:'10~15mm',torch:'45 ~ 90˚',throatThk:'N/A',weaving:'N/A(Straight)',backingDetail:'N/A',gasFlow:'18~25 l/min'};
+const FORM_FIELDS=[['codeStd','관련 코드 Code','text'],['manufacturer','제조사 manufacturer','text'],['processIso','용접 방법 Weld Type (예: 135 [ISO 4063 : 2009])','text'],['jointType','이음 형태 Joint Type','text'],['positionIso','용접자세 Welding Position (예: All [ISO 6947 : 2011])','text'],['transfer','용접 이행 모드','text'],
+  ['prep','용접준비·청결 방법','text'],['parentSpec','모재 사양 (예: Group_1.1~1.4 [ISO/TR 15608 : 2017])','text'],['thickness','모재 두께(mm)','text'],['weldMetalThk','용접 금속 두께(mm)','text'],['throatThk','목 두께(mm)','text'],['legZ','각장 z','text'],['pipeDia','파이프 직경(mm)','text'],
+  ['filler','용가재 사양','text'],['gas','보호가스 Gas/Flux','text'],['gasFlow','가스 유량','text'],['tungsten','텅스텐 전극','text'],['backingDetail','가우징/배킹 상세','text'],['preheat','예열 온도','text'],['interpass','층간 온도','text'],['pwht','후열처리','text'],
+  ['weaving','Weaving','text'],['oscillation','Oscillation','text'],['pulse','Pulse welding details','text'],['ctwd','팁-모재 거리','text'],['torch','Torch angle','text'],['signer','책임 용접 조정자 성명','text'],['signDate','서명 날짜','date'],['firstDate','최초 작성일','date']];
+const PARAM_COLS=[['pass','층수 Pass',60],['process','용접 공법',90],['filler','용가재 크기',90],['current','전류 (A)',90],['voltage','전압 (V)',80],['polarity','전류 극성',80],['speed','용접 속도',90],['speedUnit','단위',70],['heat','입열량',90],['heatUnit','단위',70]];
+let WD=null;
+function openWpsDoc(id){
+  const src=id?wpsMaster.find(x=>x.id===id):null, o=src?JSON.parse(JSON.stringify(src)):{kind:'WPS',status:'사용',weldType:'BW',pqrNos:[],revDate:today()};
+  o.weldType=wt(o.weldType)||'BW'; o.form={...DEF_FORM,manufacturer:'Romansys',signer:S.examiner||'',signDate:today(),...(o.form||{})}; o.params=o.params||[]; o.sketches=o.sketches||{};
+  WD={obj:o,old:src?{...src}:{},calc:null}; WF.doc=true; render(); scrollTo(0,0); }
+function copyWps(id){ openWpsDoc(id); WD.old={}; WD.obj.id=undefined; delete WD.obj.id; WD.obj.wpsNo=''; WD.obj.rev='0'; WD.obj.revDate=today(); WD.obj.form.signDate=today(); WD.obj.form.firstDate=today(); vWpsDoc(); toast('복사본입니다. 새 WPS 번호를 입력하고 저장하세요.',4000); }
+function closeWpsDoc(){ WF.doc=false; WD=null; render(); }
+function collectDoc(){ const f=$('#wdf'); if(!f||!WD) return WD&&WD.obj; const fd=new FormData(f), o=WD.obj;
+  for(const k of ['wpsNo','kind','rev','revDate','materialGroup','weldType','process','position','thk','backing','pwht','part','status','remarks']) if(fd.has('m_'+k)) o[k]=fd.get('m_'+k);
+  if(fd.has('m_pqr')) o.pqrNos=fd.get('m_pqr').split(/[\/,]/).map(nz).filter(Boolean);
+  for(const [k] of FORM_FIELDS) if(fd.has('f_'+k)) o.form[k]=fd.get('f_'+k); if(fd.has('f_pwhtDetail')) o.form.pwhtDetail=fd.get('f_pwhtDetail');
+  const n=+($('#wdf').dataset.np||0); o.params=[]; for(let i=0;i<n;i++){ if(!fd.has(`p${i}_pass`)&&!fd.has(`p${i}_process`)) continue; const r={}; for(const [k] of PARAM_COLS) r[k]=fd.get(`p${i}_${k}`)||''; o.params.push(r); }
+  return o; }
+function paramRows(o){ return o.params.map((r,i)=>`<tr>${PARAM_COLS.map(([k,,w])=>`<td style="padding:2px"><input name="p${i}_${k}" value="${esc(r[k])}" style="width:${w}px"></td>`).join('')}<td class="bx"><button type="button" class="b sm sec" onclick="paramOp('dup',${i})" title="행 복제">⧉</button> <button type="button" class="b sm red" onclick="paramOp('del',${i})">×</button></td></tr>`).join(''); }
+function paramOp(op,i){ collectDoc(); const a=WD.obj.params;
+  if(op==='add') a.push({pass:String(a.length+1),process:a.length?a[a.length-1].process:'',filler:a.length?a[a.length-1].filler:'',current:'',voltage:'',polarity:a.length?a[a.length-1].polarity:'',speed:'',speedUnit:a.length?a[a.length-1].speedUnit:'cm/min',heat:'',heatUnit:a.length?a[a.length-1].heatUnit:'KJ/cm'});
+  if(op==='del') a.splice(i,1); if(op==='dup') a.splice(i+1,0,{...a[i],pass:''});
+  drawParams(); }
+function drawParams(){ const t=$('#ptbody'); if(!t) return; t.innerHTML=paramRows(WD.obj); $('#wdf').dataset.np=WD.obj.params.length; }
+function pasteParams(){ const ta=$('#ptext'); const rows=ta.value.replace(/\r/g,'').split('\n').map(l=>l.split('\t')).filter(r=>r.some(c=>c.trim())); if(!rows.length) return;
+  collectDoc(); const body=rows.filter(r=>!/층수|Pass/i.test(r[0]||'')); const add=body.map(r=>Object.fromEntries(PARAM_COLS.map(([k],i)=>[k,(r[i]||'').trim()])));
+  WD.obj.params.push(...add); ta.value=''; drawParams(); toast(`${add.length}행을 추가했습니다 (엑셀 A~J열 순서: 층수·공법·용가재·전류·전압·극성·속도·단위·입열량·단위).`,5000); }
+function doCalc(){ const o=collectDoc(), p=pqrFind((o.pqrNos||[])[0]); if(!p) return toast('연결 PQR을 먼저 입력하세요 (PQR 목록에 등록된 번호).',4000);
+  const ap=pqrApproval(p); if(ap.tMin==null) return toast(ap.notes.join(' '),4000);
+  const F=o.form, fmt=(a,b)=>`${a} ~ ${b}`;
+  const rows=[
+   {k:'thickness',l:'모재 두께 (mm)',cur:F.thickness,val:fmt(ap.tMin,ap.tMax),apply:()=>{F.thickness=fmt(ap.tMin,ap.tMax);o.thk=`${ap.tMin}≤T≤${ap.tMax}`;o.thkMin=ap.tMin;o.thkMax=ap.tMax;}},
+   {k:'weldMetalThk',l:'용접 금속 두께',cur:F.weldMetalThk,val:ap.fw?'N/A':`Max ${ap.tMax}`,apply:()=>{F.weldMetalThk=ap.fw?'N/A':`Max ${ap.tMax}`;}},
+   {k:'throatThk',l:'목 두께 a',cur:F.throatThk,val:ap.a?`${ap.aMin}≤a≤${ap.aMax}`:'N/A',apply:()=>{F.throatThk=ap.a?`${ap.aMin}≤a≤${ap.aMax}`:'N/A';}},
+   {k:'parentSpec',l:'모재 그룹',cur:F.parentSpec,val:`Group_${ap.group} [ISO/TR 15608 : 2017]`,apply:()=>{F.parentSpec=`Group_${ap.group} [ISO/TR 15608 : 2017]`;o.materialGroup=ap.group;}},
+   {k:'pipeDia',l:'파이프 직경',cur:F.pipeDia,val:ap.pipe,apply:()=>{F.pipeDia=ap.pipe;}},
+   {k:'positionIso',l:'용접 자세',cur:F.positionIso,val:'All [ISO 6947 : 2011]',apply:()=>{F.positionIso='All [ISO 6947 : 2011]';o.position='ALL';}},
+   {k:'processIso',l:'용접 방법',cur:F.processIso,val:`${ap.code} [ISO 4063 : 2009]`,apply:()=>{F.processIso=`${ap.code} [ISO 4063 : 2009]`;}},
+   {k:'jointType',l:'이음 형태',cur:F.jointType,val:ap.fw?'Fillet':'Butt',apply:()=>{F.jointType=ap.fw?'Fillet':'Butt';o.weldType=ap.fw?'FW':'BW';}}];
+  WD.calc={p,ap,rows}; drawCalc(); }
+function drawCalc(){ const box=$('#calcbox'); if(!box) return; const c=WD.calc; if(!c){ box.innerHTML=''; return; }
+  const same=(a,b)=>String(a||'').replace(/\s/g,'').split('[')[0].toLowerCase()===String(b||'').replace(/\s/g,'').split('[')[0].toLowerCase();
+  box.innerHTML=`<div style="border:1px solid var(--accent);border-radius:8px;padding:10px;margin-top:8px;background:#f7fbff"><b>${esc(c.p.pqrNo)}</b> 시험: ${c.p.weldType} · ${esc(c.p.process)} · ${esc(c.p.position)} · t=${esc(c.p.thickness)}${c.ap.a?` · a=${c.ap.a}`:''}<br><small style="color:var(--mute)">적용 규칙: ${esc(c.ap.rule)} · 목 두께 0.75a~1.5a · 그룹 1.n→1.1~1.n · 자세 ALL — 회사 자료 기반 해석이므로 규격서 확인 필요</small>
+   <table class="list nested" style="width:100%;margin-top:6px;font-size:13px"><thead><tr><th>항목</th><th>현재 값</th><th>PQR 기준 산정</th><th class="num">상태</th><th></th></tr></thead><tbody>${c.rows.map((r,i)=>`<tr class="kid"><td>${r.l}</td><td>${esc(r.cur||'')}</td><td><b>${esc(r.val)}</b></td><td class="num">${same(r.cur,r.val)?'<span style="color:var(--ok)">✔ 동일</span>':'<span class="wn">다름</span>'}</td><td class="bx"><button type="button" class="b sm sec" onclick="applyCalc(${i})">적용</button></td></tr>`).join('')}</tbody></table>
+   ${c.ap.heatMin?`<div style="margin-top:4px;font-size:12px">입열량 승인 범위(±25%): <b>${c.ap.heatMin} ~ ${c.ap.heatMax} kJ/cm</b> (PQR 시험 입열량 ${esc(c.p.heat)})</div>`:''}
+   <div class="row"><button type="button" class="b sm" onclick="applyCalc(-1)">모두 적용</button><button type="button" class="b sm sec" onclick="WD.calc=null;drawCalc()">닫기</button></div></div>`; }
+function applyCalc(i){ const o=WD.obj; collectDoc(); (i<0?WD.calc.rows:[WD.calc.rows[i]]).forEach(r=>r.apply()); vWpsDoc(); WD.calc=null; toast('PQR 기준 값을 적용했습니다. 저장을 눌러 확정하세요.',3500); }
+function vWpsDoc(){
+  const o=WD.obj, F=o.form, inp=(pre,k,l,t,v)=>`<label>${l}<input type="${t||'text'}" name="${pre}_${k}" value="${esc(v??'')}"></label>`;
+  const chk=wpsPqrCheck({...o,procCodes:procCodesOf(o.process),thkMin:thkOf(o.thk)[0],thkMax:thkOf(o.thk)[1]});
+  $('#view').innerHTML=`<form id="wdf" data-np="${o.params.length}">
+   <div class="card"><div class="row" style="margin:0"><h2 style="margin:0;flex:1">WPS 작성 ${o.id?`— ${esc(o.wpsNo)}`:'(새 WPS)'}</h2>
+     <button type="button" class="b sec" onclick="collectDoc();previewWpsDoc()">📄 양식 미리보기/인쇄</button><button class="b">저장</button><button type="button" class="b sec" onclick="closeWpsDoc()">닫기</button></div>
+    ${chk.length?`<div class="msg err">◆ 점검: ${esc(chk.join(' / '))}</div>`:''}
+    <h3>① 목록 정보</h3><div class="grid">
+     ${inp('m','wpsNo','WPS No.*','text',o.wpsNo)}
+     <label>구분<select name="m_kind">${['WPS','pWPS'].map(x=>`<option ${o.kind===x?'selected':''}>${x}</option>`).join('')}</select></label>
+     ${inp('m','rev','Rev','text',o.rev)}${inp('m','revDate','개정일','date',o.revDate)}
+     <label>연결 PQR (쉼표) <a href="#" onclick="doCalc();return false" style="font-size:11px">[PQR 기준 범위 계산]</a><input name="m_pqr" value="${esc((o.pqrNos||[]).join(', '))}" list="dl-pqr"></label>
+     ${inp('m','materialGroup','모재 그룹 (목록)','text',o.materialGroup)}
+     <label>용접 형식<select name="m_weldType">${['BW','FW','T-BUTT'].map(x=>`<option ${o.weldType===x?'selected':''}>${x}</option>`).join('')}</select></label>
+     ${inp('m','process','공정 (목록, 예: 135(MAG))','text',o.process)}${inp('m','position','자세 (목록, 예: ALL / PF)','text',o.position)}${inp('m','thk','두께 범위 (목록, 예: 3≤T≤24)','text',o.thk)}
+     ${inp('m','backing','백킹/Detail','text',o.backing)}${inp('m','pwht','PWHT (목록)','text',o.pwht)}${inp('m','part','용도/적용 부위','text',o.part)}
+     <label>상태<select name="m_status">${['사용','예비','폐기'].map(x=>`<option ${o.status===x?'selected':''}>${x}</option>`).join('')}</select></label>${inp('m','remarks','비고','text',o.remarks)}
+    </div><datalist id="dl-pqr">${pqrMaster.map(p=>`<option value="${esc(p.pqrNo)}">`).join('')}</datalist><div id="calcbox"></div></div>
+   <div class="card"><h3 style="margin-top:0">② WPS 양식 내용 (인쇄되는 항목)</h3><div class="grid">${FORM_FIELDS.map(([k,l,t])=>inp('f',k,l,t,F[k])).join('')}
+     <label style="grid-column:span 2">후열처리 상세 (줄바꿈으로 구분)<textarea name="f_pwhtDetail" rows="3">${esc(F.pwhtDetail||'')}</textarea></label></div></div>
+   <div class="card"><h3 style="margin-top:0">③ 용접 상세 Welding Details — 패스별 조건표</h3>
+    <div style="overflow-x:auto"><table class="list nested"><thead><tr>${PARAM_COLS.map(([,l])=>`<th>${l}</th>`).join('')}<th></th></tr></thead><tbody id="ptbody">${paramRows(o)}</tbody></table></div>
+    <div class="row"><button type="button" class="b sm" onclick="paramOp('add')">+ 행 추가</button>
+     <span style="color:var(--mute);font-size:12px">엑셀에서 표를 복사해(층수~단위, A~J열) 아래 칸에 붙여넣고 "표로 변환"을 누르면 행이 추가됩니다.</span></div>
+    <div class="row"><textarea id="ptext" rows="2" placeholder="여기에 엑셀 표를 붙여넣기 (Ctrl+V)" style="flex:1;min-width:300px"></textarea><button type="button" class="b sm sec" onclick="pasteParams()">표로 변환</button></div></div>
+   <div class="card"><h3 style="margin-top:0">④ 스케치 (이음부 형상 / 용접 순서)</h3><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">
+    ${[['joint','이음부 형상 Joint Design'],['sequence','용접 순서 Welding Sequence']].map(([k,l])=>`<div><div style="font-size:12px;color:var(--mute);margin-bottom:3px">${l}</div>${pzHTML('wps:'+k,o.sketches[k]||null,'클릭 후 Ctrl+V · 이미지 끌어놓기')}<div class="row" style="margin-top:6px"><input type="file" accept="image/*" onchange="pickImg('wps:${k}',this)" style="max-width:220px">${o.sketches[k]?`<button type="button" class="b sm red" onclick="WD.obj.sketches['${k}']='';collectDoc();vWpsDoc()">삭제</button>`:''}</div></div>`).join('')}</div></div>
+   </form>`;
+  $('#wdf').onsubmit=async e=>{ e.preventDefault(); await saveWpsDoc(); };
+}
+async function saveWpsDoc(){ const o=collectDoc(); if(!String(o.wpsNo||'').trim()) return alert('WPS 번호를 입력하세요.');
+  const f={wpsNo:o.wpsNo,kind:o.kind,rev:o.rev||'',revDate:o.revDate||'',pqr:(o.pqrNos||[]).join(','),materialGroup:o.materialGroup||'',weldType:o.weldType||'BW',process:o.process||'',position:o.position||'',thk:o.thk||'',backing:o.backing||'',pwht:o.pwht||'',part:o.part||'',status:o.status||'사용',remarks:o.remarks||''};
+  const old={...WD.old,form:o.form,params:o.params,sketches:o.sketches};
+  const ok=await saveMaster('wps',old,f); if(!ok) return; // 번호 중복 등으로 저장 취소
+  WF.doc=false; WD=null; render(); toast('WPS를 저장했습니다.',2500); }
+
+// ===================== WPS 양식 출력 (A4) =====================
+function wpsDocHTML(m){
+  const F=m.form||{}, L=(a,b)=>`<div class="wl"><b>${a}</b> ${b}</div>`, pw=(F.pwhtDetail||'').split('\n').filter(x=>x.trim()&&!/:\s*$/.test(x.trim()));
+  const par=(m.params||[]).length?m.params:[]; const sk=m.sketches||{};
+  return `<div class="wdoc">
+   <div class="wh"><div class="wt"><b>WPS</b><span>(Welding Procdure Specification)</span></div><div class="wc">${S.logo?`<img src="${S.logo}">`:`<b>${esc(S.company)}</b>`}<div>Rev. ${esc(m.rev||'')}</div></div></div>
+   <table class="wg"><tr><td>${L('관련 코드',esc(F.codeStd))}${L('WPS No. :',`<span class="val">${esc(m.wpsNo)}</span>`)}${L('WPQR No. :',esc((m.pqrNos||[]).join(', ')))}${L('제조사 manufacturer :',esc(F.manufacturer))}${L('용접 방법 Weld Type :',esc(F.processIso))}${L('이음 형태 Joint Type :',esc(F.jointType))}${L('용접자세 Welding Position :',esc(F.positionIso))}${L('용접 이행 모드 Mode of metal transfer :',esc(F.transfer))}</td>
+    <td>${L('용접준비 및 청결 방법 Method of Preparation and Cleaning :',esc(F.prep))}${L('모재 사양 Parent Material Specification :',esc(F.parentSpec))}${L('모재 두께 Material Thickness(mm) :',esc(F.thickness))}${L('용접 금속 두께 Weld Metal Thickness(mm) :',esc(F.weldMetalThk))}${L('목 두께 Throat Thickness(mm) :',esc(F.throatThk))}${F.legZ?L('※ 각장 :',esc(F.legZ)):''}${L('파이프 직경 Outside Pipe Diameter(mm) :',esc(F.pipeDia))}</td></tr></table>
+   <table class="wg"><tr><th colspan="2">용접 이음부 상세 Weld Preparation Details (Sketch)</th></tr><tr><th>이음부 형상 Joint Design</th><th>용접 순서 Welding Sequence</th></tr><tr><td class="sk">${sk.joint?`<img src="${sk.joint}">`:''}</td><td class="sk">${sk.sequence?`<img src="${sk.sequence}">`:''}</td></tr></table>
+   <table class="wg wp"><tr><th colspan="10">용접 상세 Welding Details</th></tr><tr>${PARAM_COLS.map(([,l])=>`<th>${l}</th>`).join('')}</tr>${par.map(r=>`<tr>${PARAM_COLS.map(([k])=>`<td>${esc(r[k])}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="10" style="height:14mm"></td></tr>'}</table>
+   <table class="wg"><tr><td>${L('용가재 사양 Filler Metal Designation',`<div>${esc(F.filler)}</div>`)}${L('보호가스 Gas/Flux :',esc(F.gas))}${L('가스 유량 Gas Flow Rate :',esc(F.gasFlow))}${L('텅스텐 전극 형태/크기 :',esc(F.tungsten))}${L('가우징/배킹 상세 Details of back gouging/backing :',esc(F.backingDetail))}${L('예열온도 Preheat Temperature :',esc(F.preheat))}${L('층간 온도 Interpass temperature :',esc(F.interpass))}${L('후열처리 Post-Weld Heat Treatment :',esc(F.pwht))}${pw.map(x=>`<div class="wl">${esc(x)}</div>`).join('')}</td>
+    <td>${L('※ 기타 정보 Other information','')}${L('Weaving :',esc(F.weaving))}${L('Oscillation :',esc(F.oscillation))}${L('Pulse welding details :',esc(F.pulse))}${L('Distance contact tube/Work piece :',esc(F.ctwd))}${L('Torch angle :',esc(F.torch))}
+     <div class="wsig">${S.stamp?`<img class="stamp" src="${S.stamp}">`:''}${S.signature?`<img class="sign" src="${S.signature}">`:''}<div><b>${esc(F.signer)}</b></div><div>책임 용접 조정자</div><div>Responsible welding coordinator</div><div>날짜 ${esc(F.signDate||'')}${F.firstDate?`<br>${esc(F.firstDate)}`:''}</div></div></td></tr></table></div>`; }
+function previewWps(id){ openCert(wpsDocHTML(wpsMaster.find(x=>x.id===id))); }
+function previewWpsDoc(){ const o=WD.obj; openCert(wpsDocHTML({...o,procCodes:procCodesOf(o.process)})); }
+
 // ---- WPS 추천/일괄 지정
 async function recommendWps(){
   if(!wpsMaster.length) return autoAssignWps();   // 마스터가 없으면 예전 방식(과거 기록의 조건 복사)
