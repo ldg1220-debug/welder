@@ -38,7 +38,7 @@ table.list th{position:relative}
 .rh{position:absolute;right:0;top:0;bottom:0;width:7px;cursor:col-resize;user-select:none}.rh:hover,.rh:active{background:var(--accent);opacity:.5}
 .pz{border:2px dashed var(--line);border-radius:6px;min-height:64px;padding:6px;display:flex;align-items:center;gap:8px;color:var(--mute);font-size:12px;cursor:pointer;background:#fafbfc}
 .pz:focus,.pz.over{border-color:var(--accent);outline:0;background:#eef5fd;color:var(--accent)}
-#genj [data-mv],#gens [data-mv]{cursor:move}#genj [data-mv]:hover,#gens [data-mv]:hover{filter:drop-shadow(0 0 2px #1f5fae)}#gens [data-h]{cursor:nwse-resize}
+#genj [data-mv],#gens [data-mv]{cursor:move}#genj [data-mv]:hover,#gens [data-mv]:hover{filter:drop-shadow(0 0 2px #1f5fae)}table.mx{border-collapse:collapse;font-size:12px;white-space:nowrap}table.mx th,table.mx td{border:1px solid #c9d1da;padding:2px 5px;text-align:center}table.mx thead th{background:#fdf0cf;position:sticky;top:0;z-index:2}table.mx thead tr.h2 th{top:22px}table.mx thead tr.h3 th{top:44px}table.mx thead tr.h4 th{top:66px;background:#f3f3f3;font-weight:400;font-size:11px}table.mx td.l,table.mx th.l{background:#eef2f7;text-align:left}table.mx td.ok{background:#22e0e8;cursor:pointer}table.mx td.rn{background:#ffe27a;cursor:pointer}table.mx td.ex{background:#f3b6b6;cursor:pointer;color:#7a1f1f}table.mx td.pg{background:#ffd7a8}table.mx td.ft{color:#b33}table.mx tr.sep td{border-top:2px solid #333}table.mx tr.gone td{color:#8a94a0}#genj [data-ax=x]{cursor:ew-resize}#genj [data-ax=y]{cursor:ns-resize}#genj [data-p]:hover rect{fill:#e07b00}
 .lib{display:flex;gap:10px;flex-wrap:wrap}.li{position:relative;border:2px solid var(--line);border-radius:6px;padding:3px;background:repeating-conic-gradient(#eef0f2 0 25%,#fff 0 50%) 50%/12px 12px}
 .li.on{border-color:var(--accent);box-shadow:0 0 0 2px #cfe0f3}.li img{height:52px;max-width:120px;cursor:pointer;display:block}
 .li b{position:absolute;top:-9px;right:-9px;background:var(--bad);color:#fff;border-radius:50%;width:18px;height:18px;text-align:center;line-height:18px;font-size:12px;cursor:pointer}
@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v45 · 형상 편집</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v46 · 핸들 조절 · 현황표</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -437,9 +437,55 @@ function drawWelders(){
    <td class="bx"><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm sec" title="소속·직무·출생지·상태를 복사해 새 용접사 등록" onclick="copyWelder(${w.id})">복사</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>${open&&certs.length?certDetail(w,certs):''}`;}).join('')||'<tr><td colspan="13" style="color:var(--mute)">해당하는 용접사가 없습니다.</td></tr>'}</tbody></table>`;
   rz($('#wlist'),'welders3');
 }
+const wsub=()=>`<div class="row" style="margin:0 0 8px"><button class="b ${window._wview==='status'?'sec':''}" onclick="window._wview='list';vWelders()">명단 · 등록</button><button class="b ${window._wview==='status'?'':'sec'}" onclick="window._wview='status';vWelders()">현황표 (자격 매트릭스)</button></div>`;
+// ---- 용접사 현황표: 용접사 × (공정 · 이음 · 두께 · 자세) 합격 매트릭스 + 소속별 집계
+const WS={st:'재직',co:'전체',exp:true,q:''};
+function vWStatus(){ const cos=['전체',...uniq(welders.map(w=>w.company).filter(Boolean))];
+  $('#view').innerHTML=wsub()+`<div class="card"><h2 id="wstt">용접사 현황표</h2><div class="row" style="margin:0 0 8px">
+   <select onchange="WS.st=this.value;drawWStatus()">${['재직','전체','퇴사'].map(x=>`<option ${x===WS.st?'selected':''}>${x}</option>`).join('')}</select>
+   <select onchange="WS.co=this.value;drawWStatus()">${cos.map(x=>`<option ${x===WS.co?'selected':''}>${esc(x)}</option>`).join('')}</select>
+   <input placeholder="성명 / 번호 검색" value="${esc(WS.q)}" oninput="WS.q=this.value;drawWStatus()">
+   <label style="flex-direction:row;align-items:center;gap:5px"><input type="checkbox" ${WS.exp?'checked':''} onchange="WS.exp=this.checked;drawWStatus()">만료된 합격도 표시</label>
+   <span style="flex:1"></span><button class="b sm sec" onclick="exportWStatus()">엑셀(CSV)로 저장</button></div>
+   <div style="font-size:12px;color:var(--mute);margin-bottom:6px"><span style="background:#22e0e8;padding:1px 8px">합격(유효)</span> <span style="background:#ffe27a;padding:1px 8px">6개월 서명 갱신 필요</span> <span style="background:#f3b6b6;padding:1px 8px">만료</span> <span style="background:#ffd7a8;padding:1px 8px">시험 진행중</span> <span style="color:#b33;padding:1px 8px">불합격만 있음(✕)</span> · 칸을 누르면 인증서를 봅니다. 재시험으로 합격한 조인트는 합격으로 표시됩니다.</div>
+   <div class="tw" id="wstbl" style="max-height:70vh;overflow:auto"></div></div><div class="card"><h2>소속별 집계</h2><div class="tw" id="wssum"></div></div>`;
+  drawWStatus(); }
+function wsData(){ const t=today(), wm=new Map(welders.map(w=>[w.id,w])), q=WS.q.trim().toLowerCase();
+  const ws=welders.filter(w=>(WS.st==='전체'||w.status===WS.st)&&(WS.co==='전체'||w.company===WS.co)&&(!q||[w.name,w.welderNo].join(' ').toLowerCase().includes(q)))
+    .sort((a,b)=>String(a.company||'').localeCompare(b.company||'','ko')||a.welderNo.localeCompare(b.welderNo,undefined,{numeric:true}));
+  const ids=new Set(ws.map(w=>w.id)), cell={}, cols=new Map(), prog={};
+  for(const r of records){ if(!ids.has(r.welderId)) continue; const st=recStatus(r), k=[r.process,r.joint,+r.thickness,r.position].join('|');
+    if(st==='pass'){ const exp=calcExpire(r.weldingDate), al=certAlert(r.weldingDate,exp,(r.renewals||[]).length,t), kind=exp<t?'ex':al==='renewal'?'rn':'ok';
+      if(kind==='ex'&&!WS.exp) continue; const c=cell[r.welderId+'|'+k];
+      if(!c||c.kind==='pg'||c.kind==='ft'||(c.kind==='ex'&&kind!=='ex')||(kind===c.kind&&r.weldingDate>c.r.weldingDate)) cell[r.welderId+'|'+k]={kind,r,exp}; cols.set(k,[r.process,r.joint,+r.thickness,r.position]); }
+    else { if(st==='pending') prog[r.welderId]=(prog[r.welderId]||0)+1; const c=cell[r.welderId+'|'+k]; if(!c){ cell[r.welderId+'|'+k]={kind:st==='pending'?'pg':'ft',r}; cols.set(k,[r.process,r.joint,+r.thickness,r.position]); } } }
+  const pn=x=>parseInt(x)||999, C=[...cols.entries()].sort((a,b)=>{ const A=a[1],B=b[1]; return pn(A[0])-pn(B[0])||(A[1]==='BW'?0:1)-(B[1]==='BW'?0:1)||B[2]-A[2]||String(A[3]).localeCompare(B[3]); });
+  // 실제 합격 칸이 하나도 없는 열(진행/불합격만 있는 열)은 그대로 두되 순서만 유지
+  return {ws,cell,C,prog,t}; }
+function drawWStatus(){ const {ws,cell,C,prog,t}=wsData(); $('#wstt').textContent=`용접사 현황표 (${ws.length}명 · 조건 ${C.length}열)`;
+  const pl=x=>String(x).replace(/^\d+\s*/,''), grp=(arr,f)=>{ const o=[]; arr.forEach(c=>{ const k=f(c[1]), l=o[o.length-1]; if(l&&l.k===k) l.n++; else o.push({k,n:1}); }); return o; };
+  const h1=grp(C,a=>a[0]).map(g=>`<th colspan="${g.n}">${esc(pl(g.k))}</th>`).join('');
+  const h2=grp(C,a=>a[0]+'|'+a[1]).map(g=>`<th colspan="${g.n}">${g.k.endsWith('BW')?'맞대기':'필릿'}</th>`).join('');
+  const h3=grp(C,a=>a[0]+'|'+a[1]+'|'+a[2]).map(g=>`<th colspan="${g.n}">${fmtN(+g.k.split('|')[2])}t</th>`).join('');
+  const h4=C.map(c=>`<th>${esc(c[1][3])}</th>`).join('');
+  let prev=null, body='';
+  ws.forEach((w,n)=>{ const first=prev!==null&&prev!==w.company; prev=w.company; let fin=0;
+    const tds=C.map(([k])=>{ const c=cell[w.id+'|'+k]; if(!c) return '<td></td>'; if(c.kind==='pg') return '<td class="pg" title="시험 진행중">진행</td>'; if(c.kind==='ft') return '<td class="ft" title="불합격 기록만 있음">✕</td>';
+      if(c.kind==='ok'||c.kind==='rn') fin++; return `<td class="${c.kind}" onclick="showCert(${c.r.id})" title="${c.r.weldingDate} 용접 · 만료 ${c.exp}${c.kind==='rn'?' · 6개월 서명 갱신 필요':''}">${c.kind==='ex'?'만료':'합격'}</td>`; }).join('');
+    body+=`<tr class="${first?'sep':''} ${w.status==='퇴사'?'gone':''}"><td class="l">${esc(w.company)}</td><td>${n+1}</td><td class="l"><b>${esc(w.name)}</b></td><td>${w.birthDate?w.birthDate.replace(/-/g,'').slice(2):''}</td><td class="l">${esc(w.welderNo)}</td><td>${esc(w.role)}</td><td>${w.status}</td>${tds}<td><b>${fin}</b></td><td>${prog[w.id]||''}</td></tr>`; });
+  $('#wstbl').innerHTML=`<table class="mx"><thead><tr><th rowspan="4" class="l">업체</th><th rowspan="4">순</th><th rowspan="4" class="l">성명</th><th rowspan="4">생년월일</th><th rowspan="4" class="l">용접사번호</th><th rowspan="4">구분</th><th rowspan="4">상태</th>${h1}<th rowspan="4">유효<br>합격</th><th rowspan="4">진행<br>시험</th></tr><tr class="h2">${h2}</tr><tr class="h3">${h3}</tr><tr class="h4">${h4}</tr></thead><tbody>${body||'<tr><td colspan="9" style="color:var(--mute)">표시할 용접사가 없습니다.</td></tr>'}</tbody></table>`;
+  // 소속별 집계
+  const cos=uniq(ws.map(w=>w.company)), roles=uniq(ws.map(w=>w.role)), row=(co,rl)=>{ const L=ws.filter(w=>w.company===co&&(!rl||w.role===rl)); let v=0,rn=0,ex=0,pg=0; L.forEach(w=>{ let hv=false,hr=false,he=false; C.forEach(([k])=>{ const c=cell[w.id+'|'+k]; if(!c) return; if(c.kind==='ok') hv=true; if(c.kind==='rn') hr=true; if(c.kind==='ex') he=true; }); if(hv||hr) v++; if(hr) rn++; if(!hv&&!hr&&he) ex++; if(prog[w.id]) pg++; }); return [L.length,v,rn,ex,pg]; };
+  let tot=[0,0,0,0,0], sb=''; cos.forEach(co=>roles.forEach(rl=>{ const r=row(co,rl); if(!r[0]) return; r.forEach((x,i)=>tot[i]+=x); sb+=`<tr><td class="l">${esc(co)}</td><td>${esc(rl)}</td>${r.map(x=>`<td>${x}</td>`).join('')}</tr>`; }));
+  $('#wssum').innerHTML=`<table class="mx"><thead><tr><th class="l">소속</th><th>구분</th><th>인원</th><th>자격 유효</th><th>서명 갱신 필요</th><th>전부 만료</th><th>시험 진행중</th></tr></thead><tbody>${sb}<tr><td class="l"><b>합계</b></td><td></td>${tot.map(x=>`<td><b>${x}</b></td>`).join('')}</tbody></table><div style="font-size:12px;color:var(--mute);margin-top:4px">현재 필터(재직/소속/검색)에 해당하는 인원 기준 · 자격 유효 = 만료되지 않은 합격이 1건 이상 · 기준일 ${t}</div>`; }
+function exportWStatus(){ const {ws,cell,C}=wsData(), pl=x=>String(x).replace(/^\d+\s*/,''), q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const head=['업체','성명','생년월일','용접사번호','구분','상태',...C.map(c=>`${pl(c[0])} ${c[1]==='BW'?'맞대기':'필릿'} ${fmtN(c[2])}t ${c[3]}`)];
+  const rows=ws.map(w=>[w.company,w.name,w.birthDate,w.welderNo,w.role,w.status,...C.map(([k])=>{ const c=cell[w.id+'|'+k]; return !c?'':c.kind==='pg'?'진행':c.kind==='ft'?'불합격':c.kind==='ex'?'만료':'합격'; })]);
+  download('welder_status.csv','\ufeff'+[head,...rows].map(r=>r.map(q).join(',')).join('\r\n'),'text/csv'); }
 function vWelders(){
+  if(window._wview==='status') return vWStatus();
   window._photo=null; // null=변경없음, ''=삭제, 문자열=새 사진
-  $('#view').innerHTML=`<div class="card"><h2>용접사 등록 / 수정</h2><form id="wf"><input type="hidden" name="id">
+  $('#view').innerHTML=wsub()+`<div class="card"><h2>용접사 등록 / 수정</h2><form id="wf"><input type="hidden" name="id">
    <div class="grid">
     <label>용접사 번호* <a href="#" onclick="suggestNo();return false" style="font-size:11px">[다음 번호 제안]</a><input name="welderNo" required placeholder="RM-WD-24001"></label>
     <label>성명*<input name="name" required></label>
@@ -1257,6 +1303,7 @@ function genJoint(o,seq){
   const T=o.t, sc=Math.min(7,105/Math.max(T,1)), Tp=T*sc, cx=230, y0=78, Wd=175, tanH=Math.tan(o.angle/2*Math.PI/180), tanB=Math.tan(o.angle*Math.PI/180);
   const g=Math.max(o.gap*sc,o.gap>0?2:0), c=Math.min(o.face,T*0.9)*sc, d=Math.max(Tp-c,1), K='#000', type=o.type, xl=cx-g/2, xr=cx+g/2;
   const mv=mvOf(o);
+  const hs=[], geo={sc,cx,y0,g,Tp,c,d,Wd,T,xl,xr}, HP=(key,x,y,ax,tip)=>hs.push({key,x,y,ax,tip});
   let plates='', back='', dimsArr=[], polys=[], kinds=[], anc=[cx,y0], ref={x0:cx+58,y:34,len:105}, hatchOn=o.weld&&!seq;
   const P=pts=>pts.map(p=>p.join(',')).join(' ');
   const poly=pts=>`<polygon points="${P(pts)}" fill="#fff" stroke="${K}" stroke-width="1.6" stroke-linejoin="round"/>`;
@@ -1265,48 +1312,49 @@ function genJoint(o,seq){
   const arrow=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${K}" stroke-width="1" marker-end="url(#ah2)" marker-start="url(#ah2)"/>`;
   const dimV=(x,ya,yb,t)=>`<line x1="${x}" y1="${ya}" x2="${x+6}" y2="${ya}" stroke="${K}" stroke-width=".8"/><line x1="${x}" y1="${yb}" x2="${x+6}" y2="${yb}" stroke="${K}" stroke-width=".8"/>${arrow(x+3,ya,x+3,yb)}${txt(x-6,(ya+yb)/2+4,t,'end')}`;
   let weld='';
-  if(type==='square'){ plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+poly([[xr,y0],[xr+Wd,y0],[xr+Wd,y0+Tp],[xr,y0+Tp]]); const wp=[[xl,y0],[xr,y0],[xr,y0+Tp],[xl,y0+Tp]]; weld=g>0?wfill(wp):''; polys=[{pts:wp,crown:{a:[xl,y0],b:[xr,y0],nx:0,ny:-1,amt:Math.max(4,g*.5)}}]; kinds=['II']; }
+  if(type==='square'){ plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+poly([[xr,y0],[xr+Wd,y0],[xr+Wd,y0+Tp],[xr,y0+Tp]]); const wp=[[xl,y0],[xr,y0],[xr,y0+Tp],[xl,y0+Tp]]; weld=g>0?wfill(wp):''; polys=[{pts:wp,crown:{a:[xl,y0],b:[xr,y0],nx:0,ny:-1,amt:Math.max(4,g*.5)}}]; kinds=['II']; HP('gap',xr,y0+Tp,'x','루트 간격 b'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   else if(type==='vgroove'||type==='xgroove'){ const both=type==='xgroove', d1=both?(Tp-c)/2:d, th=g/2+d1*tanH;
     const L=[[xl-Wd,y0],[cx-th,y0],[xl,y0+d1]], R=[[xr+Wd,y0],[cx+th,y0],[xr,y0+d1]];
     if(both){ L.push([xl,y0+d1+c],[cx-th,y0+Tp]); R.push([xr,y0+d1+c],[cx+th,y0+Tp]); } else { L.push([xl,y0+Tp]); R.push([xr,y0+Tp]); }
     L.push([xl-Wd,y0+Tp]); R.push([xr+Wd,y0+Tp]); plates=poly(L)+poly(R);
     const wp=both?[[cx-th,y0],[cx+th,y0],[xr,y0+d1],[xr,y0+d1+c],[cx+th,y0+Tp],[cx-th,y0+Tp],[xl,y0+d1+c],[xl,y0+d1]]:[[cx-th,y0],[cx+th,y0],[xr,y0+d],[xr,y0+Tp],[xl,y0+Tp],[xl,y0+d]];
-    weld=wfill(wp); polys=[{pts:wp,crown:{a:[cx-th,y0],b:[cx+th,y0],nx:0,ny:-1,amt:Math.max(5,th*.28)}}]; kinds=['V'];
+    weld=wfill(wp); polys=[{pts:wp,crown:{a:[cx-th,y0],b:[cx+th,y0],nx:0,ny:-1,amt:Math.max(5,th*.28)}}]; kinds=['V']; Object.assign(geo,{d1}); HP('gap',xr,both?y0+Tp/2:y0+Tp,'x','루트 간격 b'); HP('angle',cx+th,y0,'x','개선 각도 α'); HP(both?'faceX':'face',xr,y0+d1,'y','루트 면 c'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t');
     if(both){ const m=y0+d1+c/2; polys=[{pts:[[cx-th,y0],[cx+th,y0],[xr,y0+d1],[xr,m],[xl,m],[xl,y0+d1]],crown:{a:[cx-th,y0],b:[cx+th,y0],nx:0,ny:-1,amt:Math.max(5,th*.24)}},
       {pts:[[xl,m],[xr,m],[xr,y0+d1+c],[cx+th,y0+Tp],[cx-th,y0+Tp],[xl,y0+d1+c]],crown:{a:[cx+th,y0+Tp],b:[cx-th,y0+Tp],nx:0,ny:1,amt:Math.max(5,th*.24)},down:true,cont:true}]; } }
   else if(type==='bevel'){ const th=d*tanB, xb=xr;
     plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+poly([[xb+th,y0],[xb+Wd,y0],[xb+Wd,y0+Tp],[xb,y0+Tp],[xb,y0+d]]);
-    const wp=[[xl,y0],[xb+th,y0],[xb,y0+d],[xb,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp); polys=[{pts:wp,crown:{a:[xl,y0],b:[xb+th,y0],nx:0,ny:-1,amt:Math.max(5,(th+g)*.28)}}]; kinds=['bevel']; anc=[xl+(th+g)/2,y0]; }
+    const wp=[[xl,y0],[xb+th,y0],[xb,y0+d],[xb,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp); polys=[{pts:wp,crown:{a:[xl,y0],b:[xb+th,y0],nx:0,ny:-1,amt:Math.max(5,(th+g)*.28)}}]; kinds=['bevel']; anc=[xl+(th+g)/2,y0]; Object.assign(geo,{d1:d,xb}); HP('gap',xb,y0+Tp,'x','루트 간격 b'); HP('angleB',xb+th,y0,'x','개선 각도 α'); HP('face',xb,y0+d,'y','루트 면 c'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   else if(type==='ugroove'){ const R=Math.min(o.r*sc,d*0.95), th0=Math.tan(Math.min(o.angle/2,25)*Math.PI/180), pyL=y0+d-R, pxL=xl-R, topx=pxL-(pyL-y0)*th0, pxR=xr+R, topxR=pxR+(pyL-y0)*th0;
     const Lp=`M${xl-Wd},${y0} L${topx},${y0} L${pxL},${pyL} A${R},${R} 0 0 0 ${xl},${y0+d} L${xl},${y0+Tp} L${xl-Wd},${y0+Tp} Z`, Rp=`M${xr+Wd},${y0} L${topxR},${y0} L${pxR},${pyL} A${R},${R} 0 0 1 ${xr},${y0+d} L${xr},${y0+Tp} L${xr+Wd},${y0+Tp} Z`;
     plates=`<path d="${Lp}" fill="#fff" stroke="${K}" stroke-width="1.6"/><path d="${Rp}" fill="#fff" stroke="${K}" stroke-width="1.6"/>`;
     const wp=[[topx,y0],...arcPts(xl,pyL,R,Math.PI,Math.PI/2).slice(0,-1).map((p,k)=>p),[xl,y0+d],[xl,y0+Tp],[xr,y0+Tp],[xr,y0+d],...arcPts(xr,pyL,R,Math.PI/2,0).slice(1),[topxR,y0]];
     // 위 좌표는 왼쪽 위 -> 왼쪽 원호 -> 바닥 -> 오른쪽 원호 -> 오른쪽 위 순서가 되도록 재정렬
     const left=[[topx,y0],[pxL,pyL],...arcPts(xl,pyL,R,Math.PI,Math.PI/2).slice(1)], right=[...arcPts(xr,pyL,R,Math.PI/2,0),[topxR,y0]];
-    const wp2=[...left,[xl,y0+Tp],[xr,y0+Tp],...right]; weld=wfill(wp2); polys=[{pts:wp2,crown:{a:[topx,y0],b:[topxR,y0],nx:0,ny:-1,amt:Math.max(5,(topxR-topx)*.14)}}]; kinds=['U']; }
+    const wp2=[...left,[xl,y0+Tp],[xr,y0+Tp],...right]; weld=wfill(wp2); polys=[{pts:wp2,crown:{a:[topx,y0],b:[topxR,y0],nx:0,ny:-1,amt:Math.max(5,(topxR-topx)*.14)}}]; kinds=['U']; Object.assign(geo,{pxR,pyL}); HP('gap',xr,y0+Tp,'x','루트 간격 b'); HP('angleU',topxR,y0,'x','개선 각도 α'); HP('rad',pxR,pyL,'x','반지름 R'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   else if(type==='jgroove'){ const R=Math.min(o.r*sc,d*0.95), th0=Math.tan(Math.min(o.angle,25)*Math.PI/180), pyL=y0+d-R, pxR=xr+R, topxR=pxR+(pyL-y0)*th0;
     plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+`<path d="M${xr+Wd},${y0} L${topxR},${y0} L${pxR},${pyL} A${R},${R} 0 0 1 ${xr},${y0+d} L${xr},${y0+Tp} L${xr+Wd},${y0+Tp} Z" fill="#fff" stroke="${K}" stroke-width="1.6"/>`;
-    const wp=[[xl,y0],[topxR,y0],[pxR,pyL],...arcPts(xr,pyL,R,0,Math.PI/2).slice(1),[xr,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp); polys=[{pts:wp,crown:{a:[xl,y0],b:[topxR,y0],nx:0,ny:-1,amt:Math.max(5,(topxR-xl)*.16)}}]; kinds=['J']; anc=[(xr+topxR)/2,y0]; }
+    const wp=[[xl,y0],[topxR,y0],[pxR,pyL],...arcPts(xr,pyL,R,0,Math.PI/2).slice(1),[xr,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp); polys=[{pts:wp,crown:{a:[xl,y0],b:[topxR,y0],nx:0,ny:-1,amt:Math.max(5,(topxR-xl)*.16)}}]; kinds=['J']; anc=[(xr+topxR)/2,y0]; Object.assign(geo,{pxR,pyL}); HP('gap',xr,y0+Tp,'x','루트 간격 b'); HP('angleJ',topxR,y0,'x','개선 각도 α'); HP('rad',pxR,pyL,'x','반지름 R'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   else if(type==='kgroove'){ const d1=(Tp-c)/2, th=d1*tanB, m=y0+d1+c/2, xb=xr;
     plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+poly([[xb+th,y0],[xb+Wd,y0],[xb+Wd,y0+Tp],[xb+th,y0+Tp],[xb,y0+d1+c],[xb,y0+d1]]);
     const wp=[[xl,y0],[xb+th,y0],[xb,y0+d1],[xb,y0+d1+c],[xb+th,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp);
-    polys=[{pts:[[xl,y0],[xb+th,y0],[xb,y0+d1],[xb,m],[xl,m]],crown:{a:[xl,y0],b:[xb+th,y0],nx:0,ny:-1,amt:Math.max(5,th*.28)}},{pts:[[xl,m],[xb,m],[xb,y0+d1+c],[xb+th,y0+Tp],[xl,y0+Tp]],crown:{a:[xb+th,y0+Tp],b:[xl,y0+Tp],nx:0,ny:1,amt:Math.max(5,th*.28)},down:true,cont:true}]; kinds=['bevel']; anc=[xl+(th+g)/2,y0]; }
+    polys=[{pts:[[xl,y0],[xb+th,y0],[xb,y0+d1],[xb,m],[xl,m]],crown:{a:[xl,y0],b:[xb+th,y0],nx:0,ny:-1,amt:Math.max(5,th*.28)}},{pts:[[xl,m],[xb,m],[xb,y0+d1+c],[xb+th,y0+Tp],[xl,y0+Tp]],crown:{a:[xb+th,y0+Tp],b:[xl,y0+Tp],nx:0,ny:1,amt:Math.max(5,th*.28)},down:true,cont:true}]; kinds=['bevel']; anc=[xl+(th+g)/2,y0]; Object.assign(geo,{d1,xb}); HP('gap',xb,m,'x','루트 간격 b'); HP('angleB',xb+th,y0,'x','개선 각도 α'); HP('faceX',xb,y0+d1,'y','루트 면 c'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   else if(type==='custom'){ let pr=String(o.custom||'').split(';').map(t=>t.split(',').map(Number)).filter(a=>a.length>=2&&a.every(isFinite)).map(a=>[a[0],Math.min(Math.max(a[1],0),T)]);
     if(pr.length<2) pr=[[8,0],[1,T]]; if(pr[pr.length-1][1]<T) pr.push([pr[pr.length-1][0],T]);
     const R=pr.map(q=>[cx+q[0]*sc,y0+q[1]*sc]), Lp=o.mirror?pr.map(q=>[cx-q[0]*sc,y0+q[1]*sc]):pr.map(q=>[cx-Math.abs(pr[pr.length-1][0])*sc,y0+q[1]*sc]).filter((q,k,a)=>k===0||k===a.length-1);
     const rightPoly=[[R[0][0]+Wd,y0],...R,[R[R.length-1][0]+Wd,y0+Tp]], leftPoly=[[Lp[0][0]-Wd,y0],...Lp,[Lp[Lp.length-1][0]-Wd,y0+Tp]];
     plates=poly(leftPoly)+poly(rightPoly); const wp=[...Lp,...R.slice().reverse()]; weld=wfill(wp);
-    polys=[{pts:wp,crown:{a:Lp[0],b:R[0],nx:0,ny:-1,amt:Math.max(5,Math.abs(R[0][0]-Lp[0][0])*.16)}}]; kinds=[o.symKind==='J'?'J':o.symKind||'V']; anc=[(R[0][0]+Lp[0][0])/2,y0]; }
+    polys=[{pts:wp,crown:{a:Lp[0],b:R[0],nx:0,ny:-1,amt:Math.max(5,Math.abs(R[0][0]-Lp[0][0])*.16)}}]; kinds=[o.symKind==='J'?'J':o.symKind||'V']; anc=[(R[0][0]+Lp[0][0])/2,y0]; HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   if(o.backing!=='none'&&['square','vgroove','bevel','ugroove','jgroove','custom'].includes(type)){ const yb=y0+Tp;
     back=o.backing==='ceramic'?`<path d="M${cx-46},${yb} L${cx-46},${yb+16} L${cx+46},${yb+16} L${cx+46},${yb} L${cx+22},${yb} Q${cx},${yb-9} ${cx-22},${yb} Z" fill="#e6d8c3" stroke="${K}" stroke-width="1.2"/>${txt(cx,yb+30,'Ceramic backing')}`:`<rect x="${cx-55}" y="${yb}" width="110" height="9" fill="#cfcfcf" stroke="${K}" stroke-width="1.2"/>${txt(cx,yb+24,'Metal backing')}`; }
   if(type==='tee'||type==='tbevel'||type==='lap'){
     const T2=o.t2*sc, z=o.leg*sc, yb=200-T2;
     if(type==='lap'){ const x0=80,x1=cx+30; plates=poly([[x0,yb-Tp],[x1,yb-Tp],[x1,yb],[x0,yb]])+poly([[cx-90,yb],[cx+140,yb],[cx+140,yb+T2],[cx-90,yb+T2]]);
       const tri=[[x1,yb],[x1+z,yb],[x1,yb-z]]; weld=`<polygon points="${P(tri)}" fill="${hatchOn?'url(#hatch)':seq?'none':'#fff'}" stroke="${seq?'none':K}" stroke-width="1.4"/>`;
-      polys=[{pts:tri,crown:{a:[x1+z,yb],b:[x1,yb-z],nx:Math.SQRT1_2,ny:-Math.SQRT1_2,amt:z*.16},fillet:{C:[x1,yb],u:[1,0],z}}]; kinds=['fillet']; anc=[x1+z*.42,yb-z*.42]; ref={x0:x1+z+42,y:yb-Tp-34,len:80};
+      polys=[{pts:tri,crown:{a:[x1+z,yb],b:[x1,yb-z],nx:Math.SQRT1_2,ny:-Math.SQRT1_2,amt:z*.16},fillet:{C:[x1,yb],u:[1,0],z}}]; kinds=['fillet']; anc=[x1+z*.42,yb-z*.42]; ref={x0:x1+z+42,y:yb-Tp-34,len:80}; Object.assign(geo,{fx:x1,yb}); HP('leg',x1+z,yb,'x','필릿 각장 z'); HP('lapT',x0+25,yb-Tp,'y','윗판 두께 t'); HP('t2b',cx+100,yb,'y','바닥판 t2');
       dimsArr.push(mv('dim_t',dimV(60,yb-Tp,yb,`t=${o.t}`)),mv('dim_t2',dimV(cx+156,yb,yb+T2,`t2=${o.t2}`))); }
     else { const bw=170, vx0=cx-Tp/2, vx1=cx+Tp/2, y1=Math.max(yb-150,26), gp=type==='tbevel'?Math.max(o.gap*sc,2):0, yv=yb-gp;
       plates=poly([[cx-bw,yb],[cx+bw,yb],[cx+bw,yb+T2],[cx-bw,yb+T2]]);
+      Object.assign(geo,{fx:vx1,yb}); if(type==='tee') HP('leg',vx1+z,yb,'x','필릿 각장 z'); HP('teeT',vx1,y1,'x','세운 판 두께 t'); HP('t2b',cx-bw+30,yb,'y','바닥판 t2');
       const fill=hatchOn?'url(#hatch)':'#fff';
       if(type==='tee'){ const triR=[[vx1,yb],[vx1+z,yb],[vx1,yb-z]], triL=[[vx0,yb],[vx0-z,yb],[vx0,yb-z]];
         plates+=poly([[vx0,y1],[vx1,y1],[vx1,yb],[vx0,yb]])+`<polygon points="${P(triR)}" fill="${seq?'none':fill}" stroke="${seq?'none':K}" stroke-width="1.4"/><polygon points="${P(triL)}" fill="${seq?'none':fill}" stroke="${seq?'none':K}" stroke-width="1.4"/>`;
@@ -1336,7 +1384,7 @@ function genJoint(o,seq){
   const symO=['xgroove','kgroove','tee'].includes(type)?{...o,symSide:'both'}:o, bent=['bevel','jgroove','kgroove','tbevel'].includes(type)||(type==='custom'&&['bevel','J'].includes(o.symKind));
   const sym=seq?'':weldSymbol(symO,kinds,anc,ref,bent);
   const defs=`<defs><marker id="ah2" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#888" stroke-width="1"/></pattern></defs>`;
-  const svg=`<svg xmlns="${SVGNS}" viewBox="0 0 520 290" preserveAspectRatio="xMidYMid meet">${defs}<rect width="520" height="290" fill="#fff"/>${weld}${plates}${back}${dimsArr.join('')}${sym}</svg>`;
+  const svg=`<svg xmlns="${SVGNS}" viewBox="0 0 520 290" preserveAspectRatio="xMidYMid meet">${defs}<rect width="520" height="290" fill="#fff"/>${weld}${plates}${back}${dimsArr.join('')}${sym}${o.edit&&!seq?hs.map(h=>`<g data-p="${h.key}" data-ax="${h.ax}" data-k='${JSON.stringify(geo)}'><title>${h.tip} — 끌어서 조절</title><circle cx="${h.x}" cy="${h.y}" r="7" fill="transparent"/><rect x="${h.x-5}" y="${h.y-5}" width="10" height="10" rx="2" fill="#ff9f1c" stroke="#fff" stroke-width="1.5"/></g>`).join(''):''}</svg>`;
   return seq?{svg,polys,sc,cx,y0,kinds}:svg; }
 // ---------- 용접 순서(비드 배치) 생성 ----------
 const BEAD_FILL='#e6e6e6';
@@ -1357,9 +1405,9 @@ function beadsSvg(o,polys,list){
   list.forEach((b,i)=>{ g+=`<g ${o.edit?`data-mv="bead:${i}" `:''}transform="translate(${b.x} ${b.y}) rotate(${b.rot||0})${b.flip?' scale(1 -1)':''}"><path d="${beadPath(0,0,b.rx,b.ry)}" fill="${BEAD_FILL}" stroke="#000" stroke-width="1.1"/></g>`;
     nums+=`<text x="${b.x}" y="${b.y+3.5}" font-size="10" text-anchor="middle" font-family="Arial" fill="#000" pointer-events="none">${dmlEsc(b.lab)}</text>`; });
   let ov=''; const sb=o.edit&&o.sel>=0?list[o.sel]:null;
-  if(sb){ const a=(sb.rot||0)*Math.PI/180, ca=Math.cos(a), sa=Math.sin(a), E=[sb.x+sb.rx*ca,sb.y+sb.rx*sa], S=[sb.x-sb.ry*sa,sb.y+sb.ry*ca], R=[sb.x+(sb.ry+18)*sa,sb.y-(sb.ry+18)*ca];
-    ov=`<g transform="translate(${sb.x} ${sb.y}) rotate(${sb.rot||0})" pointer-events="none"><ellipse rx="${sb.rx+2}" ry="${sb.ry+2}" fill="none" stroke="#1f5fae" stroke-dasharray="3 2"/></g><line x1="${sb.x}" y1="${sb.y}" x2="${R[0]}" y2="${R[1]}" stroke="#1f5fae" stroke-width=".8" pointer-events="none"/>`+
-      [['e',E],['s',S],['r',R]].map(([h,q])=>`<circle data-h="${h}" cx="${q[0]}" cy="${q[1]}" r="5" fill="#fff" stroke="#1f5fae" stroke-width="1.5"/>`).join(''); }
+  if(sb){ const a=(sb.rot||0)*Math.PI/180, ca=Math.cos(a), sa=Math.sin(a), loc=(lx,ly)=>[sb.x+lx*ca-ly*sa,sb.y+lx*sa+ly*ca], R=loc(0,-(sb.ry+20)), top=loc(0,-sb.ry);
+    ov=`<g transform="translate(${sb.x} ${sb.y}) rotate(${sb.rot||0})" pointer-events="none"><ellipse rx="${sb.rx+2}" ry="${sb.ry+2}" fill="none" stroke="#1f5fae" stroke-dasharray="3 2"/></g><line x1="${top[0]}" y1="${top[1]}" x2="${R[0]}" y2="${R[1]}" stroke="#1f5fae" stroke-width=".8" pointer-events="none"/>`+
+      [['e',loc(sb.rx,0),'ew-resize'],['w',loc(-sb.rx,0),'ew-resize'],['s',loc(0,sb.ry),'ns-resize'],['n',top,'ns-resize'],['c',loc(sb.rx*.72,-sb.ry*.72),'nwse-resize'],['r',R,'grab']].map(([h,q,cu])=>`<g data-h="${h}" style="cursor:${cu}"><circle cx="${q[0]}" cy="${q[1]}" r="12" fill="transparent"/><circle cx="${q[0]}" cy="${q[1]}" r="5" fill="${h==='r'?'#1f5fae':'#fff'}" stroke="#1f5fae" stroke-width="1.6"/></g>`).join(''); }
   return `<defs>${clip}</defs>${o.clipBeads===false?g:`<g clip-path="url(#${CID})">${g}</g>`}${crowns}${nums}${ov}`; }
 // ---- 층별 띠(사내 WPS 스타일)
 function seqBandSvg(o,polys){
@@ -1390,25 +1438,71 @@ function genSeq(o){
   const body=(manual||style==='beads')?beadsSvg(o,polys,manual?o.beads:beadAuto(o,polys)):seqBandSvg(o,polys);
   return svg.replace('</svg>',body+'</svg>'); }
 // ---- 마우스 편집 (미리보기에서 요소 끌기 / 비드 선택 후 핸들로 크기·회전)
-let DRAG=null;
+let DRAG=null, NUMMODE=false, NUMNEXT=1, LASTDN=null;
 function svgPt(box,e){ const sv=box.querySelector('svg'), pt=sv.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; const m=sv.getScreenCTM(); const q=m?pt.matrixTransform(m.inverse()):{x:0,y:0}; return {x:q.x,y:q.y}; }
 function beadEnsureManual(){ if(GEN.beadMode==='manual'&&GEN.beads&&GEN.beads.length) return; genValues(); const {polys}=genJoint({...GEN,dims:false,weld:false,symbol:false,edit:false},true); GEN.beads=beadAuto(GEN,polys); GEN.beadMode='manual'; }
-document.addEventListener('pointerdown',e=>{ const t=e.target.closest&&e.target.closest('#genj [data-mv],#gens [data-mv],#gens [data-h]'); if(!t) return; const box=t.closest('#genj,#gens'), P=svgPt(box,e);
-  if(t.dataset.h) DRAG={k:'h',h:t.dataset.h,i:GEN.sel,box};
-  else { const id=t.dataset.mv; if(id.startsWith('bead:')){ beadEnsureManual(); const i=+id.slice(5); GEN.sel=i; DRAG={k:'bead',i,p0:P,b0:{...GEN.beads[i]},box}; }
-    else { const q=(GEN.pos&&GEN.pos[id])||{dx:0,dy:0}; DRAG={k:'pos',id,p0:P,q0:{dx:q.dx||0,dy:q.dy||0},box}; } }
-  e.preventDefault(); genDraw(); });
+// 치수 핸들(주황 네모)로 형상 값을 직접 조절: 고정 스케일(pointerdown 시점의 geo)로 역산
+const GEN_PLABEL={t:'판 두께 t',t2:'바닥판 t2',gap:'루트 간격 b',angle:'개선 각도 α',face:'루트 면 c',r:'반지름 R',leg:'필릿 각장 z'};
+const DIM_KEY={dim_t:'t',dim_b:'gap',dim_a:'angle',dim_c:'face',dim_r:'r',dim_z:'leg',dim_t2:'t2'};
+const rdn=(v,s)=>Math.round(v/s)*s, clp=(v,a,b)=>Math.min(b,Math.max(a,v)), dg=r=>r*180/Math.PI;
+const PARAM={
+ gap:(P,k)=>['gap',clp(rdn(2*(P.x-k.cx)/k.sc,.5),0,30)],
+ t:(P,k)=>['t',clp(rdn((P.y-k.y0)/k.sc,.5),1,80)],
+ t2b:(P,k)=>['t2',clp(rdn((200-P.y)/k.sc,.5),1,80)],
+ lapT:(P,k)=>['t',clp(rdn((k.yb-P.y)/k.sc,.5),1,80)],
+ teeT:(P,k)=>['t',clp(rdn(2*(P.x-k.cx)/k.sc,.5),1,80)],
+ leg:(P,k)=>['leg',clp(rdn((P.x-k.fx)/k.sc,.5),1,40)],
+ angle:(P,k)=>['angle',clp(Math.round(2*dg(Math.atan2(Math.max(P.x-k.cx-k.g/2,.5),k.d1))),10,140)],
+ angleB:(P,k)=>['angle',clp(Math.round(dg(Math.atan2(Math.max(P.x-k.xb,.5),k.d1))),5,75)],
+ angleU:(P,k)=>['angle',clp(Math.round(2*dg(Math.atan2(Math.max(P.x-k.pxR,.5),k.pyL-k.y0))),10,50)],
+ angleJ:(P,k)=>['angle',clp(Math.round(dg(Math.atan2(Math.max(P.x-k.pxR,.5),k.pyL-k.y0))),5,25)],
+ face:(P,k)=>['face',clp(rdn((k.y0+k.Tp-P.y)/k.sc,.5),0,k.T*.9)],
+ faceX:(P,k)=>['face',clp(rdn((k.Tp-2*(P.y-k.y0))/k.sc,.5),0,k.T*.9)],
+ rad:(P,k)=>['r',clp(rdn((P.x-k.xr)/k.sc,.5),1,Math.max(1,k.T*.9))] };
+function setGenField(k,v){ GEN[k]=v; const el=document.querySelector(`#genbox [data-g="${k}"]`); if(el) el.value=v; }
+document.addEventListener('pointerdown',e=>{ if(e.button) return; const now=Date.now(), dbl=LASTDN&&now-LASTDN.t<400&&Math.hypot(e.clientX-LASTDN.x,e.clientY-LASTDN.y)<6; LASTDN={t:now,x:e.clientX,y:e.clientY};
+  const t=e.target.closest&&e.target.closest('#genj [data-mv],#gens [data-mv],#gens [data-h],#genj [data-p]'), seqBox=e.target.closest&&e.target.closest('#gens');
+  if(!t){ if(seqBox&&seqBox.querySelector('svg')){ e.preventDefault(); const P=svgPt(seqBox,e); if(dbl){ beadAddAt(P.x,P.y); return; } if(GEN.sel>=0){ GEN.sel=-1; genDraw(); } } return; }
+  const box=t.closest('#genj,#gens'), P=svgPt(box,e); e.preventDefault();
+  if(t.dataset.p){ DRAG={k:'param',key:t.dataset.p,geo:JSON.parse(t.dataset.k),box}; return; }
+  if(t.dataset.h){ const b=GEN.beads[GEN.sel]; if(!b) return; DRAG={k:'h',h:t.dataset.h,i:GEN.sel,box,b0:{...b},d0:Math.hypot(P.x-b.x,P.y-b.y)||1}; return; }
+  const id=t.dataset.mv;
+  if(DIM_KEY[id]&&dbl){ const k=DIM_KEY[id], n=prompt(`${GEN_PLABEL[k]} 값 입력`,GEN[k]); if(n!==null&&isFinite(parseFloat(n))){ setGenField(k,parseFloat(n)); genDraw(); } return; }
+  if(id.startsWith('bead:')){ beadEnsureManual(); const i=+id.slice(5);
+    if(NUMMODE){ GEN.beads[i].lab=String(NUMNEXT++); if(NUMNEXT>GEN.beads.length){ NUMMODE=false; numBtn(); toast('번호 입력을 마쳤습니다.',2000); } genDraw(); return; }
+    if(dbl){ const n=prompt('비드 번호(표시 글자)',GEN.beads[i].lab); if(n!==null){ GEN.beads[i].lab=n; genDraw(); } return; }
+    GEN.sel=i; DRAG={k:'bead',i,p0:P,b0:{...GEN.beads[i]},box}; }
+  else { const q=(GEN.pos&&GEN.pos[id])||{dx:0,dy:0}; DRAG={k:'pos',id,p0:P,q0:{dx:q.dx||0,dy:q.dy||0},box}; }
+  genDraw(); });
 document.addEventListener('pointermove',e=>{ if(!DRAG) return; const P=svgPt(DRAG.box,e);
-  if(DRAG.k==='pos'){ GEN.pos=GEN.pos||{}; GEN.pos[DRAG.id]={dx:DRAG.q0.dx+P.x-DRAG.p0.x,dy:DRAG.q0.dy+P.y-DRAG.p0.y}; }
+  if(DRAG.k==='param'){ const f=PARAM[DRAG.key]; if(!f) return; const [k,v]=f(P,DRAG.geo); if(GEN[k]!==v) setGenField(k,v); }
+  else if(DRAG.k==='pos'){ GEN.pos=GEN.pos||{}; GEN.pos[DRAG.id]={dx:DRAG.q0.dx+P.x-DRAG.p0.x,dy:DRAG.q0.dy+P.y-DRAG.p0.y}; }
   else if(DRAG.k==='bead'){ const b=GEN.beads[DRAG.i]; b.x=DRAG.b0.x+P.x-DRAG.p0.x; b.y=DRAG.b0.y+P.y-DRAG.p0.y; }
-  else if(DRAG.k==='h'){ const b=GEN.beads&&GEN.beads[DRAG.i]; if(!b) return; const a=(b.rot||0)*Math.PI/180, dx=P.x-b.x, dy=P.y-b.y, lx=dx*Math.cos(a)+dy*Math.sin(a), ly=-dx*Math.sin(a)+dy*Math.cos(a);
-    if(DRAG.h==='e') b.rx=Math.max(3,Math.abs(lx)); else if(DRAG.h==='s') b.ry=Math.max(3,Math.abs(ly)); else b.rot=Math.round(Math.atan2(dy,dx)*180/Math.PI+90); }
+  else if(DRAG.k==='h'){ const b=GEN.beads&&GEN.beads[DRAG.i]; if(!b) return; const a=(b.rot||0)*Math.PI/180, dx=P.x-b.x, dy=P.y-b.y, lx=dx*Math.cos(a)+dy*Math.sin(a), ly=-dx*Math.sin(a)+dy*Math.cos(a), h=DRAG.h;
+    if(h==='e'||h==='w') b.rx=Math.max(3,Math.abs(lx)); else if(h==='s'||h==='n') b.ry=Math.max(3,Math.abs(ly));
+    else if(h==='c'){ const f=Math.hypot(dx,dy)/DRAG.d0; b.rx=Math.max(3,DRAG.b0.rx*f); b.ry=Math.max(3,DRAG.b0.ry*f); }
+    else b.rot=Math.round(Math.atan2(dy,dx)*180/Math.PI+90); }
   genDraw(); });
 document.addEventListener('pointerup',()=>{ if(DRAG){ DRAG=null; genDraw(); } });
-function beadAdd(){ beadEnsureManual(); const b0=GEN.beads[GEN.sel]||GEN.beads[GEN.beads.length-1]||{x:260,y:140,rx:16,ry:10,rot:0}; GEN.beads.push({x:b0.x+12,y:b0.y-12,rx:b0.rx,ry:b0.ry,rot:b0.rot||0,lab:String(GEN.beads.length+1)}); GEN.sel=GEN.beads.length-1; genDraw(); }
-function beadDel(){ if(GEN.sel<0||!GEN.beads) return toast('삭제할 비드를 먼저 클릭해 선택하세요.',2500); GEN.beads.splice(GEN.sel,1); GEN.sel=-1; genDraw(); }
-function beadLab(){ if(GEN.sel<0||!GEN.beads) return toast('비드를 먼저 클릭해 선택하세요.',2500); const n=prompt('비드 번호(표시 글자)',GEN.beads[GEN.sel].lab); if(n!==null){ GEN.beads[GEN.sel].lab=n; genDraw(); } }
-function beadReset(){ GEN.beads=null; GEN.beadMode='auto'; GEN.sel=-1; genDraw(); }
+document.addEventListener('contextmenu',e=>{ const t=e.target.closest&&e.target.closest('#gens [data-mv^="bead:"]'); if(!t) return; e.preventDefault(); beadEnsureManual(); GEN.beads.splice(+t.dataset.mv.slice(5),1); GEN.sel=-1; genDraw(); });
+document.addEventListener('keydown',e=>{ if(!$('#gens')||/INPUT|TEXTAREA|SELECT/.test((document.activeElement||{}).tagName||'')) return;
+  if(e.key==='Escape'&&NUMMODE){ NUMMODE=false; numBtn(); return; }
+  const b=GEN.beads&&GEN.beads[GEN.sel]; if(!b) return; const st=e.shiftKey?5:1; let h=true;
+  if(e.key==='Delete'||e.key==='Backspace') beadDel(); else if(e.key==='ArrowLeft') b.x-=st; else if(e.key==='ArrowRight') b.x+=st; else if(e.key==='ArrowUp') b.y-=st; else if(e.key==='ArrowDown') b.y+=st;
+  else if(e.key==='+'||e.key==='='){ b.rx*=1.1; b.ry*=1.1; } else if(e.key==='-'){ b.rx=Math.max(3,b.rx/1.1); b.ry=Math.max(3,b.ry/1.1); }
+  else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d') beadDup(); else h=false;
+  if(h){ e.preventDefault(); genDraw(); } });
+function beadAddAt(x,y){ beadEnsureManual(); const s=GEN.beads[GEN.sel]||GEN.beads[GEN.beads.length-1]||{rx:14,ry:9,rot:0}; GEN.beads.push({x,y,rx:s.rx,ry:s.ry,rot:s.rot||0,flip:!!s.flip,lab:String(GEN.beads.length+1)}); GEN.sel=GEN.beads.length-1; genDraw(); }
+function beadAdd(){ genValues(); const {polys}=genJoint({...GEN,dims:false,weld:false,symbol:false,edit:false},true); const pts=(polys[0]&&polys[0].pts)||[[240,140],[280,140]], xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]), n=(GEN.beads||[]).length;
+  beadAddAt((Math.min(...xs)+Math.max(...xs))/2+((n%3)-1)*10,(Math.min(...ys)+Math.max(...ys))/2-(n%2)*8); }
+function beadDup(){ const b=GEN.beads&&GEN.beads[GEN.sel]; if(!b) return toast('복제할 비드를 먼저 클릭해 선택하세요.',2500); GEN.beads.push({...b,x:b.x+10,y:b.y-10,lab:String(GEN.beads.length+1)}); GEN.sel=GEN.beads.length-1; genDraw(); }
+function beadDel(){ if(GEN.sel<0||!GEN.beads) return toast('삭제할 비드를 먼저 클릭해 선택하세요. (비드 우클릭 / Delete 키로도 삭제)',3000); GEN.beads.splice(GEN.sel,1); GEN.sel=-1; genDraw(); }
+function beadNumMode(){ if(!NUMMODE){ beadEnsureManual(); GEN.beads.forEach(b=>b.lab='?'); NUMMODE=true; NUMNEXT=1; GEN.sel=-1; toast('비드를 용접 순서대로 클릭하면 1, 2, 3… 번호가 매겨집니다. (Esc로 종료)',4500); } else NUMMODE=false; numBtn(); genDraw(); }
+function numBtn(){ const b=$('#nmbtn'); if(b) b.textContent=NUMMODE?'번호 입력 중… (Esc 종료)':'번호 순서 입력'; }
+function beadPan(el){ const b=GEN.beads&&GEN.beads[GEN.sel]; if(!b) return; const k=el.dataset.f; b[k]=k==='lab'?el.value:parseFloat(el.value); genDraw(); }
+function beadPanSync(){ const pan=$('#beadpan'); if(!pan) return; const b=GEN.beads&&GEN.beads[GEN.sel]; pan.style.display=b?'flex':'none'; if(!b) return;
+  pan.querySelectorAll('[data-f]').forEach(el=>{ if(el!==document.activeElement) el.value=b[el.dataset.f]??(el.dataset.f==='rot'?0:''); }); }
+function beadReset(){ GEN.beads=null; GEN.beadMode='auto'; GEN.sel=-1; NUMMODE=false; numBtn(); genDraw(); }
 function posReset(){ GEN.pos={}; genDraw(); }
 const SYM_GUIDE=`<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--accent)"><b>용접 기호(지시선) 가이드라인 — 사내 교육자료 · EN ISO 2553 기준</b></summary><div style="font-size:12.5px;line-height:1.55;margin-top:6px">
  <svg viewBox="0 0 560 175" style="width:100%;max-width:560px;background:#fff;border:1px solid var(--line);border-radius:6px"><defs><marker id="gah" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs>
@@ -1433,12 +1527,13 @@ function genPanelHTML(mode){ const G=GEN, tab=mode==='tab', num=(k,l)=>`<label>$
     ${sel('symDim','필릿 치수 (ISO)',[['z','각장 z'],['a','각목 a'],['both','a, z 모두']])}${num('symN','단속: 개수 n')}${num('symL','단속: 길이 L')}${num('symE','단속: 간격 E(끝단~끝단)')}${txt('symS','홈 용접 s 치수(선택)','예: 12')}${sel('contour','표면 형상 기호',[['none','없음'],['flush','평탄(—)'],['convex','볼록'],['concave','오목']])}${chk('allAround','전둘레 ○')}${chk('field','현장 용접 ▶')}</div>
    <div class="grid" style="margin-top:6px">${txt('tailProc','꼬리: 공정 (ISO 4063)','135')}${txt('tailLvl','품질등급 (ISO 5817)','B')}${chk('tailLvlPrefix','등급에 "ISO 5817-" 붙이기')}${txt('tailPos','자세 (ISO 6947)','PA')}${txt('tailFiller','충전재(선택)','')}${txt('tailRef','WPS 참조(선택)','WPS-RM001')}</div>${SYM_GUIDE}
    <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:8px"><div style="border:1px solid var(--line);border-radius:6px"><div style="font-size:12px;padding:4px 8px;color:var(--mute)">이음부 형상</div><div id="genj" style="height:${tab?300:220}px"></div></div><div style="border:1px solid var(--line);border-radius:6px"><div style="font-size:12px;padding:4px 8px;color:var(--mute)">용접 순서</div><div id="gens" style="height:${tab?300:220}px"></div></div></div>
-   <div class="row" style="margin-top:6px">${sel('beadStyle','비드 표현',[['auto','자동 (홈=층별 띠, 필릿=개별 비드)'],['band','층별 띠 (사내 스타일)'],['beads','개별 비드(렌즈형)']])}${chk('clipBeads','개선면 안으로 자르기')}<button type="button" class="b sm sec" onclick="beadAdd()">+ 비드 추가</button><button type="button" class="b sm sec" onclick="beadDel()">선택 비드 삭제</button><button type="button" class="b sm sec" onclick="beadLab()">번호 변경</button><button type="button" class="b sm sec" onclick="beadReset()">비드 자동 배치로 되돌리기</button><button type="button" class="b sm sec" onclick="posReset()">지시선·치수 위치 초기화</button></div>
-   <div style="color:var(--mute);font-size:12px;margin:4px 0">미리보기에서 <b>지시선·기호·치수·글자·화살표 끝</b>을 마우스로 끌어 위치를 조절하고, <b>비드</b>는 클릭해 선택한 뒤 끌어서 이동, 파란 핸들로 <b>가로·세로 크기</b>와 <b>회전</b>을 조절합니다. (표시 위치는 저장/적용 시 그대로 반영)</div>
+   <div class="row" style="margin-top:6px">${sel('beadStyle','비드 표현',[['auto','자동 (홈=층별 띠, 필릿=개별 비드)'],['band','층별 띠 (사내 스타일)'],['beads','개별 비드(렌즈형)']])}${chk('clipBeads','개선면 안으로 자르기')}<button type="button" class="b sm sec" onclick="beadAdd()">+ 비드 추가</button><button type="button" class="b sm sec" onclick="beadDup()">복제</button><button type="button" class="b sm sec" onclick="beadDel()">삭제</button><button type="button" class="b sm sec" id="nmbtn" onclick="beadNumMode()">번호 순서 입력</button><button type="button" class="b sm sec" onclick="beadReset()">비드 자동 배치로 되돌리기</button><button type="button" class="b sm sec" onclick="posReset()">지시선·치수 위치 초기화</button></div>
+   <div id="beadpan" class="row" style="display:none;align-items:center;gap:12px;margin:4px 0;font-size:12px;background:#f3f7fc;border:1px solid var(--line);border-radius:6px;padding:4px 8px"><b>선택 비드</b><span>가로 <input type="range" data-f="rx" min="3" max="80" step="0.5" oninput="beadPan(this)"></span><span>세로 <input type="range" data-f="ry" min="3" max="60" step="0.5" oninput="beadPan(this)"></span><span>회전 <input type="range" data-f="rot" min="-90" max="90" step="1" oninput="beadPan(this)"></span><span>번호 <input data-f="lab" style="width:44px" oninput="beadPan(this)"></span></div>
+   <div style="color:var(--mute);font-size:12px;margin:4px 0;line-height:1.6"><b>이음부 형상</b>: <span style="color:#e07b00">주황 네모</span>를 끌면 <b>간격 b·개선각·루트면 c·두께 t·반지름 R·각장 z</b>가 실제로 바뀌고 입력칸에도 반영됩니다. 치수 글자를 <b>더블클릭</b>하면 값을 직접 입력합니다. 지시선·기호·치수는 끌어서 위치만 이동합니다.<br><b>용접 순서</b>: 비드 <b>클릭=선택</b>·끌어서 이동 / <b>빈 곳 더블클릭=그 자리에 비드 추가</b> / 비드 <b>우클릭 또는 Delete=삭제</b> / 핸들: 좌우·상하=크기, 모서리=비율 유지 크기, 위 파란 점=회전 / 키보드 방향키=미세 이동(Shift×5), +/-=크기, Ctrl+D=복제 / <b>번호 순서 입력</b>=작업 순서대로 클릭하면 번호 자동 부여</div>
    <div class="row">${tab?`<button type="button" class="b" onclick="genSave('joint')">이음부 형상을 라이브러리에 저장</button><button type="button" class="b" onclick="genSave('sequence')">용접 순서를 라이브러리에 저장</button><button type="button" class="b sec" onclick="dlSvg('joint')">SVG 다운로드(형상)</button><button type="button" class="b sec" onclick="dlSvg('sequence')">SVG(순서)</button><button type="button" class="b sec" onclick="dlPng('joint')">PNG(형상)</button><button type="button" class="b sec" onclick="dlPng('sequence')">PNG(순서)</button><button type="button" class="b sec" onclick="Object.assign(GEN,JSON.parse(JSON.stringify(GEN_DEF)));vShape()">초기화</button>`
    :`<button type="button" class="b sm" onclick="genApply('joint')">이음부 형상에 적용</button><button type="button" class="b sm" onclick="genApply('sequence')">용접 순서에 적용</button><button type="button" class="b sm" onclick="genApply('both')">둘 다 적용</button><button type="button" class="b sm sec" onclick="genSave('joint')">형상을 라이브러리에 저장</button><button type="button" class="b sm sec" onclick="genSave('sequence')">순서를 라이브러리에 저장</button>`}</div></div>`; }
 function genValues(){ document.querySelectorAll('#genbox [data-g]').forEach(el=>{ const k=el.dataset.g; GEN[k]=el.type==='checkbox'?el.checked:el.type==='number'?(parseFloat(el.value)||0):el.value; }); }
-function genDraw(){ if(!DRAG) genValues(); const j=$('#genj'), q=$('#gens'); if(!j) return; j.innerHTML=genJoint({...GEN,edit:true}).replace('<svg ','<svg style="width:100%;height:100%;touch-action:none" '); q.innerHTML=genSeq({...GEN,edit:true}).replace('<svg ','<svg style="width:100%;height:100%;touch-action:none" '); }
+function genDraw(){ if(!DRAG) genValues(); const j=$('#genj'), q=$('#gens'); if(!j) return; j.innerHTML=genJoint({...GEN,edit:true}).replace('<svg ','<svg style="width:100%;height:100%;touch-action:none" '); q.innerHTML=genSeq({...GEN,edit:true}).replace('<svg ','<svg style="width:100%;height:100%;touch-action:none" '); beadPanSync(); }
 function genApply(w){ genValues(); collectDoc(); if(w!=='sequence') WD.obj.sketches.joint=svgUrl(genJoint(GEN)); if(w!=='joint') WD.obj.sketches.sequence=svgUrl(genSeq(GEN)); vWpsDoc(); toast('생성한 형상을 적용했습니다. 저장을 눌러 확정하세요.',3000); }
 function genSave(k){ genValues(); const nm=GEN_TYPES.find(x=>x[0]===GEN.type)[1].split(' ')[0]; const g={...GEN}; delete g.open; saveToLib(k,k==='joint'?genJoint(GEN):genSeq(GEN),`${nm} t${GEN.t}${GEN.angle&&/groove|bevel/.test(GEN.type)?` ${GEN.angle}°`:''} ${KIND_L[k]}`,{weldType:/tee|lap/.test(GEN.type)?'FW':'BW',thk:`t=${GEN.t}`,backing:GEN.backing==='none'?'':GEN.backing},g).then(()=>{ if(tab==='shape') drawLibTab(); }); }
 const GEN_DEF=JSON.parse(JSON.stringify(GEN));
