@@ -25,6 +25,7 @@ table.list th,table.list td{padding:6px 8px;border-bottom:1px solid var(--line);
 .tw{overflow-x:auto;max-height:70vh;overflow-y:auto;border:1px solid var(--line);border-radius:6px}
 .tw table.list th{position:sticky;top:0;z-index:1}
 table.list tbody tr:hover{background:#f5f8fb}
+table.list tr.kid td{background:#f7f9fb;color:#5a6672;font-size:13px}table.list tr.kid td:first-child{border-left:3px solid #c9d3de}
 .m{display:inline-block;width:20px;text-align:center;font-weight:700}.m.p{color:var(--ok)}.m.f{color:var(--bad)}.m.n{color:#b5bcc5}
 td.num,th.num{text-align:center!important}
 .bx{white-space:nowrap}
@@ -78,7 +79,7 @@ body.printing header,body.printing main{display:none}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v9 · VT 자동 보정</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v10 · 재시험 묶음</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -554,15 +555,17 @@ async function importCSV(text){
 
 const FIELDS_DEFAULT={weldingDate:today(),process:'135 MAG',productType:'P',pipeDiameter:'',joint:'BW',transfer:'globular/spray',fillerGroup:'FM 1',fillerType:'S',
   materialGroup:'1.1',gas:'EN ISO 14175-M21',backing:'ss nb',thickness:12,deposited:12,position:'PC',project:'',wpsNo:'',tests:{}};
-const RF={q:'',st:'전체',joint:'전체',proc:'전체',page:0}, PAGE=50;
+const RF={q:'',st:'전체',joint:'전체',proc:'전체',page:0,all:false,open:new Set()}, PAGE=40;
 function vRecords(){
   if(editRec) return vRecForm();
   const procs=[...new Set(records.map(r=>r.process))].sort();
   $('#view').innerHTML=`<div class="card"><div class="row" style="margin:0"><h2 style="margin:0;flex:1" id="rtitle">시험 기록</h2><button class="b sec" onclick="fixImpliedVT()" title="RT/UT·굽힘·단면 결과가 있는데 VT가 미기록인 기록의 VT를 Pass로 보정">VT 미기록 일괄 보정</button><button class="b" onclick="newRec()">+ 새 시험 기록</button></div>
    <div class="row"><input id="rq" placeholder="용접사 이름 / 번호 / 프로젝트 검색" style="min-width:260px" value="${esc(RF.q)}">
-    ${sel('rst',['전체','합격','진행중','불합격'],RF.st)}${sel('rjoint',['전체','BW','FW'],RF.joint)}${sel('rproc',['전체',...procs],RF.proc)}</div>
+    ${sel('rst',['전체','합격','진행중','불합격'],RF.st)}${sel('rjoint',['전체','BW','FW'],RF.joint)}${sel('rproc',['전체',...procs],RF.proc)}
+    <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="rall" ${RF.all?'checked':''}>재시험 이전 시도 모두 펼치기</label><span id="rinfo" style="color:var(--mute);font-size:12px"></span></div>
    <div class="tw" id="rlist" style="margin-top:10px"></div><div class="row" id="rpager"></div>
-   <div style="color:var(--mute);font-size:12px;margin-top:8px">검사 결과: <span class="m p">●</span> Pass <span class="m f">✕</span> Fail <span class="m n">–</span> 미실시. 판정은 검사 결과로 자동 계산됩니다(설정의 판정 기준 적용).</div></div>`;
+   <div style="color:var(--mute);font-size:12px;margin-top:8px">같은 용접사·같은 조인트(유형·공정·두께·자세)는 합격 기록(없으면 최근 기록) 한 줄로 묶이고, <b>▸ 숫자</b>를 누르면 이전 시도(불합격 등)가 펼쳐집니다.<br>검사 결과: <span class="m p">●</span> Pass <span class="m f">✕</span> Fail <span class="m n">–</span> 미실시. 판정은 검사 결과로 자동 계산됩니다(설정의 판정 기준 적용).</div></div>`;
+  $('#rall').onchange=e=>{RF.all=e.target.checked;drawRecs();};
   $('#rq').oninput=e=>{RF.q=e.target.value;RF.page=0;drawRecs();};
   for(const [n,k] of [['rst','st'],['rjoint','joint'],['rproc','proc']]) $(`[name=${n}]`).onchange=e=>{RF[k]=e.target.value;RF.page=0;drawRecs();};
   drawRecs();
@@ -575,22 +578,38 @@ async function fixImpliedVT(){
   if(!confirm(`VT가 미기록이고 RT/UT·굽힘·단면 결과가 있는 기록 ${t.length}건의 VT를 Pass로 보정합니다.\n(VT는 다음 시험 전에 통과한 것으로 간주. VT에 Fail이 적힌 기록은 건드리지 않음)\n\n이 중 판정이 새로 '합격'이 되는 기록: ${after}건\n계속할까요?`)) return;
   await DB.putMany('records',t.map(r=>({...r,tests:applyImpliedVT(r.tests||{})}))); await load(); vRecords(); toast(`${t.length}건 보정했습니다 (새 합격 ${after}건).`,5000); }
 const mk3=v=>v==='pass'?'<span class="m p">●</span>':v==='fail'?'<span class="m f">✕</span>':'<span class="m n">–</span>';
+// 같은 용접사 + 같은 조인트(유형·공정·두께·자세)의 시험은 한 묶음: 합격(없으면 최근) 기록만 보이고 나머지(재시험 이전 시도)는 접어둔다
+const gkey=r=>[r.welderId,r.joint,r.process,r.thickness,r.position].join('|');
+function groupRecs(rows){
+  const m=new Map(); for(const x of rows){const k=gkey(x.r); if(!m.has(k)) m.set(k,[]); m.get(k).push(x);}
+  return [...m.values()].map(list=>{
+    list.sort((a,b)=>b.r.weldingDate.localeCompare(a.r.weldingDate)||b.r.id-a.r.id);
+    const main=list.find(x=>x.st==='pass')||list[0]; return {main,kids:list.filter(x=>x!==main)}; });
+}
+function toggleGrp(id){ RF.open.has(id)?RF.open.delete(id):RF.open.add(id); drawRecs(); }
 function drawRecs(){
   const wm=new Map(welders.map(w=>[w.id,w])), q=RF.q.trim().toLowerCase();
-  let rows=records.map(r=>({r,w:wm.get(r.welderId)||{},st:recStatus(r)})).filter(x=>
-    (RF.st==='전체'||JLBL[x.st]===RF.st)&&(RF.joint==='전체'||x.r.joint===RF.joint)&&(RF.proc==='전체'||x.r.process===RF.proc)&&
+  const rows=records.map(r=>({r,w:wm.get(r.welderId)||{},st:recStatus(r)})).filter(x=>
+    (RF.joint==='전체'||x.r.joint===RF.joint)&&(RF.proc==='전체'||x.r.process===RF.proc)&&
     (!q||[x.w.name,x.w.welderNo,x.r.project].join(' ').toLowerCase().includes(q)));
-  rows.sort((a,b)=>b.r.weldingDate.localeCompare(a.r.weldingDate)||b.r.id-a.r.id);
-  const pages=Math.max(1,Math.ceil(rows.length/PAGE)); RF.page=Math.min(RF.page,pages-1);
-  $('#rtitle').textContent=`시험 기록 (${rows.length} / 전체 ${records.length})`;
-  $('#rlist').innerHTML=`<table class="list"><thead><tr><th>용접일</th><th>용접사</th><th class="num">유형</th><th>공정</th><th class="num">두께</th><th class="num">자세</th><th>용가재</th>
-   <th class="num">VT</th><th class="num">RT/UT</th><th class="num">Bend/Macro</th><th class="num">판정</th><th>만료일</th><th class="num">서명</th><th></th></tr></thead><tbody>${rows.slice(RF.page*PAGE,RF.page*PAGE+PAGE).map(({r,w,st})=>{const T=r.tests||{};
-   return `<tr><td>${r.weldingDate}</td><td>${esc(w.name)} <small style="color:var(--mute)">${esc(w.welderNo)}</small></td><td class="num">${r.joint}</td><td>${esc(r.process)}</td><td class="num">${fmtN(r.thickness)}</td><td class="num">${esc(r.position)}</td><td>${esc(r.fillerGroup)}</td>
+  const groups=groupRecs(rows).filter(g=>RF.st==='전체'||JLBL[g.main.st]===RF.st) // 상태 필터는 대표 기록의 판정 기준
+    .sort((a,b)=>b.main.r.weldingDate.localeCompare(a.main.r.weldingDate)||b.main.r.id-a.main.r.id);
+  const pages=Math.max(1,Math.ceil(groups.length/PAGE)); RF.page=Math.min(RF.page,pages-1);
+  const hidden=groups.reduce((a,g)=>a+g.kids.length,0), multi=groups.filter(g=>g.kids.length).length;
+  $('#rtitle').textContent=`시험 기록 (조인트 ${groups.length}개 · 전체 ${records.length}건)`;
+  const rowHTML=({r,w,st},kid,g)=>{const T=r.tests||{}, open=RF.all||RF.open.has(g.main.r.id);
+    const tog=kid?'<span style="color:var(--mute)">↳</span>':(g.kids.length?`<button class="b sm sec" style="padding:1px 7px" onclick="toggleGrp(${r.id})" title="재시험 이전 시도 ${g.kids.length}건 ${open?'접기':'보기'}">${open?'▾':'▸'} ${g.kids.length}</button>`:'');
+    return `<tr class="${kid?'kid':''}"><td class="num">${tog}</td><td>${r.weldingDate}</td><td>${esc(w.name)} <small style="color:var(--mute)">${esc(w.welderNo)}</small></td><td class="num">${r.joint}</td><td>${esc(r.process)}</td><td class="num">${fmtN(r.thickness)}</td><td class="num">${esc(r.position)}</td><td>${esc(r.fillerGroup)}</td>
    <td class="num">${mk3(T.vt)}</td><td class="num">${mk3(T.rtut)}</td><td class="num">${mk3(r.joint==='BW'?T.bend:T.macro)}</td><td class="num">${pill(st)}</td><td>${calcExpire(r.weldingDate)}</td><td class="num">${(r.renewals||[]).length}/5</td>
-   <td class="bx"><button class="b sm sec" onclick="editR(${r.id})">수정</button> <button class="b sm sec" title="같은 조건으로 새 기록 만들기" onclick="copyRec(${r.id})">복사</button>
+   <td class="bx"><button class="b sm sec" onclick="editR(${r.id})">수정</button>${kid?'':` <button class="b sm sec" title="같은 조건으로 새 기록 만들기" onclick="copyRec(${r.id})">복사</button>`}
    ${st==='pass'?`<button class="b sm" onclick="showCert(${r.id})">인증서</button> <button class="b sm sec" onclick="addRenewal(${r.id})">6개월 서명</button>`:''}
-   <button class="b sm red" onclick="delRec(${r.id})">삭제</button></td></tr>`;}).join('')||'<tr><td colspan="14" style="color:var(--mute)">조건에 맞는 기록이 없습니다.</td></tr>'}</tbody></table>`;
-  rz($('#rlist'),'records');
+   <button class="b sm red" onclick="delRec(${r.id})">삭제</button></td></tr>`;};
+  const page=groups.slice(RF.page*PAGE,RF.page*PAGE+PAGE);
+  $('#rlist').innerHTML=`<table class="list"><thead><tr><th class="num" title="같은 조인트의 재시험 이전 시도 수">시도</th><th>용접일</th><th>용접사</th><th class="num">유형</th><th>공정</th><th class="num">두께</th><th class="num">자세</th><th>용가재</th>
+   <th class="num">VT</th><th class="num">RT/UT</th><th class="num">Bend/Macro</th><th class="num">판정</th><th>만료일</th><th class="num">서명</th><th></th></tr></thead><tbody>${page.map(g=>{
+    const open=RF.all||RF.open.has(g.main.r.id); return rowHTML(g.main,false,g)+(open?g.kids.map(k=>rowHTML(k,true,g)).join(''):'');}).join('')||'<tr><td colspan="15" style="color:var(--mute)">조건에 맞는 기록이 없습니다.</td></tr>'}</tbody></table>`;
+  rz($('#rlist'),'records2');
+  $('#rinfo').textContent=`같은 조인트에 시험이 여러 번인 묶음 ${multi}개 (접힌 이전 시도 ${hidden}건)`;
   $('#rpager').innerHTML=pages>1?`<button class="b sm sec" ${RF.page?'':'disabled'} onclick="RF.page--;drawRecs()">← 이전</button><span>${RF.page+1} / ${pages} 페이지</span><button class="b sm sec" ${RF.page<pages-1?'':'disabled'} onclick="RF.page++;drawRecs()">다음 →</button>`:'';
 }
 const COND=['project','wpsNo','process','productType','pipeDiameter','joint','transfer','fillerGroup','fillerType','materialGroup','gas','backing','thickness','deposited','position'];
