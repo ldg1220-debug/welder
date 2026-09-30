@@ -74,7 +74,7 @@ table.list th{background:#eef2f6;font-size:12px}
 .cert .bot{display:flex;gap:6mm;margin-top:1mm}.cert .tt{width:45%}.cert .tt td,.cert .tt th{height:5.8mm;padding-top:0;padding-bottom:0}.cert .lb1 i{font-size:7pt;font-style:normal;font-weight:700}
 .cert .mk{color:#d10000;font-weight:700;font-size:11pt}
 .cert .rt{flex:1;position:relative}.cert .sigbox{position:absolute;right:0;top:3mm;width:44mm;height:19mm}
-.cert .sigbox .stamp{position:absolute;left:0;top:0;height:18mm;opacity:.92}.cert .sigbox .sign{position:absolute;left:12mm;top:2mm;height:14mm;max-width:31mm}
+.cert .sigbox .stamp{position:absolute;left:0;top:0;height:18mm;opacity:.92}.cert .sigbox .sign{position:absolute;left:21mm;top:2mm;height:14mm;max-width:23mm}
 .cert .prol{display:flex;gap:4mm;margin-top:1.5mm}.cert .prol table{flex:1}
 .cert .wm{position:absolute;left:0;right:0;top:105mm;text-align:center;font-size:40pt;font-weight:900;color:rgba(200,0,0,.14);transform:rotate(-22deg);pointer-events:none;z-index:3}
 @media print{
@@ -89,7 +89,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v14 · 인증서 정렬</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v15 · 퇴사 불합격</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -272,7 +272,7 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const today=()=>new Date().toISOString().slice(0,10);
 const RES={pass:'Pass',fail:'Fail',na:'미실시'};
 const JLBL={pass:'합격',fail:'불합격',pending:'진행중'};
-function pill(st){return `<span class="pill ${st}">${JLBL[st]}</span>`;}
+function pill(st,t){return `<span class="pill ${st}"${t?` title="${t}"`:''}>${JLBL[st]}</span>`;}
 function fileToDataURL(file,max,png){ // 이미지를 축소해 DB 용량을 줄인다 (png=true: 투명 배경 유지)
   return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{
     const k=Math.min(1,max/Math.max(im.width,im.height));const c=document.createElement('canvas');
@@ -360,7 +360,10 @@ function nav(){ $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?
 function go(k){tab=k;editRec=null;render();}
 function render(){nav();({dash:vDash,welders:vWelders,records:vRecords,settings:vSettings})[tab]();}
 
-function recStatus(r){return judge(r.joint,r.tests||{},S.strict);}
+// 판정. 시험이 끝나지 않은(진행중) 기록이라도 용접사가 퇴사 처리돼 있으면 불합격으로 본다.
+function rawStatus(r){return judge(r.joint,r.tests||{},S.strict);}
+function isGone(r){const w=welders.find(x=>x.id===r.welderId);return !!w&&w.status==='퇴사';}
+function recStatus(r){const st=rawStatus(r); return st==='pending'&&isGone(r)?'fail':st;}
 function vDash(){
   const t=today(); const passed=records.filter(r=>recStatus(r)==='pass');
   const active=passed.filter(r=>{const w=welders.find(x=>x.id===r.welderId);return w&&w.status!=='퇴사';});
@@ -620,7 +623,7 @@ function drawRecs(){
   const rowHTML=({r,w,st},kid,g)=>{const T=r.tests||{}, open=RF.all||RF.open.has(g.main.r.id);
     const tog=kid?'<span style="color:var(--mute)">↳</span>':(g.kids.length?`<button class="b sm sec" style="padding:1px 7px" onclick="toggleGrp(${r.id})" title="재시험 이전 시도 ${g.kids.length}건 ${open?'접기':'보기'}">${open?'▾':'▸'} ${g.kids.length}</button>`:'');
     return `<tr class="${kid?'kid':''}"><td class="num">${tog}</td><td>${r.weldingDate}</td><td>${esc(w.name)} <small style="color:var(--mute)">${esc(w.welderNo)}</small></td><td class="num">${r.joint}</td><td>${esc(r.process)}</td><td class="num">${fmtN(r.thickness)}</td><td class="num">${esc(r.position)}</td><td>${esc(r.fillerGroup)}</td>
-   <td class="num">${mk3(T.vt)}</td><td class="num">${mk3(T.rtut)}</td><td class="num">${mk3(r.joint==='BW'?T.bend:T.macro)}</td><td class="num">${pill(st)}</td><td>${calcExpire(r.weldingDate)}</td><td class="num">${(r.renewals||[]).length}/5</td>
+   <td class="num">${mk3(T.vt)}</td><td class="num">${mk3(T.rtut)}</td><td class="num">${mk3(r.joint==='BW'?T.bend:T.macro)}</td><td class="num">${pill(st,st==='fail'&&rawStatus(r)==='pending'?'퇴사자의 미완료 시험 → 불합격 처리':'')}</td><td>${calcExpire(r.weldingDate)}</td><td class="num">${(r.renewals||[]).length}/5</td>
    <td class="bx"><button class="b sm sec" onclick="editR(${r.id})">수정</button>${kid?'':` <button class="b sm sec" title="같은 조건으로 새 기록 만들기" onclick="copyRec(${r.id})">복사</button>`}
    ${st==='pass'?`<button class="b sm" onclick="showCert(${r.id})">인증서</button> <button class="b sm sec" onclick="addRenewal(${r.id})">6개월 서명</button>`:''}
    <button class="b sm red" onclick="delRec(${r.id})">삭제</button></td></tr>`;};
@@ -693,7 +696,7 @@ function vRecForm(){
     return {...r,welderId:+o.welderId,weldingDate:o.weldingDate,project:o.project,wpsNo:o.wpsNo,process:o.process,productType:o.productType,pipeDiameter:o.pipeDiameter,
      joint:o.joint,transfer:o.transfer,fillerGroup:o.fillerGroup,fillerType:o.fillerType,materialGroup:o.materialGroup,gas:o.gas,backing:o.backing,thickness:+o.thickness,deposited:+o.deposited||+o.thickness,position:o.position.trim().toUpperCase(),
      tests:(S.impliedVT?applyImpliedVT:x=>x)({vt:o.vt,rtut:o.rtut,bend:o.bend,macro:o.macro,fracture:o.fracture,additional:o.additional}),refNo:o.refNo,issueDate:o.issueDate,jobKnowledge:o.jobKnowledge,suppFillet:o.suppFillet};};
-  const upd=()=>{const c=collect(),res=calculateRangeOfApproval(c),st=judge(c.joint,c.tests,S.strict);
+  const upd=()=>{const c=collect(),res=calculateRangeOfApproval(c),st=recStatus(c);
     if(f.elements.vt.value!==(c.tests.vt||'na')) f.elements.vt.value=c.tests.vt; // 자동 통과 처리 표시
     $('#pj').innerHTML=pill(st)+` <small style="font-weight:400">유효: ${validityText(c.weldingDate,res.expire||'')}</small>`;
     $('#rng').innerHTML=(res.manual_review_required?'<div class="msg err">⚠ 자동 산출 불가 항목이 있습니다. 규격서를 보고 인증서 발행 전에 확인하세요.</div>':'')+
@@ -720,7 +723,7 @@ function autoRef(c){ const n=records.filter(x=>x.welderId===c.welderId&&x.id!==c
   return `${S.refPrefix}-${n}-${processCode(c.process)}-T${fmtN(c.thickness)}-${c.joint}-${c.position}`; }
 function certHTML(r,o){
   o=o||{}; const w=o.w||welders.find(x=>x.id===r.welderId)||{}, res=calculateRangeOfApproval(r), R=Object.fromEntries(res.items.map(x=>[x.key,x]));
-  const exp=calcExpire(r.weldingDate), T=r.tests||{}, issued=r.issueDate||defaultIssue(r.weldingDate), pass=judge(r.joint,T,S.strict)==='pass', bw=r.joint==='BW';
+  const exp=calcExpire(r.weldingDate), T=r.tests||{}, issued=r.issueDate||defaultIssue(r.weldingDate), pass=recStatus(r)==='pass', bw=r.joint==='BW';
   const wm=o.mark||(pass?'':'미합격 · 미리보기 (발행 불가)');
   const mk=v=>`<span class="mk">${v==='pass'?'o':'X'}</span>`;
   const row=(kr,en,k)=>`<tr><td class="lb"><b>${kr}</b><i>${en}</i></td><td class="c">${esc(R[k].test)}</td><td class="c">${esc(R[k].range)}</td></tr>`;
