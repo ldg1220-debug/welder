@@ -78,7 +78,7 @@ body.printing header,body.printing main{display:none}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v8 · VT 자동 통과</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v9 · VT 자동 보정</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -749,7 +749,11 @@ async function importAll(file){ if(!file) return; let d; try{d=JSON.parse(await 
   for(const w of d.welders) await DB.put('welders',w); for(const r of d.records) await DB.put('records',r);
   S={...DEFAULT_SETTINGS,...(d.settings||{})}; await saveSettings(); await load(); render(); }
 
-DB.open().then(load).then(render).catch(e=>{document.body.insertAdjacentHTML('beforeend','<div class="msg err">저장소를 열 수 없습니다: '+esc(e)+'</div>');});
+async function autoFixVT(){ // 앱을 열 때 1회: VT 미기록인데 다음 검사 결과가 있는 기록을 자동 보정 (설정에서 끌 수 있음)
+  if(!S.impliedVT) return; const t=records.filter(r=>applyImpliedVT(r.tests||{})!==(r.tests||{})); if(!t.length) return;
+  await DB.putMany('records',t.map(r=>({...r,tests:applyImpliedVT(r.tests||{})}))); await load();
+  toast(`VT 미기록 ${t.length}건을 자동으로 통과 처리했습니다 (RT/UT·굽힘·단면 결과가 있는 기록). 설정에서 끌 수 있습니다.`,9000); }
+DB.open().then(load).then(autoFixVT).then(render).catch(e=>{document.body.insertAdjacentHTML('beforeend','<div class="msg err">저장소를 열 수 없습니다: '+esc(e)+'</div>');});
 </script>
 </body>
 </html>
