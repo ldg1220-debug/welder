@@ -2,7 +2,7 @@
 import fs from 'node:fs'; import assert from 'node:assert/strict';
 const html = fs.readFileSync(new URL('../welder-cert.html', import.meta.url), 'utf8');
 const src = html.split('/*ENGINE-START*/')[1].split('/*ENGINE-END*/')[0];
-const E = new Function(src + '; return {calcExpire,validityText,monthsBetween,certAlert,judge,calculateRangeOfApproval,designation,applyImpliedVT};')();
+const E = new Function(src + '; return {calcExpire,validityText,monthsBetween,certAlert,judge,calculateRangeOfApproval,designation,applyImpliedVT,addDays,defaultIssue};')();
 const R = (o) => Object.fromEntries(E.calculateRangeOfApproval({process:'135 MAG',productType:'P',joint:'BW',fillerGroup:'FM 1',fillerType:'S',backing:'ss nb',position:'PC',weldingDate:'2024-08-21',transfer:'globular/spray',gas:'M21',thickness:12,...o}).items.map(x=>[x.key,x.range]));
 let n=0; const t=(name,fn)=>{fn(); n++; console.log('ok -',name);};
 
@@ -40,4 +40,5 @@ t('VT 미기록: 다음 검사 결과가 있으면 VT=Pass (RT Fail이어도), �
   assert.equal(E.applyImpliedVT({rtut:'pass',bend:'pass'}).vt,'pass'); assert.equal(E.applyImpliedVT({rtut:'fail'}).vt,'pass'); assert.equal(E.applyImpliedVT({macro:'pass'}).vt,'pass');
   assert.equal(E.applyImpliedVT({vt:'fail',rtut:'pass'}).vt,'fail'); assert.equal(E.applyImpliedVT({}).vt,undefined); assert.equal(E.applyImpliedVT({vt:'na'}).vt,'na');
   assert.equal(E.judge('BW',E.applyImpliedVT({rtut:'pass',bend:'pass'}),true),'pass'); assert.equal(E.judge('BW',E.applyImpliedVT({rtut:'fail'}),false),'fail');});
+t('발행일 기본값 = 용접일 + 14일 (월/연 경계 포함)',()=>{ assert.equal(E.defaultIssue('2024-08-21'),'2024-09-04'); assert.equal(E.defaultIssue('2024-12-25'),'2025-01-08'); assert.equal(E.defaultIssue('2024-02-20'),'2024-03-05'); });
 console.log(`\n${n} passed`);
