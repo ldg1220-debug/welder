@@ -35,6 +35,10 @@ table.list th{position:relative}
 .rh{position:absolute;right:0;top:0;bottom:0;width:7px;cursor:col-resize;user-select:none}.rh:hover,.rh:active{background:var(--accent);opacity:.5}
 .pz{border:2px dashed var(--line);border-radius:6px;min-height:64px;padding:6px;display:flex;align-items:center;gap:8px;color:var(--mute);font-size:12px;cursor:pointer;background:#fafbfc}
 .pz:focus,.pz.over{border-color:var(--accent);outline:0;background:#eef5fd;color:var(--accent)}
+.lib{display:flex;gap:10px;flex-wrap:wrap}.li{position:relative;border:2px solid var(--line);border-radius:6px;padding:3px;background:repeating-conic-gradient(#eef0f2 0 25%,#fff 0 50%) 50%/12px 12px}
+.li.on{border-color:var(--accent);box-shadow:0 0 0 2px #cfe0f3}.li img{height:52px;max-width:120px;cursor:pointer;display:block}
+.li b{position:absolute;top:-9px;right:-9px;background:var(--bad);color:#fff;border-radius:50%;width:18px;height:18px;text-align:center;line-height:18px;font-size:12px;cursor:pointer}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#14314f;color:#fff;padding:10px 16px;border-radius:8px;max-width:80vw;z-index:50;display:none;box-shadow:0 4px 14px rgba(0,0,0,.3)}
 .pz img{max-height:52px;max-width:90px;border:1px solid var(--line);border-radius:3px;background:#fff}
 table.list th{background:#eef2f6;font-size:12px}
 .pill{white-space:nowrap;display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;color:#fff}
@@ -74,7 +78,7 @@ body.printing header,body.printing main{display:none}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v7 · 이미지 보관함</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -219,11 +223,12 @@ function designation(i){
 <script>
 // ===================== 저장소 (IndexedDB) =====================
 const DB={db:null,
-  open(){return new Promise((res,rej)=>{const r=indexedDB.open('welder-cert',1);
-    r.onupgradeneeded=e=>{const d=e.target.result;
-      d.createObjectStore('welders',{keyPath:'id',autoIncrement:true});
-      d.createObjectStore('records',{keyPath:'id',autoIncrement:true});
-      d.createObjectStore('settings',{keyPath:'key'});};
+  open(){return new Promise((res,rej)=>{const r=indexedDB.open('welder-cert',2);
+    r.onupgradeneeded=e=>{const d=e.target.result, has=n=>d.objectStoreNames.contains(n);
+      if(!has('welders')) d.createObjectStore('welders',{keyPath:'id',autoIncrement:true});
+      if(!has('records')) d.createObjectStore('records',{keyPath:'id',autoIncrement:true});
+      if(!has('settings')) d.createObjectStore('settings',{keyPath:'key'});
+      if(!has('images')) d.createObjectStore('images',{keyPath:'id',autoIncrement:true});};
     r.onsuccess=e=>{this.db=e.target.result;res()};r.onerror=()=>rej(r.error);});},
   tx(s,m,f){return new Promise((res,rej)=>{const t=this.db.transaction(s,m);const q=f(t.objectStore(s));t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error);});},
   all(s){return this.tx(s,'readonly',o=>o.getAll());},
@@ -233,10 +238,14 @@ const DB={db:null,
   clear(s){return this.tx(s,'readwrite',o=>o.clear());}
 };
 const DEFAULT_SETTINGS={company:'',team:'',examiner:'',location:'',standardLabel:'KS B ISO 9606-1:2012',refPrefix:'EN ISO 9606-1-RM',strict:false,logo:'',signature:'',stamp:''};
-let S={...DEFAULT_SETTINGS}, welders=[], records=[];
+let S={...DEFAULT_SETTINGS}, welders=[], records=[], images=[];
 async function load(){
   welders=await DB.all('welders'); records=await DB.all('records');
   const st=await DB.all('settings'); S={...DEFAULT_SETTINGS}; st.forEach(x=>S[x.key]=x.value);
+  images=await DB.all('images');
+  // 이전 버전에서 설정에만 저장돼 있던 이미지를 보관함으로 옮긴다
+  let moved=false; for(const k of ['logo','signature','stamp']) if(S[k]&&!images.some(i=>i.kind===k&&i.data===S[k])){ await DB.put('images',{kind:k,data:S[k],name:'기존 이미지',created:Date.now()}); moved=true; }
+  if(moved) images=await DB.all('images');
 }
 async function saveSettings(){ for(const k in S) await DB.put('settings',{key:k,value:S[k]}); }
 const $=(s,r=document)=>r.querySelector(s);
@@ -246,10 +255,10 @@ const RES={pass:'Pass',fail:'Fail',na:'미실시'};
 const JLBL={pass:'합격',fail:'불합격',pending:'진행중'};
 function pill(st){return `<span class="pill ${st}">${JLBL[st]}</span>`;}
 function fileToDataURL(file,max,png){ // 이미지를 축소해 DB 용량을 줄인다 (png=true: 투명 배경 유지)
-  return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{
+  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{
     const k=Math.min(1,max/Math.max(im.width,im.height));const c=document.createElement('canvas');
     c.width=im.width*k;c.height=im.height*k;const x=c.getContext('2d');if(!png){x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);}x.drawImage(im,0,0,c.width,c.height);
-    res(png?c.toDataURL('image/png'):c.toDataURL('image/jpeg',.85));};im.src=r.result;};r.readAsDataURL(file);});
+    res(png?c.toDataURL('image/png'):c.toDataURL('image/jpeg',.85));};im.onerror=()=>rej(new Error('이 이미지 형식은 브라우저가 열 수 없습니다 (PNG/JPG로 저장해서 사용하세요)'));im.src=r.result;};r.onerror=()=>rej(new Error('파일을 읽을 수 없습니다'));r.readAsDataURL(file);});
 }
 function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();}
 
@@ -277,21 +286,52 @@ const dl=(id,arr)=>`<datalist id="${id}">${arr.map(v=>`<option value="${esc(v)}"
 // 이미지 붙여넣기 칸(.pz): 클릭 후 Ctrl+V, 이미지 끌어놓기
 const pzHTML=(key,url,hint)=>`<div class="pz" tabindex="0" data-key="${key}">${url?`<img src="${url}">`:''}<span>${hint||'클릭 후 Ctrl+V (이미지 붙여넣기) · 이미지 파일 끌어놓기'}</span></div>`;
 let PZ=null;
+function toast(m,ms=7000){ let t=$('#toast'); if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t);} t.textContent=m; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',ms); }
 document.addEventListener('focusin',e=>{const z=e.target.closest&&e.target.closest('.pz'); if(z) PZ=z;});
 document.addEventListener('click',e=>{const z=e.target.closest&&e.target.closest('.pz'); if(z){PZ=z;z.focus();}});
 document.addEventListener('paste',async e=>{
-  const z=(PZ&&document.body.contains(PZ))?PZ:document.querySelector('.pz'); if(!z) return;
-  const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/')); if(!it) return;
-  e.preventDefault(); await setPz(z.dataset.key,it.getAsFile()); });
+  const act=document.activeElement, z=(act&&act.closest&&act.closest('.pz'))||((act===document.body&&PZ&&document.body.contains(PZ))?PZ:null);
+  if(!z) return; // 붙여넣기 칸이 선택돼 있을 때만 가로챈다 (일반 입력칸의 붙여넣기는 그대로)
+  const cd=e.clipboardData; if(!cd) return; e.preventDefault();
+  let file=[...(cd.files||[])].find(f=>f.type.startsWith('image/'));
+  if(!file){const it=[...(cd.items||[])].find(i=>i.kind==='file'&&i.type.startsWith('image/')); if(it) file=it.getAsFile();}
+  if(!file){ // 웹페이지/문서에서 복사한 이미지(data URI)
+    const m=(cd.getData('text/html')||'').match(/<img[^>]+src=["'](data:image\/[^"']+)["']/i);
+    if(m){ try{const b=await (await fetch(m[1])).blob(); file=new File([b],'pasted.'+(b.type.split('/')[1]||'png'),{type:b.type});}catch(_){} } }
+  if(!file){ toast('클립보드에 이미지가 없습니다. (감지된 형식: '+([...(cd.types||[])].join(', ')||'없음')+')\n이미지를 우클릭 → "이미지 복사"하거나, 캡처(Win+Shift+S) 후 붙여넣으세요. 파일 탐색기에서 복사한 경우엔 아래 "파일 선택"을 쓰세요.'); return; }
+  await setPz(z.dataset.key,file); });
 document.addEventListener('dragover',e=>{const z=e.target.closest&&e.target.closest('.pz'); if(z){e.preventDefault();z.classList.add('over');}});
 document.addEventListener('dragleave',e=>{const z=e.target.closest&&e.target.closest('.pz'); if(z) z.classList.remove('over');});
 document.addEventListener('drop',async e=>{const z=e.target.closest&&e.target.closest('.pz'); if(!z) return; e.preventDefault(); z.classList.remove('over');
-  const f=[...e.dataTransfer.files].find(x=>x.type.startsWith('image/')); if(f) await setPz(z.dataset.key,f);});
+  const f=[...e.dataTransfer.files].find(x=>x.type.startsWith('image/')); if(f) await setPz(z.dataset.key,f); else toast('이미지 파일이 아닙니다.');});
+function syncSettingsForm(){ const f=$('#sf'); if(!f) return; const fd=new FormData(f);
+  for(const k of ['company','team','examiner','location','standardLabel','refPrefix']) if(fd.has(k)) S[k]=fd.get(k); S.strict=fd.get('strict')==='on'; }
 async function setPz(key,file){
-  const url=await fileToDataURL(file,key==='logo'?500:400,key!=='photo');
-  if(key==='photo'){ window._photo=url; const z=document.querySelector('.pz[data-key=photo]'); if(z) z.outerHTML=pzHTML('photo',url,'사진 적용됨 — 저장을 누르세요'); }
-  else { S[key]=url; await saveSettings(); vSettings(); }
+  try{
+    const url=await fileToDataURL(file,key==='logo'?500:400,key!=='photo');
+    if(key==='photo'){ window._photo=url; const z=document.querySelector('.pz[data-key=photo]'); if(z) z.outerHTML=pzHTML('photo',url,'사진 적용됨 — 저장을 누르세요'); return; }
+    syncSettingsForm(); // 입력 중이던 텍스트가 사라지지 않게
+    if(!images.some(i=>i.kind===key&&i.data===url)) await DB.put('images',{kind:key,data:url,name:file.name||'',created:Date.now()});
+    S[key]=url; await saveSettings(); await load(); vSettings(); toast('저장했습니다. 아래 보관함에서 언제든 다시 선택할 수 있습니다.',3500);
+  }catch(err){ toast('이미지를 처리하지 못했습니다: '+(err.message||err)); }
 }
+async function pasteBtn(key){ // 브라우저 권한이 허용되면 버튼으로도 붙여넣기
+  try{ const items=await navigator.clipboard.read(); const seen=[];
+    for(const it of items){ seen.push(...it.types); const t=it.types.find(x=>x.startsWith('image/')); if(t){ const b=await it.getType(t); return setPz(key,new File([b],'clipboard.'+t.split('/')[1],{type:t})); } }
+    toast('클립보드에 이미지가 없습니다. (감지된 형식: '+(seen.join(', ')||'없음')+')');
+  }catch(e){ toast('클립보드를 읽지 못했습니다 ('+(e.message||e)+'). 칸을 클릭하고 Ctrl+V를 누르거나 "파일 선택"을 사용하세요.'); } }
+async function pickImg(key,inp){ const f=inp.files[0]; inp.value=''; if(f) await setPz(key,f); }
+async function useImg(id,kind){ syncSettingsForm(); if(id){const im=images.find(x=>x.id===id); S[im.kind]=im.data;} else S[kind]=''; await saveSettings(); vSettings(); }
+async function delImg(id){ const im=images.find(x=>x.id===id); if(!confirm('보관함에서 이 이미지를 삭제할까요?')) return; syncSettingsForm();
+  await DB.del('images',id); if(S[im.kind]===im.data) S[im.kind]=''; await saveSettings(); await load(); vSettings(); }
+const IMG_KINDS={logo:'회사 로고',signature:'서명',stamp:'직인/도장'};
+function imgSection(){ return Object.entries(IMG_KINDS).map(([k,l])=>{ const lib=images.filter(i=>i.kind===k).sort((a,b)=>b.id-a.id);
+  return `<div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:10px"><b>${l}</b> <small style="color:var(--mute)">${S[k]?'— 파란 테두리가 현재 사용 중':'— 사용 중인 이미지 없음'}</small>
+   <div class="grid" style="margin-top:8px;grid-template-columns:minmax(230px,1fr) 2fr">
+    <div>${pzHTML(k,null,'클릭 후 Ctrl+V · 이미지 끌어놓기')}<div class="row" style="margin-top:6px"><button type="button" class="b sm sec" onclick="pasteBtn('${k}')">📋 클립보드에서 붙여넣기</button></div>
+     <div class="row" style="margin-top:6px"><input type="file" accept="image/*" onchange="pickImg('${k}',this)" style="max-width:100%"></div></div>
+    <div><div style="font-size:12px;color:var(--mute);margin-bottom:6px">보관함 — 클릭하면 사용, × 삭제</div><div class="lib">${lib.map(i=>`<span class="li ${S[k]===i.data?'on':''}"><img src="${i.data}" onclick="useImg(${i.id})" title="${esc(i.name||'')} · ${new Date(i.created).toLocaleDateString()}"><b onclick="delImg(${i.id})">×</b></span>`).join('')||'<small style="color:var(--mute)">아직 저장된 이미지가 없습니다</small>'}</div>
+     ${S[k]?`<button type="button" class="b sm sec" style="margin-top:8px" onclick="useImg(0,'${k}')">사용 안 함</button>`:''}</div></div></div>`; }).join(''); }
 async function pickPhoto(inp){ const f=inp.files[0]; if(f) await setPz('photo',f); }
 
 // ===================== 화면 =====================
@@ -671,11 +711,8 @@ function vSettings(){
    <label>장소 Location<input name="location" value="${esc(S.location)}"></label>
    <label>Code/Testing Standard 표기<input name="standardLabel" value="${esc(S.standardLabel)}"></label>
    <label>Reference No. 접두어<input name="refPrefix" value="${esc(S.refPrefix)}"></label>
-   <label>회사 로고 ${S.logo?`<img class="thumb" src="${S.logo}">`:''}<input type="file" name="logo" accept="image/*"></label>
-   <label>서명 이미지 (투명 PNG 권장) ${S.signature?`<img class="thumb" src="${S.signature}">`:''}<input type="file" name="signature" accept="image/*"></label>
-   <label>직인/도장 이미지 (투명 PNG 권장) ${S.stamp?`<img class="thumb" src="${S.stamp}">`:''}<input type="file" name="stamp" accept="image/*"></label></div>
-   <h3>이미지 붙여넣기 (칸을 클릭한 뒤 Ctrl+V 또는 이미지 끌어놓기 — 바로 저장됩니다)</h3>
-   <div class="grid">${['logo','signature','stamp'].map(k=>`<div><div style="font-size:12px;color:var(--mute);margin-bottom:3px">${{logo:'회사 로고',signature:'서명',stamp:'직인/도장'}[k]}</div>${pzHTML(k,S[k],'클릭 후 Ctrl+V')}</div>`).join('')}</div>
+   </div>
+   <h3>로고 · 서명 · 직인 (붙여넣은 이미지는 보관함에 계속 저장됩니다)</h3>${imgSection()}
    <label style="flex-direction:row;align-items:center;gap:8px;margin-top:10px;color:var(--ink)"><input type="checkbox" name="strict" ${S.strict?'checked':''}>
    사내 엄격 기준 사용 (BW: VT+RT/UT+Bend 모두 Pass, FW: VT+Macro Pass). 해제 시 ISO 9606-1 Table 1 기준(BW: VT + RT/UT 또는 Bend/Fracture)</label>
    <div class="row"><button class="b">저장</button></div></form></div>
@@ -686,14 +723,14 @@ function vSettings(){
   $('#sf').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);
     for(const k of ['company','team','examiner','location','standardLabel','refPrefix']) S[k]=fd.get(k);
     S.strict=fd.get('strict')==='on';
-    for(const k of ['logo','signature','stamp']){const f=fd.get(k); if(f&&f.size) S[k]=await fileToDataURL(f,k==='logo'?500:400,true);}
     await saveSettings(); vSettings(); alert('저장했습니다.');};
 }
-function exportAll(){download(`welder-backup-${today()}.json`,JSON.stringify({version:1,welders,records,settings:S}),'application/json');}
+function exportAll(){download(`welder-backup-${today()}.json`,JSON.stringify({version:2,welders,records,settings:S,images}),'application/json');}
 async function importAll(file){ if(!file) return; let d; try{d=JSON.parse(await file.text());}catch(e){return alert('JSON 형식이 아닙니다.');}
   if(!Array.isArray(d.welders)||!Array.isArray(d.records)) return alert('백업 파일 형식이 올바르지 않습니다.');
   if(!confirm('현재 데이터를 모두 지우고 복원할까요?')) return;
-  await DB.clear('welders');await DB.clear('records');await DB.clear('settings');
+  await DB.clear('welders');await DB.clear('records');await DB.clear('settings');await DB.clear('images');
+  if(Array.isArray(d.images)) await DB.putMany('images',d.images.map(({id,...x})=>x));
   for(const w of d.welders) await DB.put('welders',w); for(const r of d.records) await DB.put('records',r);
   S={...DEFAULT_SETTINGS,...(d.settings||{})}; await saveSettings(); await load(); render(); }
 
