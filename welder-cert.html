@@ -60,14 +60,14 @@ table.list th{background:#eef2f6;font-size:12px}
 .cert{width:210mm;height:296.5mm;overflow:hidden;padding:6mm 9mm;background:#fff;color:#000;font:9pt/1.35 "Malgun Gothic",Arial,sans-serif;position:relative;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .cert table{width:100%;border-collapse:collapse}.cert td,.cert th{border:1px solid #000;padding:1.5px 4px;vertical-align:middle}
 .cert th{font-size:9pt}.cert .sm{font-size:7pt}
-.cert .top{display:flex;justify-content:space-between;align-items:center;gap:5mm;margin-bottom:2mm}
-.cert .co{width:52mm;font-weight:700;font-size:13pt}.cert .co img{max-height:16mm;max-width:52mm;display:block}
-.cert .ti{flex:1;text-align:center}.cert .ti b{display:block;font-size:14pt}.cert .ti span{font-size:12pt;font-weight:700}
-.cert .tm{width:38mm;border:1px solid #000;text-align:center;padding:2mm}.cert .tm b{display:block;font-size:13pt}.cert .tm span{font-size:8pt;font-weight:700}
+.cert .top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:5mm;margin-bottom:2mm}
+.cert .co{justify-self:start;font-weight:700;font-size:13pt}.cert .co img{max-height:16mm;max-width:52mm;display:block}
+.cert .ti{text-align:center}.cert .ti b{display:block;font-size:14pt}.cert .ti span{font-size:12pt;font-weight:700}
+.cert .tm{justify-self:end;min-width:34mm;max-width:52mm;border:1px solid #000;text-align:center;padding:2mm 3mm}.cert .tm b{display:block;font-size:13pt}.cert .tm span{font-size:8pt;font-weight:700}
 .cert .val{color:#1a33d6;font-weight:700}.cert .c{text-align:center;font-weight:700}
 .cert .ln{margin:.8mm 0}.cert .two{display:flex;justify-content:space-between;gap:6mm}.cert .two>div:first-child{flex:1}
-.cert .info{display:flex;margin-bottom:2.5mm}.cert .lf{width:60%}.cert .ph{flex:1;display:flex;gap:3mm;align-items:flex-start}
-.cert .phb{width:34mm}.cert .phb td{height:38mm;text-align:center;padding:0}.cert .en{color:#1a33d6;font-weight:700;padding-top:1mm}
+.cert .info{display:flex;gap:4mm;margin-bottom:2.5mm}.cert .lf{flex:1.35}.cert .rf{flex:1}.cert .rf .phb{margin-top:1.5mm}
+.cert .phb{width:34mm;margin-left:0}.cert .phb td{height:38mm;text-align:center;padding:0}.cert .en{color:#1a33d6;font-weight:700;padding-top:1mm}
 .cert img.photo{width:33mm;height:37mm;object-fit:cover;display:block;margin:0 auto}
 .cert .rng th{background:#fff}.cert .rng td{height:6.3mm;padding-top:0;padding-bottom:0}.cert .rng td:first-child{width:30%}
 .cert .lb{text-align:center;line-height:1.1}.cert .lb b{display:block;font-size:9pt}.cert .lb i{display:block;font-size:6.5pt;font-style:normal;font-weight:700}
@@ -89,7 +89,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v13 · 목록·조건 선택</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v14 · 인증서 정렬</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -730,18 +730,21 @@ function certHTML(r,o){
   return `<div class="cert">${wm?`<div class="wm">${esc(wm)}</div>`:''}
   <div class="top"><div class="co">${S.logo?`<img src="${S.logo}">`:esc(S.company)}</div>
    <div class="ti"><b>용접사 승인 시험 인증서</b><span>Welder's Approval test certificate</span></div>
-   <div class="tm"><b>${esc(tp[0])}</b><span>${esc(tp.slice(1).join(' '))}</span></div></div>
+   ${tp[0]?`<div class="tm"><b>${esc(tp[0])}</b>${tp.slice(1).join(' ')?`<span>${esc(tp.slice(1).join(' '))}</span>`:''}</div>`:'<div></div>'}</div>
   <div class="ln"><b>Designation :</b> <span class="val">${esc(designation(r))}</span></div>
-  <div class="ln two"><div><b>인증번호 Reference No. :</b> <span class="val">${esc(r.refNo||autoRef(r))}</span></div><div><b>용접사 성명 Welder's Name :</b> <span class="val">${esc(w.name)}</span></div></div>
   <div class="info"><div class="lf">
+    <div class="ln"><b>인증번호 Reference No. :</b> <span class="val">${esc(r.refNo||autoRef(r))}</span></div>
     <div class="ln"><b>용접사 번호 Welder's ID No. :</b> <span class="val">${esc(w.welderNo)}</span></div>
     <div class="ln"><b>ID 확인 Method of identification :</b> <span class="val">Personal I.D No.</span></div>
     <div class="ln"><b>출생지, 생년월일 :</b> <span class="val">${esc(w.birthPlace)}${w.birthPlace&&bd?', ':''}${bd}</span></div>
     <div class="ln"><b>Code/Testing Standard :</b> <span class="val">${esc(S.standardLabel)}</span></div>
-    <div class="ln"><b>소속 Employer :</b> ${esc(w.company)}</div>
+    <div class="ln"><b>소속 Employer :</b> <span class="val">${esc(w.company)}</span></div>
     <div class="ln"><b>Supplementary fillet weld test :</b> <span class="val">${esc(r.suppFillet||'No')}</span></div>
     <div class="ln"><b>Job knowledge :</b> <span class="val">${esc(r.jobKnowledge||'Acceptable')}</span></div></div>
-   <div class="ph"><table class="phb"><tr><th>Photo</th></tr><tr><td>${w.photo?`<img class="photo" src="${w.photo}">`:''}</td></tr></table><div class="en">${esc(w.nameEn||'')}</div></div></div>
+   <div class="rf">
+    <div class="ln"><b>용접사 성명 Welder's Name :</b> <span class="val">${esc(w.name)}</span></div>
+    <div class="ln"><b>영문 성명 English Name :</b> <span class="val">${esc(w.nameEn||'')}</span></div>
+    <table class="phb"><tr><th>Photo</th></tr><tr><td>${w.photo?`<img class="photo" src="${w.photo}">`:''}</td></tr></table></div></div>
   <table class="rng"><tr><th>Division</th><th>Weld Test Detail</th><th>Range of Approval</th></tr>
    ${row('용접방법','Welding process','process')}${row('판재 또는 파이프','Plate or pipe','product')}${row('용접 유형','Type of Weld','joint')}${row('용접 이행','Transfer mode','transfer')}
    ${row('모재그룹','Material Group','material')}${row('용가재 그룹','Filler material group','fillerGroup')}${row('용가재','Filler material designation','fillerType')}${row('보호가스','shielding gas','gas')}
