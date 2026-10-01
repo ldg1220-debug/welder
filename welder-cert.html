@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v54 · WPS 양식 재현</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v55 · 다중 삭제</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -1005,7 +1005,7 @@ function drawRecs(){
 const COND=['project','wpsNo','process','productType','pipeDiameter','joint','transfer','fillerGroup','fillerType','materialGroup','gas','backing','thickness','deposited','position'];
 // ===================== WPS / PQR 통합 관리 =====================
 // WPS 마스터(목록) <-> PQR(WPQR) <-> 용접사 시험 기록(인증서) 을 번호로 연결한다.
-const WF={view:'wps',q:'',onlyPass:false,onlyUsed:false,onlyWarn:false,open:new Set(),sel:new Set(),edit:null};
+const WF={view:'wps',q:'',onlyPass:false,onlyUsed:false,onlyWarn:false,open:new Set(),sel:new Set(),msel:new Set(),psel:new Set(),visW:[],visP:[],edit:null};
 const wpsFind=no=>{const k=String(no||'').trim().toUpperCase(); return k?wpsMaster.find(m=>m.wpsNo.toUpperCase()===k)||null:null;};
 const pqrFind=no=>{const k=String(no||'').trim().toUpperCase(); return k?pqrMaster.find(m=>m.pqrNo.toUpperCase()===k)||null:null;};
 function wpsCover(m,r){ // 시험 조건이 WPS 적용 범위에 들어오는지 -> 벗어난 사유 목록
@@ -1038,12 +1038,12 @@ function vWps(){
     <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="wpass" ${WF.onlyPass?'checked':''}>합격 기록만 집계</label>
     <button class="b sec" onclick="recommendWps()" title="WPS 마스터의 용접사 시험용 WPS 조건으로 미지정 기록에 WPS를 추천 적용">WPS 미지정 기록에 추천 적용</button>`:''}
     <span style="flex:1"></span><span style="color:var(--mute);font-size:12px">WPS/WPQR 목록 엑셀 가져오기</span><input type="file" accept=".xlsx" multiple onchange="importFiles(this.files);this.value=''" style="max-width:230px"></div>
-   <div class="tw" id="wpslist" style="margin-top:8px"></div>${dl('dl-wps2',uniq([...wpsMaster.map(m=>m.wpsNo),...records.map(x=>x.wpsNo)]))}</div>`;
+   <div id="wbulk" style="margin-top:8px"></div><div class="tw" id="wpslist" style="margin-top:4px"></div>${dl('dl-wps2',uniq([...wpsMaster.map(m=>m.wpsNo),...records.map(x=>x.wpsNo)]))}</div>`;
   $('#wq2').oninput=e=>{WF.q=e.target.value;drawWps();};
   for(const [id,k] of [['wused','onlyUsed'],['wwarn','onlyWarn'],['wpass','onlyPass']]){ const el=$('#'+id); if(el) el.onchange=e=>{WF[k]=e.target.checked;drawWps();}; }
   drawWps();
 }
-function drawWps(){ if(WF.doc||!$('#wtitle2')) return; if(WF.view==='lib'){ $('#wtitle2').textContent=`형상 라이브러리 (${joints.length}개)`; LIBCTX={kind:null,pick:null}; $('#wpslist').innerHTML=`<div id="libbody" style="padding:8px">${libGridHTML(null,null)}</div>`; $('#wform').innerHTML=''; return; } WF.view==='pqr'?drawPqr():drawWpsMaster(); drawWform(); }
+function drawWps(){ if(WF.doc||!$('#wtitle2')) return; if(WF.view==='lib'){ if($('#wbulk')) $('#wbulk').innerHTML=''; $('#wtitle2').textContent=`형상 라이브러리 (${joints.length}개)`; LIBCTX={kind:null,pick:null}; $('#wpslist').innerHTML=`<div id="libbody" style="padding:8px">${libGridHTML(null,null)}</div>`; $('#wform').innerHTML=''; return; } WF.view==='pqr'?drawPqr():drawWpsMaster(); drawWform(); }
 function usageMap(){ // WPS 번호(대문자) -> 사용 기록
   const wm=new Map(welders.map(w=>[w.id,w])), g=new Map();
   for(const r of records){ const st=recStatus(r); if(WF.onlyPass&&st!=='pass') continue; const k=(r.wpsNo||'').trim().toUpperCase(), m=wpsFind(r.wpsNo), why=m?wpsCover(m,r):[];
@@ -1070,10 +1070,11 @@ function drawWpsMaster(){
        <td class="bx"><button class="b sm sec" onclick="editRec=null;tab='records';editR(${r.id});render()">수정</button>${st==='pass'?` <button class="b sm" onclick="showCert(${r.id})">인증서</button>`:''}</td></tr>`;}).join('')||'<tr><td colspan="15" style="color:var(--mute)">사용 기록이 없습니다.</td></tr>'}</tbody></table>
       <div class="row" style="margin-top:6px"><button class="b sm" onclick="assignWps()">선택한 기록에 WPS 번호 지정/변경</button><small style="color:var(--mute)">체크한 기록(${WF.sel.size}건)의 WPS 번호를 한꺼번에 바꿉니다</small></div>`; };
   const pqrMini=(m)=>{ const ps=m.pqrNos.map(n=>({n,p:pqrFind(n)})); return ps.length?`<table class="list nested" style="font-size:13px"><thead><tr><th>PQR</th><th>형식</th><th>공정</th><th>자세</th><th>시험 두께</th><th>시험일</th><th>인증기관</th><th>승인범위</th></tr></thead><tbody>${ps.map(({n,p})=>p?`<tr class="kid"><td>${esc(n)}</td><td>${esc(p.weldType)}</td><td>${esc(p.process)}</td><td>${esc(p.position)}</td><td>${esc(p.thickness)}</td><td>${p.weldDate||''}</td><td>${esc(p.certBody)}</td><td>${esc(p.approval)}</td></tr>`:`<tr class="kid"><td>${esc(n)}</td><td colspan="7" style="color:var(--bad)">PQR 목록에 없음</td></tr>`).join('')}</tbody></table>`:'<small style="color:var(--mute)">연결된 PQR 없음</small>'; };
-  $('#wpslist').innerHTML=`<table class="list"><thead><tr><th class="num"></th><th>WPS No.</th><th>구분</th><th class="num">Rev</th><th>PQR</th><th>모재</th><th class="num">형식</th><th>공정</th><th>자세</th><th>두께범위</th><th>백킹</th><th>용도</th><th class="num">상태</th><th class="num">기록</th><th class="num">합격</th><th class="num">용접사</th><th class="num">⚠</th><th></th></tr></thead><tbody>${rows.map(x=>{
+  WF.visW=rows.filter(x=>x.m).map(x=>x.m.id);
+  $('#wbulk').innerHTML=bulkBar('wps'); $('#wpslist').innerHTML=`<table class="list"><thead><tr><th class="num"><input type="checkbox" title="현재 목록 전체 선택" ${WF.visW.length&&WF.visW.every(i=>WF.msel.has(i))?'checked':''} onchange="selAllMaster('wps',this.checked)"></th><th>WPS No.</th><th>구분</th><th class="num">Rev</th><th>PQR</th><th>모재</th><th class="num">형식</th><th>공정</th><th>자세</th><th>두께범위</th><th>백킹</th><th>용도</th><th class="num">상태</th><th class="num">기록</th><th class="num">합격</th><th class="num">용접사</th><th class="num">⚠</th><th></th></tr></thead><tbody>${rows.map(x=>{
     const open=WF.open.has(x.key), m=x.m, l=x.list, pass=l.filter(y=>y.st==='pass').length, warn=l.filter(y=>y.why.length).length, k=esc(x.key);
     const name=m?m.wpsNo:(x.key===''?'(WPS 미지정)':x.name);
-    const head=`<tr class="${x.key===''?'gone':''}"><td class="num"><button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(name)}</b>${m&&wpsPqrCheck(m).length?` <span class="wn" title="${esc('PQR/양식 점검: '+wpsPqrCheck(m).join(' / '))}">◆</span>`:''}</td>
+    const head=`<tr class="${x.key===''?'gone':''}"><td class="num" style="white-space:nowrap">${m?`<input type="checkbox" ${WF.msel.has(m.id)?'checked':''} onchange="selMaster('wps',${m.id},this.checked)"> `:''}<button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(name)}</b>${m&&wpsPqrCheck(m).length?` <span class="wn" title="${esc('PQR/양식 점검: '+wpsPqrCheck(m).join(' / '))}">◆</span>`:''}</td>
      <td>${m?m.kind:(x.key===''?'':'<span class="wn">마스터 미등록</span>')}</td><td class="num">${m?esc(m.rev):''}</td><td>${m?esc(m.pqrNos.join(', ')):''}</td><td>${m?esc(m.materialGroup):''}</td><td class="num">${m?esc(m.weldType):esc(uj(l.map(y=>y.r.joint),3))}</td><td>${m?esc(m.process):esc(uj(l.map(y=>y.r.process),3))}</td><td>${m?esc(m.position):esc(uj(l.map(y=>y.r.position),5))}</td><td>${m?esc(m.thk):esc(uj(l.map(y=>fmtN(y.r.thickness)),5))}</td><td>${m?esc(m.backing):''}</td><td title="${m?esc(m.part):''}">${m?esc(m.part.replace(/\s+/g,' ')):''}</td>
      <td class="num">${m?stPill(m.status,m.status==='사용'?'var(--ok)':m.status==='예비'?'var(--warn)':'#8a94a0'):''}</td><td class="num">${l.length}</td><td class="num">${pass}</td><td class="num">${new Set(l.map(y=>y.r.welderId)).size}</td><td class="num">${warn?`<span class="wn">${warn}</span>`:''}</td>
      <td class="bx">${m?`<button class="b sm" onclick="editMaster('wps',${m.id})">편집</button> <button class="b sm sec" onclick="previewWps(${m.id})">양식</button> <button class="b sm sec" onclick="copyWps(${m.id})">복사</button> <button class="b sm red" onclick="delMaster('wps',${m.id})">삭제</button>`:''}</td></tr>`;
@@ -1090,9 +1091,10 @@ function drawPqr(){
   const linked=(key)=>wpsMaster.filter(m=>m.pqrNos.some(n=>n.toUpperCase()===key));
   if(q) rows=rows.filter(x=>[x.key,x.p?[x.p.process,x.p.position,x.p.weldType,x.p.certBody,x.p.remarks].join(' '):'',linked(x.key).map(m=>m.wpsNo).join(' ')].join(' ').toLowerCase().includes(q));
   $('#wtitle2').textContent=`PQR / WPQR (${pqrMaster.length}건${rows.length>pqrMaster.length?` · 목록에 없는 참조 ${rows.length-pqrMaster.length}건`:''})`;
-  $('#wpslist').innerHTML=`<table class="list"><thead><tr><th class="num"></th><th>PQR No.</th><th>모재</th><th class="num">형식</th><th>공정</th><th>자세</th><th>시험 두께</th><th>시험일</th><th>인증기관</th><th>승인범위</th><th>연결 WPS</th><th class="num">WPS 수</th><th class="num">사용 기록</th><th>비고</th><th></th></tr></thead><tbody>${rows.map(x=>{
+  WF.visP=rows.filter(x=>x.p).map(x=>x.p.id);
+  $('#wbulk').innerHTML=bulkBar('pqr'); $('#wpslist').innerHTML=`<table class="list"><thead><tr><th class="num"><input type="checkbox" title="현재 목록 전체 선택" ${WF.visP.length&&WF.visP.every(i=>WF.psel.has(i))?'checked':''} onchange="selAllMaster('pqr',this.checked)"></th><th>PQR No.</th><th>모재</th><th class="num">형식</th><th>공정</th><th>자세</th><th>시험 두께</th><th>시험일</th><th>인증기관</th><th>승인범위</th><th>연결 WPS</th><th class="num">WPS 수</th><th class="num">사용 기록</th><th>비고</th><th></th></tr></thead><tbody>${rows.map(x=>{
     const p=x.p, ls=linked(x.key), open=WF.open.has('pqr:'+x.key), used=ls.reduce((a,m)=>a+(use.get(m.wpsNo.toUpperCase())||[]).length,0), k=esc('pqr:'+x.key);
-    const head=`<tr><td class="num"><button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(p?p.pqrNo:x.name)}</b>${p?'':' <span class="wn">목록 미등록</span>'}</td><td>${p?esc(p.materialGroup):''}</td><td class="num">${p?esc(p.weldType):''}</td><td>${p?esc(p.process):''}</td><td>${p?esc(p.position):''}</td><td>${p?esc(p.thickness):''}</td><td>${p?p.weldDate||'':''}</td><td>${p?esc(p.certBody):''}</td><td>${p?esc(p.approval):''}</td>
+    const head=`<tr><td class="num" style="white-space:nowrap">${p?`<input type="checkbox" ${WF.psel.has(p.id)?'checked':''} onchange="selMaster('pqr',${p.id},this.checked)"> `:''}<button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(p?p.pqrNo:x.name)}</b>${p?'':' <span class="wn">목록 미등록</span>'}</td><td>${p?esc(p.materialGroup):''}</td><td class="num">${p?esc(p.weldType):''}</td><td>${p?esc(p.process):''}</td><td>${p?esc(p.position):''}</td><td>${p?esc(p.thickness):''}</td><td>${p?p.weldDate||'':''}</td><td>${p?esc(p.certBody):''}</td><td>${p?esc(p.approval):''}</td>
       <td title="${esc(ls.map(m=>m.wpsNo).join(', '))}">${esc(uj(ls.map(m=>m.wpsNo),3))}</td><td class="num">${ls.length}</td><td class="num">${used}</td><td>${p?esc(p.remarks):''}</td><td class="bx">${p?`<button class="b sm sec" onclick="editMaster('pqr',${p.id})">수정</button> <button class="b sm red" onclick="delMaster('pqr',${p.id})">삭제</button>`:''}</td></tr>`;
     const detail=open?`<tr class="nom"><td></td><td colspan="14" style="padding:0;white-space:normal;overflow:visible;max-width:none"><div style="padding:6px 0 12px"><b style="font-size:13px">이 PQR로 승인된 WPS (${ls.length}건)</b><table class="list nested" style="font-size:13px;width:100%"><thead><tr><th>WPS</th><th>구분</th><th class="num">형식</th><th>공정</th><th>자세</th><th>두께범위</th><th>용도</th><th class="num">상태</th><th class="num">사용 기록</th></tr></thead><tbody>${ls.map(m=>`<tr class="kid"><td>${esc(m.wpsNo)}</td><td>${m.kind}</td><td class="num">${esc(m.weldType)}</td><td>${esc(m.process)}</td><td>${esc(m.position)}</td><td>${esc(m.thk)}</td><td>${esc(m.part.replace(/\s+/g,' '))}</td><td class="num">${m.status}</td><td class="num">${(use.get(m.wpsNo.toUpperCase())||[]).length}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">연결된 WPS 없음</td></tr>'}</tbody></table></div></td></tr>`:'';
     return head+detail;}).join('')||'<tr><td colspan="15" style="color:var(--mute)">PQR가 없습니다. WPQR 목록 엑셀을 가져오거나 "+ PQR 추가"로 등록하세요.</td></tr>'}</tbody></table>`;
@@ -1104,10 +1106,21 @@ const PQR_FIELDS=[['pqrNo','PQR No.*','text'],['standard','적용 규격','text'
 function setWpsField(no){ const f=$('#rf'); f.elements.wpsNo.value=no; f.dispatchEvent(new Event('input',{bubbles:true})); }
 function newMaster(){ if(WF.view==='wps') return openWpsDoc(null); WF.edit={type:'pqr',obj:{standard:'ISO 15614-1',weldType:'BW'}}; drawWps(); scrollTo(0,0); }
 function editMaster(type,id){ if(type==='wps') return openWpsDoc(id); WF.edit={type,obj:{...pqrMaster.find(x=>x.id===id)}}; drawWps(); scrollTo(0,0); }
+// ---- 다중 선택 삭제 (삭제/선택 후에도 스크롤 위치 유지)
+const scrollPos=()=>({y:window.scrollY,t:($('#wpslist')||{}).scrollTop||0});
+const scrollBack=p=>{ window.scrollTo(0,p.y); const e=$('#wpslist'); if(e) e.scrollTop=p.t; };
+function bulkBar(type){ const st=type==='wps'?WF.msel:WF.psel; return st.size?`<div class="row" style="margin:0 0 6px;padding:6px 10px;background:#fff3f3;border:1px solid #f0c4c4;border-radius:6px"><b>${st.size}건 선택됨</b><button class="b sm red" onclick="delMasters('${type}')">선택 삭제</button><button class="b sm sec" onclick="clearMsel('${type}')">선택 해제</button></div>`:''; }
+function selMaster(type,id,on){ const p=scrollPos(), st=type==='wps'?WF.msel:WF.psel; on?st.add(id):st.delete(id); drawWps(); scrollBack(p); }
+function selAllMaster(type,on){ const p=scrollPos(), st=type==='wps'?WF.msel:WF.psel; (type==='wps'?WF.visW:WF.visP).forEach(i=>on?st.add(i):st.delete(i)); drawWps(); scrollBack(p); }
+function clearMsel(type){ const p=scrollPos(); (type==='wps'?WF.msel:WF.psel).clear(); drawWps(); scrollBack(p); }
+async function delMasters(type){ const st=type==='wps'?WF.msel:WF.psel, list=(type==='wps'?wpsMaster:pqrMaster).filter(x=>st.has(x.id)); if(!list.length) return;
+  const nm=o=>type==='wps'?o.wpsNo:o.pqrNo, used=type==='wps'?list.reduce((a,o)=>a+records.filter(r=>(r.wpsNo||'').trim().toUpperCase()===o.wpsNo.toUpperCase()).length,0):list.reduce((a,o)=>a+wpsMaster.filter(m=>m.pqrNos.some(q=>q.toUpperCase()===o.pqrNo.toUpperCase())).length,0);
+  if(!confirm(`선택한 ${type==='wps'?'WPS':'PQR'} ${list.length}건을 삭제할까요?\n\n${list.slice(0,12).map(nm).join(', ')}${list.length>12?` 외 ${list.length-12}건`:''}${used?`\n\n(${type==='wps'?`이 WPS를 쓰는 시험 기록 ${used}건은 번호만 남고 '마스터 미등록'이 됩니다`:`이 PQR을 참조하는 WPS ${used}건은 번호 참조만 남습니다`})`:''}`)) return;
+  const p=scrollPos(); for(const o of list) await DB.del(type,o.id); st.clear(); await load(); drawWps(); scrollBack(p); toast(`${list.length}건 삭제했습니다.`,2500); }
 async function delMaster(type,id){ const o=(type==='wps'?wpsMaster:pqrMaster).find(x=>x.id===id), no=type==='wps'?o.wpsNo:o.pqrNo;
   const n=type==='wps'?records.filter(r=>(r.wpsNo||'').trim().toUpperCase()===no.toUpperCase()).length:wpsMaster.filter(m=>m.pqrNos.some(q=>q.toUpperCase()===no.toUpperCase())).length;
   if(!confirm(`${no} 을(를) 삭제할까요?${n?`\n(${type==='wps'?`이 WPS를 쓰는 시험 기록 ${n}건은 번호만 남고 '마스터 미등록'이 됩니다`:`이 PQR을 참조하는 WPS ${n}건은 번호 참조만 남습니다`})`:''}`)) return;
-  await DB.del(type,id); await load(); drawWps(); }
+  const sp=scrollPos(); await DB.del(type,id); (type==='wps'?WF.msel:WF.psel).delete(id); await load(); drawWps(); scrollBack(sp); }
 function drawWform(){
   const box=$('#wform'); if(!box) return; const e=WF.edit; if(!e){ box.innerHTML=''; return; }
   const F=e.type==='wps'?WPS_FIELDS:PQR_FIELDS, o=e.obj, val=k=>k==='pqr'?(o.pqrNos||[]).join(', '):(o[k]??'');
