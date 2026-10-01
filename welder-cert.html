@@ -35,7 +35,7 @@ table.list td{overflow:hidden;text-overflow:ellipsis;max-width:0}
 table.list td.bx{max-width:none}
 table.list.measure td,table.list.nested td{max-width:none;overflow:visible}
 table.list th{position:relative}
-.rh{position:absolute;right:0;top:0;bottom:0;width:7px;cursor:col-resize;user-select:none}.rh:hover,.rh:active{background:var(--accent);opacity:.5}
+.rh{position:absolute;right:0;top:0;bottom:0;width:9px;cursor:col-resize;user-select:none;border-right:2px solid #c3ccd8}.stk{position:sticky!important;z-index:2;background:#fff}th.stk{z-index:4;background:#eef2f6}tr:hover td.stk{background:#f5f8fb}tr.gone td.stk{background:#fdeeee}tr.kid td.stk{background:#f7f9fb}.stkl{box-shadow:2px 0 3px -1px rgba(0,0,0,.3)}.rh:hover,.rh:active{background:var(--accent);opacity:.5}
 .pz{border:2px dashed var(--line);border-radius:6px;min-height:64px;padding:6px;display:flex;align-items:center;gap:8px;color:var(--mute);font-size:12px;cursor:pointer;background:#fafbfc}
 .pz:focus,.pz.over{border-color:var(--accent);outline:0;background:#eef5fd;color:var(--accent)}
 #genj [data-mv],#gens [data-mv]{cursor:move}#genj [data-mv]:hover,#gens [data-mv]:hover{filter:drop-shadow(0 0 2px #1f5fae)}table.mx{border-collapse:collapse;font-size:12px;white-space:nowrap}table.mx th,table.mx td{border:1px solid #c9d1da;padding:2px 5px;text-align:center}table.mx thead th{background:#fdf0cf;position:sticky;top:0;z-index:2}table.mx thead tr.h2 th{top:22px}table.mx thead tr.h3 th{top:44px}table.mx thead tr.h4 th{top:66px;background:#f3f3f3;font-weight:400;font-size:11px}table.mx td.l,table.mx th.l{background:#eef2f7;text-align:left}table.mx td.ok{background:#22e0e8;cursor:pointer}table.mx td.rn{background:#ffe27a;cursor:pointer}table.mx td.ex{background:#f3b6b6;cursor:pointer;color:#7a1f1f}table.mx td.pg{background:#ffd7a8}table.mx td.ft{color:#b33}table.mx tr.sep td{border-top:2px solid #333}table.mx tr.gone td{color:#8a94a0}#genj [data-ax=x]{cursor:ew-resize}#genj [data-ax=y],#gens [data-ax=y]{cursor:ns-resize}#genj [data-p]:hover rect{fill:#e07b00}
@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v59 · 양식 전체 점검</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v60 · 열 고정</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -299,7 +299,7 @@ function fileToDataURL(file,max,png){ // 이미지를 축소해 DB 용량을 줄
 function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();}
 
 // ===================== 공통 유틸: 열 너비 조절, 이미지 붙여넣기, 자동완성 =====================
-function rz(box,key){ // 표 머리글 경계를 끌어 열 너비 조절 (엑셀처럼), 너비는 브라우저에 기억
+function rz(box,key,stick){ stick=stick||0; // 표 머리글 경계를 끌어 열 너비 조절 (엑셀처럼), 너비는 브라우저에 기억
   const t=box.querySelector('table'); if(!t) return;
   const ths=[...t.querySelectorAll('thead th')]; let saved=null;
   try{saved=JSON.parse(localStorage.getItem('cw-'+key));}catch(e){}
@@ -310,13 +310,15 @@ function rz(box,key){ // 표 머리글 경계를 끌어 열 너비 조절 (엑�
   const w=saved&&saved.length===ths.length?saved.slice():nat.slice();
   const cg=document.createElement('colgroup'); w.forEach(x=>{const c=document.createElement('col');c.style.width=x+'px';cg.appendChild(c);}); t.prepend(cg);
   const total=()=>{t.style.width=w.reduce((a,b)=>a+b,0)+'px';}; t.style.tableLayout='fixed'; t.classList.remove('measure'); total();
+  // 왼쪽 N개 열 고정(가로로 스크롤해도 번호 등이 보이게)
+  const stk=()=>{ if(!stick) return; const rows=[...t.querySelectorAll('tr')]; let x=0; for(let i=0;i<stick;i++){ rows.forEach(r=>{ const c=r.children[i]; if(!c||r.children.length!==ths.length) return; c.classList.add('stk'); c.style.left=x+'px'; if(i===stick-1) c.classList.add('stkl'); }); x+=w[i]; } }; stk();
   const save=()=>{try{localStorage.setItem('cw-'+key,JSON.stringify(w));}catch(e){}};
   ths.forEach((th,i)=>{ const h=document.createElement('span'); h.className='rh'; h.title='드래그: 너비 조절 / 더블클릭: 자동 맞춤'; th.appendChild(h);
     h.onmousedown=e=>{e.preventDefault();e.stopPropagation();const x0=e.clientX,w0=w[i];
-      const mv=ev=>{w[i]=Math.max(36,w0+ev.clientX-x0);cg.children[i].style.width=w[i]+'px';total();};
+      const mv=ev=>{w[i]=Math.max(36,w0+ev.clientX-x0);cg.children[i].style.width=w[i]+'px';total();stk();};
       const up=()=>{document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);save();};
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);};
-    h.ondblclick=()=>{w[i]=nat[i];cg.children[i].style.width=w[i]+'px';total();save();}; });
+    h.ondblclick=()=>{w[i]=nat[i];cg.children[i].style.width=w[i]+'px';total();stk();save();}; });
 }
 function resetWidths(){ try{Object.keys(localStorage).filter(k=>k.startsWith('cw-')).forEach(k=>localStorage.removeItem(k));}catch(e){} render(); }
 const uniq=(arr)=>{const c={};arr.forEach(v=>{v=String(v??'').trim();if(v)c[v]=(c[v]||0)+1;});return Object.keys(c).sort((a,b)=>c[b]-c[a]);}; // 많이 쓴 순
@@ -1063,7 +1065,7 @@ function vWps(){
     <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="wwarn" ${WF.onlyWarn?'checked':''}>범위 밖 의심만</label>
     <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="wpass" ${WF.onlyPass?'checked':''}>합격 기록만 집계</label>
     <button class="b sec" onclick="recommendWps()" title="WPS 마스터의 용접사 시험용 WPS 조건으로 미지정 기록에 WPS를 추천 적용">WPS 미지정 기록에 추천 적용</button>`:''}
-    <span style="flex:1"></span><span style="color:var(--mute);font-size:12px">WPS/WPQR 목록 엑셀 가져오기</span><input type="file" accept=".xlsx" multiple onchange="importFiles(this.files);this.value=''" style="max-width:230px"></div>
+    <span style="flex:1"></span><span style="color:var(--mute);font-size:12px" title="머리글 경계(오른쪽 끝 회색 선)를 끌면 열 너비 조절, 더블클릭=자동 맞춤">머리글 경계를 끌어 열 너비 조절 · <a href="#" onclick="resetWidths();return false">너비 초기화</a> | WPS/WPQR 목록 엑셀 가져오기</span><input type="file" accept=".xlsx" multiple onchange="importFiles(this.files);this.value=''" style="max-width:230px"></div>
    <div id="wbulk" style="margin-top:8px"></div><div class="tw" id="wpslist" style="margin-top:4px"></div>${dl('dl-wps2',uniq([...wpsMaster.map(m=>m.wpsNo),...records.map(x=>x.wpsNo)]))}</div>`;
   $('#wq2').oninput=e=>{WF.q=e.target.value;drawWps();};
   for(const [id,k] of [['wused','onlyUsed'],['wwarn','onlyWarn'],['wpass','onlyPass']]){ const el=$('#'+id); if(el) el.onchange=e=>{WF[k]=e.target.checked;drawWps();}; }
@@ -1108,7 +1110,7 @@ function drawWpsMaster(){
       ${m?`${m&&wpsPqrCheck(m).length?`<div class="msg err" style="margin:4px 0">◆ 점검 필요: ${esc(wpsPqrCheck(m).join(' / '))}</div>`:''}<div style="margin:2px 0 8px;color:var(--mute);font-size:12px">개정일 ${m.revDate||'-'} · PWHT ${esc(m.pwht||'-')} · 비고 ${esc(m.remarks||'-')}</div>${pqrMini(m)}<div style="height:8px"></div>`:''}
       <b style="font-size:13px">사용 기록 (${l.length}건)</b>${usageTbl(x)}</div></td></tr>`:'';
     return head+detail;}).join('')||'<tr><td colspan="18" style="color:var(--mute)">표시할 WPS가 없습니다. 오른쪽 위 "WPS/WPQR 목록 엑셀 가져오기"로 WPS 목록을 올리거나 "+ WPS 추가"로 직접 등록하세요.</td></tr>'}</tbody></table>`;
-  rz($('#wpslist'),'wps1');
+  rz($('#wpslist'),'wps1',2);
 }
 function drawPqr(){
   const use=usageMap(), q=WF.q.trim().toLowerCase(); let rows=pqrMaster.map(p=>({key:p.pqrNo.toUpperCase(),p}));
@@ -1124,7 +1126,7 @@ function drawPqr(){
       <td title="${esc(ls.map(m=>m.wpsNo).join(', '))}">${esc(uj(ls.map(m=>m.wpsNo),3))}</td><td class="num">${ls.length}</td><td class="num">${used}</td><td>${p?esc(p.remarks):''}</td><td class="bx">${p?`<button class="b sm sec" onclick="editMaster('pqr',${p.id})">수정</button> <button class="b sm red" onclick="delMaster('pqr',${p.id})">삭제</button>`:''}</td></tr>`;
     const detail=open?`<tr class="nom"><td></td><td colspan="14" style="padding:0;white-space:normal;overflow:visible;max-width:none"><div style="padding:6px 0 12px"><b style="font-size:13px">이 PQR로 승인된 WPS (${ls.length}건)</b><table class="list nested" style="font-size:13px;width:100%"><thead><tr><th>WPS</th><th>구분</th><th class="num">형식</th><th>공정</th><th>자세</th><th>두께범위</th><th>용도</th><th class="num">상태</th><th class="num">사용 기록</th></tr></thead><tbody>${ls.map(m=>`<tr class="kid"><td>${esc(m.wpsNo)}</td><td>${m.kind}</td><td class="num">${esc(m.weldType)}</td><td>${esc(m.process)}</td><td>${esc(m.position)}</td><td>${esc(m.thk)}</td><td>${esc(m.part.replace(/\s+/g,' '))}</td><td class="num">${m.status}</td><td class="num">${(use.get(m.wpsNo.toUpperCase())||[]).length}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">연결된 WPS 없음</td></tr>'}</tbody></table></div></td></tr>`:'';
     return head+detail;}).join('')||'<tr><td colspan="15" style="color:var(--mute)">PQR가 없습니다. WPQR 목록 엑셀을 가져오거나 "+ PQR 추가"로 등록하세요.</td></tr>'}</tbody></table>`;
-  rz($('#wpslist'),'pqr1');
+  rz($('#wpslist'),'pqr1',2);
 }
 // ---- 편집 폼
 const WPS_FIELDS=[['wpsNo','WPS No.*','text'],['kind','구분','sel:WPS,pWPS'],['rev','Rev','text'],['revDate','개정일','date'],['pqr','연결 PQR (쉼표로 구분)','text'],['materialGroup','모재 그룹','text'],['weldType','용접 형식','sel:BW,FW,T-BUTT'],['process','공정 (예: 135(MAG))','text'],['position','자세 (예: ALL, PF, PA or PC)','text'],['thk','두께 범위 (예: 3≤T≤24)','text'],['backing','백킹/Detail','text'],['pwht','PWHT','text'],['part','용도/적용 부위','text'],['status','상태','sel:사용,예비,폐기'],['remarks','비고','text']];
