@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v52 · 백비드·샘플 확대</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v53 · 패스표 연결·백비드 번호</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -507,7 +507,7 @@ function vWelders(){
     <input id="wq" placeholder="번호 / 성명 / 소속 검색" style="min-width:220px" value="${esc(window._wq||'')}" oninput="window._wq=this.value;drawWelders()">
     <select onchange="window._wf=this.value;drawWelders()">${['전체','재직','퇴사','미확인'].map(x=>`<option ${x===(window._wf||'전체')?'selected':''}>${x}</option>`).join('')}</select>
     <span style="flex:1"></span>
-    <span style="color:var(--mute)">엑셀(.xlsx) / CSV 가져오기</span><input type="file" accept=".xlsx,.csv" onchange="importFile(this.files[0]);this.value=''">
+    <span style="color:var(--mute)">엑셀(.xlsx) / CSV 가져오기</span><input type="file" accept=".xlsx,.csv" multiple onchange="importFiles(this.files);this.value=''">
     <button class="b sm red" onclick="cleanupWelders()">깨진 데이터 정리</button></div>
    <div style="color:var(--mute);font-size:12px;margin-bottom:6px">엑셀: '1.Welder list'(명단)와 '2.자격 시험 기록서'(시험 기록)를 자동 인식합니다. CSV: 번호,성명,생년월일,소속,직무,상태</div>
    <div class="tw" id="wlist"></div></div>`;
@@ -542,6 +542,26 @@ async function cleanupWelders(){
   for(const w of del) await DB.del('welders',w.id); await load(); vWelders(); }
 
 // ---------- 가져오기 (xlsx는 브라우저 내장 DecompressionStream으로 직접 해석, 외부 라이브러리 없음) ----------
+// ---------- 엑셀 '연결된 그림'(패스별 조건표) 해석: 다른 엑셀 파일의 Details 시트를 연결 원본으로 보관 ----------
+// 연결 원본 파일명은 앞자리 번호(01. 02. …)로 식별한다. 예) '[1]Details!$A$74:$J$78' → 외부 연결 1번 파일(05. Korail Carbody WPS)의 Details 시트 A74:J78
+const bookKey=name=>{ const b=String(name||'').replace(/^.*[\\/]/,'').replace(/\.[a-z0-9]+$/i,'').replace(/^[0-9a-f]{8}-(?=\d)/i,''); const m=b.match(/^\s*(\d+)\s*[._]/); return m?'#'+m[1]:b.toLowerCase().replace(/[^a-z0-9가-힣]/g,''); };
+async function cacheBook(sheets,fname){ const k=bookKey(fname), put={}; for(const sh of sheets){ if(/details/i.test(sh.name)) put[sh.name]=sh.rows.slice(0,400).map(r=>r?Array.from(r.slice(0,14),v=>v==null?null:v):null); }
+  if(!Object.keys(put).length) return 0; S.xlBooks={...(S.xlBooks||{}),[k]:{...put,'__name':fname}}; await saveSettings(); return Object.keys(put).length; }
+function parseCamRef(ref,ext,ownKey){ const m=String(ref||'').match(/^'?(?:\[(\d+)\])?([^'!]+)'?!\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/); if(!m) return null; const ci=t=>t.split('').reduce((a,c)=>a*26+c.charCodeAt(0)-64,0);
+  return {book:m[1]?bookKey(ext[+m[1]]||''):ownKey, bookName:m[1]?(ext[+m[1]]||''):'', sheet:m[2], c0:ci(m[3]), r0:+m[4], c1:ci(m[5]), r1:+m[6], ref:String(ref)}; }
+function lookupLinked(link){ const B=S.xlBooks||{}; if(B[link.book]&&B[link.book][link.sheet]) return {rows:B[link.book][link.sheet],exact:true};
+  for(const k of Object.keys(B)) if(B[k][link.sheet]) return {rows:B[k][link.sheet],exact:false}; return null; }
+function rowsToParams(rows,link){ const params=[], notes=[];
+  for(let r=link.r0-1;r<=link.r1-1;r++){ const cells=Array.from({length:link.c1-link.c0+1},(_,i)=>{ const v=(rows[r]||[])[link.c0-1+i]; return v==null?'':String(v).replace(/\s+/g,' ').trim(); }); if(!cells.some(Boolean)) continue;
+    if(/pass|층수/i.test(cells[0])) continue; if(cells.filter(Boolean).length===1&&cells[0].length>8){ notes.push(cells[0]); continue; }
+    params.push(Object.fromEntries(PARAM_COLS.map(([k],i)=>[k,cells[i]||'']))); }
+  return {params,notes}; }
+// 연결 정보(passLink)가 있는 WPS의 패스별 조건표를 보관된 연결 원본에서 채운다. 정확한 원본 파일이 있으면 그 값으로 갱신, 없으면 비어 있을 때만 같은 이름 시트로 채운다.
+async function relinkPasses(onlyEmpty){ let n=0, up=[]; for(const w of wpsMaster){ const L=w.passLink; if(!L) continue; const f=lookupLinked(L); if(!f) continue;
+    if(!f.exact&&(w.params||[]).length&&(onlyEmpty||w.passSrc==='exact')) continue; if(f.exact&&(w.passSrc==='manual')) continue;
+    const {params,notes}=rowsToParams(f.rows,L); if(!params.length) continue; up.push({...w,params,passSrc:f.exact?'exact':'fallback',form:{...(w.form||{}),passNote:notes.join('\n')}}); n++; }
+  if(up.length) await DB.putMany('wps',up); return n; }
+async function importFiles(list){ for(const f of [...(list||[])]) await importFile(f); }
 async function importFile(file){
   if(!file) return;
   try{
@@ -550,7 +570,7 @@ async function importFile(file){
     if(isZip||/\.xlsx$/i.test(file.name)){
       if(!isZip) return alert('올바른 .xlsx 파일이 아닙니다.');
       if(typeof DecompressionStream==='undefined') return alert('이 브라우저는 엑셀 직접 읽기를 지원하지 않습니다. 최신 Chrome/Edge를 사용하세요.');
-      return await importXlsx(buf);
+      return await importXlsx(buf,file.name);
     }
     return await importCSV(new TextDecoder('utf-8').decode(buf));
   }catch(e){ alert('가져오기 실패: '+(e.message||e)); }
@@ -574,7 +594,9 @@ async function readXlsx(buf){
   const z=await unzip(buf), X=async n=>{if(!z[n]) throw new Error('엑셀 내부 파일 없음: '+n);return new DOMParser().parseFromString(await z[n](),'application/xml');};
   const shared=[]; if(z['xl/sharedStrings.xml']) for(const si of (await X('xl/sharedStrings.xml')).getElementsByTagName('si')) shared.push([...si.getElementsByTagName('t')].map(t=>t.textContent).join(''));
   const rels={}; for(const r of (await X('xl/_rels/workbook.xml.rels')).getElementsByTagName('Relationship')) rels[r.getAttribute('Id')]=r.getAttribute('Target');
-  const out=[];
+  const out=[], ext={};
+  for(const n of Object.keys(z)){ const m=n.match(/^xl\/externalLinks\/_rels\/externalLink(\d+)\.xml\.rels$/); if(!m) continue; const t=[...(await X(n)).getElementsByTagName('Relationship')].map(r=>r.getAttribute('Target')||''); let f=(t[0]||'').split(/[\\/]/).pop(); try{ f=decodeURIComponent(f); }catch(e){} ext[+m[1]]=f; }
+  out.ext=ext;
   for(const sh of (await X('xl/workbook.xml')).getElementsByTagName('sheet')){
     let t=rels[sh.getAttribute('r:id')]||''; t=t.startsWith('/')?t.slice(1):'xl/'+t; if(!z[t]) continue;
     const rows=[]; for(const row of (await X(t)).getElementsByTagName('row')){
@@ -586,7 +608,10 @@ async function readXlsx(buf){
       rows[+row.getAttribute('r')-1]=arr; }
     const rp='xl/worksheets/_rels/'+t.split('/').pop()+'.rels'; let drawing=null;
     if(z[rp]){ const m=(await z[rp]()).match(/Target="\.\.\/drawings\/(drawing\d+\.xml)"/); if(m&&z['xl/drawings/'+m[1]]) drawing=()=>z['xl/drawings/'+m[1]](); }
-    out.push({name:sh.getAttribute('name'),rows,drawing,theme:()=>z['xl/theme/theme1.xml']?z['xl/theme/theme1.xml']():Promise.resolve('')}); }
+    // 엑셀 '연결된 그림'(카메라 도구): 다른 시트/파일의 셀 범위를 그림으로 붙인 것 → {ref:'[1]Details!$A$74:$J$78', row:앵커 시작 행(0기준)}
+    const camera=drawing?async()=>{ const d=new DOMParser().parseFromString(await drawing(),'application/xml'), res=[];
+      for(const a of [...d.getElementsByTagName('*')].filter(e=>/^(twoCellAnchor|oneCellAnchor|absoluteAnchor)$/.test(e.localName))){ const ct=a.getElementsByTagNameNS('*','cameraTool')[0]; if(!ct) continue; const fr=a.getElementsByTagNameNS('*','from')[0], rw=fr&&fr.getElementsByTagNameNS('*','row')[0], cl=fr&&fr.getElementsByTagNameNS('*','col')[0]; res.push({ref:ct.getAttribute('cellRange')||'',row:rw?+rw.textContent:-1,col:cl?+cl.textContent:-1}); } return res; }:null;
+    out.push({name:sh.getAttribute('name'),rows,drawing,camera,theme:()=>z['xl/theme/theme1.xml']?z['xl/theme/theme1.xml']():Promise.resolve('')}); }
   return out;
 }
 // --- 값 정규화 (importer.py와 동일 규칙)
@@ -850,7 +875,7 @@ function parseWpsForms(sheets){
   }
   return out;
 }
-async function importWpsForms(forms){
+async function importWpsForms(forms,ctx){ ctx=ctx||{ext:{},key:''};
   const conflicts=forms.filter(f=>f.bodyNo&&f.bodyNo!==f.wpsNo).map(f=>`시트 ${f.sheet}: 본문 ${f.bodyNo} → 시트 번호 기준 ${f.wpsNo}`);
   const seen=new Set(), dup=[]; const uniq=forms.filter(f=>{ if(seen.has(f.wpsNo)){dup.push(f.wpsNo);return false;} seen.add(f.wpsNo); return true; });
   const match=uniq.filter(f=>wpsFind(f.wpsNo)).length, fresh=uniq.length-match;
@@ -860,13 +885,16 @@ async function importWpsForms(forms){
   const replace=hasOld&&confirm('이전에 WPS 양식에서 가져온 스케치/형상 라이브러리가 있습니다.\n새로 추출한 것으로 교체할까요? (확인=교체, 취소=기존 유지하고 새 것만 추가)');
   for(const f of uniq){ if(!f.sh||!f.sh.drawing) continue; try{ if(!th) th=parseTheme(await f.sh.theme()); const r=drawingSketches(await f.sh.drawing(),th); sk.set(f.wpsNo,r); nSk+=(r.joint?1:0)+(r.sequence?1:0); }catch(e){} }
   if(replace){ for(const j of joints.filter(j=>j.meta&&j.meta.source==='wps-form')) await DB.del('joints',j.id); await load(); }
-  const up=[];
+  const up=[]; let nLink=0;
+  for(const f of uniq){ if(!f.sh||!f.sh.camera) continue; try{ const lab=f.sh.rows.findIndex(r=>r&&r.some(v=>/Welding Details/i.test(String(v||'')))); const cams=(await f.sh.camera()).filter(c=>/details/i.test(c.ref)&&(lab<0||(c.row>=lab&&c.row<=lab+8))); if(cams[0]) f.link=parseCamRef(cams[0].ref,ctx.ext,ctx.key); }catch(e){} }
   for(const f of uniq){ const cur=wpsFind(f.wpsNo);
     const codeOf=t=>(String(t).match(/\b\d{2,3}\b/)||[''])[0];
     const base=cur||{wpsNo:f.wpsNo,kind:'WPS',rev:f.rawRev,revDate:'',pqrNos:f.pqr?[f.pqr]:[],materialGroup:(f.form.parentSpec.match(/\d+\.\d+(?:~\d+\.\d+)?/)||[''])[0],weldType:/fillet/i.test(f.form.jointType)?'FW':/t-?butt/i.test(f.form.jointType)?'T-BUTT':'BW',process:codeOf(f.form.processIso)?codeOf(f.form.processIso)+({135:'(MAG)',141:'(TIG)'}[codeOf(f.form.processIso)]||''):'',procCodes:[codeOf(f.form.processIso)].filter(Boolean),position:f.form.positionIso.split('[')[0].trim().toUpperCase(),positions:positionsOf(f.form.positionIso),thk:f.form.thickness?f.form.thickness.replace(/\s/g,'').replace(/(\d+(?:\.\d+)?)~(\d+(?:\.\d+)?)/,'$1≤T≤$2'):'',backing:'',pwht:f.form.pwht,part:'',remarks:'',status:'사용'};
     if(!cur){ const [mn,mx]=thkOf(base.thk); base.thkMin=mn; base.thkMax=mx; }
     const r=sk.get(f.wpsNo)||{}, cur2={...(base.sketches||{})}; for(const k of ['joint','sequence']) if(r[k]&&(replace||!cur2[k])) cur2[k]=svgUrl(r[k]);
-    up.push({...base,form:{...(base.form||{}),...Object.fromEntries(Object.entries(f.form).filter(([,v])=>v!==''))},params:base.params||[],sketches:cur2}); }
+    let params=base.params||[], passLink=base.passLink, passSrc=base.passSrc, passNote=(base.form||{}).passNote||'';
+    if(f.link){ passLink=f.link; const lk=lookupLinked(f.link); if(lk&&(replace||!params.length||(lk.exact&&passSrc!=='manual'))){ const r=rowsToParams(lk.rows,f.link); if(r.params.length){ params=r.params; passSrc=lk.exact?'exact':'fallback'; passNote=r.notes.join('\n'); nLink++; } } }
+    up.push({...base,form:{...(base.form||{}),...Object.fromEntries(Object.entries(f.form).filter(([,v])=>v!==''))},params,passLink,passSrc,sketches:cur2}); up[up.length-1].form.passNote=passNote; }
   await DB.putMany('wps',up);
   // 형상 라이브러리: 같은 SVG는 하나로, 출처 WPS/형식/공정/백킹 정보를 붙인다
   const lib=new Map(joints.map(j=>[j.kind+'|'+j.svg,j])), add=[];
@@ -874,13 +902,16 @@ async function importWpsForms(forms){
     let it=lib.get(key); if(!it){ it={kind:k,name:`${f.wpsNo} ${k==='joint'?'이음부 형상':'용접 순서'}`,svg:r[k],fav:false,meta:{wpsNos:[],weldType:m.weldType,process:m.process,backing:m.backing||f.form.backingDetail||'',thk:m.thk,source:'wps-form'},created:Date.now()}; lib.set(key,it); add.push(it); }
     if(!it.meta.wpsNos.includes(f.wpsNo)) it.meta.wpsNos.push(f.wpsNo); } }
   await DB.putMany('joints',[...lib.values()]); await load();
-  alert(`완료: WPS 양식 ${up.length}건 반영 (신규 ${fresh}건)\n스케치 ${nSk}개를 WPS에 넣고, 형상 라이브러리에 ${add.length}종을 저장했습니다.`); go('wps');
+  const lk=uniq.filter(f=>f.link).length; alert(`완료: WPS 양식 ${up.length}건 반영 (신규 ${fresh}건)\n스케치 ${nSk}개를 WPS에 넣고, 형상 라이브러리에 ${add.length}종을 저장했습니다.\n패스별 조건표(엑셀 연결 그림): 연결 ${lk}건 인식 · 표 채움 ${nLink}건${lk>nLink?`\n(연결 원본 시트를 못 찾은 ${lk-nLink}건은 해당 원본 엑셀 파일을 함께 가져오면 채워집니다)`:''}`); go('wps');
 }
-async function importXlsx(buf){
-  const sheets=await readXlsx(buf), certs=parseCerts(sheets);
+async function importXlsx(buf,fname){
+  const sheets=await readXlsx(buf), certs=parseCerts(sheets); const cached=await cacheBook(sheets,fname||''); if(cached){ await load(); }
   if(certs.length) return importCerts(certs);   // 발행된 인증서(시트별 1장) 엑셀
   const wl=parseWpsLists(sheets); if(wl.wps.length||wl.pqr.length) return importWpsLists(wl);   // WPS / WPQR 목록
-  const wf=parseWpsForms(sheets); if(wf.length) return importWpsForms(wf);   // WPS 양식(시트 1장 = WPS 1개)
+  const wf=parseWpsForms(sheets); if(wf.length){ const ctx={ext:sheets.ext||{},key:bookKey(fname||'')};
+    if(wpsMaster.some(w=>w.form&&w.form.codeStd)&&cached){ if(!confirm(`'${fname}' 의 연결 원본 시트(Details) ${cached}개를 보관했습니다.\n\n이 파일의 WPS 양식 ${wf.length}장도 다시 가져올까요?\n  확인 = 양식도 가져옴(같은 번호는 덮어씀)\n  취소 = 패스별 조건표 연결만 갱신`)){ const n=await relinkPasses(false); await load(); alert(`패스별 조건표 연결 갱신: ${n}건`); return render(); } }
+    return importWpsForms(wf,ctx); }
+  if(cached){ const n=await relinkPasses(false); await load(); return alert(`연결 원본 시트 ${cached}개를 보관했습니다. 패스별 조건표 연결 갱신: ${n}건`); }   // WPS 양식(시트 1장 = WPS 1개)
   const {W,R,info}=mapWorkbook(sheets);
   if(!W.length&&!R.length) return alert('용접사 명단/시험 기록 시트를 찾지 못했습니다.\n(필요한 머리글: 용접사 No, 성명, 소속 / Process, 시편 형태 등)');
   const have=new Set(welders.map(w=>normNo(w.welderNo))), newW=W.filter((w,i)=>!have.has(w.welderNo)&&W.findIndex(x=>x.welderNo===w.welderNo)===i);
@@ -1002,7 +1033,7 @@ function vWps(){
     <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="wwarn" ${WF.onlyWarn?'checked':''}>범위 밖 의심만</label>
     <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="wpass" ${WF.onlyPass?'checked':''}>합격 기록만 집계</label>
     <button class="b sec" onclick="recommendWps()" title="WPS 마스터의 용접사 시험용 WPS 조건으로 미지정 기록에 WPS를 추천 적용">WPS 미지정 기록에 추천 적용</button>`:''}
-    <span style="flex:1"></span><span style="color:var(--mute);font-size:12px">WPS/WPQR 목록 엑셀 가져오기</span><input type="file" accept=".xlsx" onchange="importFile(this.files[0]);this.value=''" style="max-width:230px"></div>
+    <span style="flex:1"></span><span style="color:var(--mute);font-size:12px">WPS/WPQR 목록 엑셀 가져오기</span><input type="file" accept=".xlsx" multiple onchange="importFiles(this.files);this.value=''" style="max-width:230px"></div>
    <div class="tw" id="wpslist" style="margin-top:8px"></div>${dl('dl-wps2',uniq([...wpsMaster.map(m=>m.wpsNo),...records.map(x=>x.wpsNo)]))}</div>`;
   $('#wq2').oninput=e=>{WF.q=e.target.value;drawWps();};
   for(const [id,k] of [['wused','onlyUsed'],['wwarn','onlyWarn'],['wpass','onlyPass']]){ const el=$('#'+id); if(el) el.onchange=e=>{WF[k]=e.target.checked;drawWps();}; }
@@ -1152,6 +1183,7 @@ function collectDoc(){ const f=$('#wdf'); if(!f||!WD) return WD&&WD.obj; const f
   const n=+($('#wdf').dataset.np||0); o.params=[]; for(let i=0;i<n;i++){ if(!fd.has(`p${i}_pass`)&&!fd.has(`p${i}_process`)) continue; const r={}; for(const [k] of PARAM_COLS) r[k]=fd.get(`p${i}_${k}`)||''; o.params.push(r); }
   return o; }
 function paramRows(o){ return o.params.map((r,i)=>`<tr>${PARAM_COLS.map(([k,,w])=>`<td style="padding:2px"><input name="p${i}_${k}" value="${esc(r[k])}" style="width:${w}px"></td>`).join('')}<td class="bx"><button type="button" class="b sm sec" onclick="paramOp('dup',${i})" title="행 복제">⧉</button> <button type="button" class="b sm red" onclick="paramOp('del',${i})">×</button></td></tr>`).join(''); }
+function relinkOne(){ collectDoc(); const o=WD.obj, L=o.passLink, f=L&&lookupLinked(L); if(!f) return toast('연결 원본 시트가 보관돼 있지 않습니다. 원본 엑셀 파일을 함께 가져오세요.',3500); const r=rowsToParams(f.rows,L); if(!r.params.length) return toast('연결 범위에 값이 없습니다.',3000); o.params=r.params; o.passSrc=f.exact?'exact':'fallback'; o.form={...(o.form||{}),passNote:r.notes.join('\n')}; vWpsDoc(); toast('연결 원본에서 패스별 조건표를 다시 불러왔습니다.',3000); }
 function paramOp(op,i){ collectDoc(); const a=WD.obj.params;
   if(op==='add') a.push({pass:String(a.length+1),process:a.length?a[a.length-1].process:'',filler:a.length?a[a.length-1].filler:'',current:'',voltage:'',polarity:a.length?a[a.length-1].polarity:'',speed:'',speedUnit:a.length?a[a.length-1].speedUnit:'cm/min',heat:'',heatUnit:a.length?a[a.length-1].heatUnit:'KJ/cm'});
   if(op==='del') a.splice(i,1); if(op==='dup') a.splice(i+1,0,{...a[i],pass:''});
@@ -1201,6 +1233,7 @@ function vWpsDoc(){
    <div class="card"><h3 style="margin-top:0">② WPS 양식 내용 (인쇄되는 항목)</h3><div class="grid">${FORM_FIELDS.map(([k,l,t])=>inp('f',k,l,t,F[k])).join('')}
      <label style="grid-column:span 2">후열처리 상세 (줄바꿈으로 구분)<textarea name="f_pwhtDetail" rows="3">${esc(F.pwhtDetail||'')}</textarea></label></div></div>
    <div class="card"><h3 style="margin-top:0">③ 용접 상세 Welding Details — 패스별 조건표</h3>
+    ${o.passLink?`<div style="font-size:12px;color:var(--mute);margin-bottom:6px">엑셀 연결 그림: <b>${esc(o.passLink.bookName||'같은 파일')}</b> › ${esc(o.passLink.sheet)}!${esc(o.passLink.ref.split('!')[1]||'')} ${o.passSrc==='exact'?'· 원본에서 불러옴':o.passSrc==='fallback'?'· 같은 이름 시트로 임시 채움(원본 파일을 가져오면 갱신)':'· 직접 수정함'} <button type="button" class="b sm sec" onclick="relinkOne()">연결 다시 불러오기</button></div>`:''}
     <div style="overflow-x:auto"><table class="list nested"><thead><tr>${PARAM_COLS.map(([,l])=>`<th>${l}</th>`).join('')}<th></th></tr></thead><tbody id="ptbody">${paramRows(o)}</tbody></table></div>
     <div class="row"><button type="button" class="b sm" onclick="paramOp('add')">+ 행 추가</button>
      <span style="color:var(--mute);font-size:12px">엑셀에서 표를 복사해(층수~단위, A~J열) 아래 칸에 붙여넣고 "표로 변환"을 누르면 행이 추가됩니다.</span></div>
@@ -1213,7 +1246,7 @@ function vWpsDoc(){
 }
 async function saveWpsDoc(){ const o=collectDoc(); if(!String(o.wpsNo||'').trim()) return alert('WPS 번호를 입력하세요.');
   const f={wpsNo:o.wpsNo,kind:o.kind,rev:o.rev||'',revDate:o.revDate||'',pqr:(o.pqrNos||[]).join(','),materialGroup:o.materialGroup||'',weldType:o.weldType||'BW',process:o.process||'',position:o.position||'',thk:o.thk||'',backing:o.backing||'',pwht:o.pwht||'',part:o.part||'',status:o.status||'사용',remarks:o.remarks||''};
-  const old={...WD.old,form:o.form,params:o.params,sketches:o.sketches};
+  const oo=WD.old||{}, old={...oo,form:o.form,params:o.params,sketches:o.sketches,passLink:oo.passLink,passSrc:(o.passSrc!==undefined&&o.passSrc!==oo.passSrc)?o.passSrc:(JSON.stringify(o.params||[])!==JSON.stringify(oo.params||[])?'manual':oo.passSrc)};
   const ok=await saveMaster('wps',old,f); if(!ok) return; // 번호 중복 등으로 저장 취소
   WF.doc=false; WD=null; render(); toast('WPS를 저장했습니다.',2500); }
 
@@ -1245,7 +1278,7 @@ function saveSlotToLib(slot){ collectDoc(); const sv=svgFromUrl(WD.obj.sketches[
   saveToLib(slot,sv,`${WD.obj.wpsNo||'새 WPS'} ${KIND_L[slot]}`,{weldType:WD.obj.weldType,process:WD.obj.process,thk:WD.obj.thk,backing:WD.obj.backing}); }
 
 // ---- 형상 생성기 (값 입력 -> SVG)
-const GEN={open:false,type:'vgroove',t:12,t2:12,angle:60,gap:2,face:1.5,r:6,leg:6,backing:'none',layers:'1,2,3',dims:true,weld:true,symbol:true,symSystem:'A',symSide:'arrow',symDim:'z',symS:'',symN:'',symL:'',symE:'',contour:'none',allAround:false,field:false,tailProc:'135',tailLvl:'B',tailLvlPrefix:false,tailPos:'PA',tailFiller:'',tailRef:'',custom:'9,0; 1.5,10.5; 1.5,12',mirror:true,symKind:'V',pos:{},beads:null,beadMode:'auto',beadStyle:'auto',clipBeads:true,sel:-1,reinf:0,backBead:true,backH:1.5};
+const GEN={open:false,type:'vgroove',t:12,t2:12,angle:60,gap:2,face:1.5,r:6,leg:6,backing:'none',layers:'1,2,3',dims:true,weld:true,symbol:true,symSystem:'A',symSide:'arrow',symDim:'z',symS:'',symN:'',symL:'',symE:'',contour:'none',allAround:false,field:false,tailProc:'135',tailLvl:'B',tailLvlPrefix:false,tailPos:'PA',tailFiller:'',tailRef:'',custom:'9,0; 1.5,10.5; 1.5,12',mirror:true,symKind:'V',pos:{},beads:null,beadMode:'auto',beadStyle:'auto',clipBeads:true,sel:-1,reinf:0,backBead:true,backH:1};
 const GEN_TYPES=[['square','I형 맞대기 (Square butt)'],['vgroove','단면 V형 맞대기'],['xgroove','양면 V형(X) 맞대기'],['bevel','단면 베벨 맞대기'],['kgroove','양면 베벨(K형) 맞대기'],['ugroove','U형 맞대기'],['jgroove','단면 J형 맞대기'],['tee','T이음 필릿'],['tbevel','T이음 베벨(개선)'],['lap','겹치기 필릿'],['custom','사용자 정의 (개선면 좌표 입력)']];
 // ---------- 기하 유틸 ----------
 function polyExt(poly,y){ const xs=[]; for(let i=0;i<poly.length;i++){ const a=poly[i], b=poly[(i+1)%poly.length]; if((a[1]<=y&&b[1]>y)||(b[1]<=y&&a[1]>y)) xs.push(a[0]+(y-a[1])*(b[0]-a[0])/(b[1]-a[1])); } return xs.length>=2?[Math.min(...xs),Math.max(...xs)]:null; }
@@ -1414,8 +1447,8 @@ function cellLayout(o,polys){
       for(let j=0;j<k;j++){ n++; cells.push({n,li,j,k,xa:ex[0]+step*j,xb:ex[0]+step*(j+1),X0:j===0?e0-4:ex[0]+step*j,X1:j===k-1?e1+4:ex[0]+step*(j+1),yT,yB,hb}); } });
     out.push({pl,al,fw,bk,a,yRoot,cells}); });
   return out; }
-function beadAuto(o,polys){ const out=[]; cellLayout(o,polys).forEach(q=>q.cells.forEach(c=>{ const m=q.bk([(c.xa+c.xb)/2,(c.yT+c.yB)/2+c.hb*.25]);
-  out.push({x:m[0],y:m[1],rx:Math.max(5,(c.xb-c.xa)/2*1.1),ry:Math.max(4.5,(c.yB-c.yT)/2*1.05),rot:Math.round(-q.al*180/Math.PI),flip:false,lab:String(c.n)}); })); return out; }
+function beadAuto(o,polys,geo){ const out=[]; cellLayout(o,polys).forEach(q=>q.cells.forEach(c=>{ const m=q.bk([(c.xa+c.xb)/2,(c.yT+c.yB)/2+c.hb*.25]);
+  out.push({x:m[0],y:m[1],rx:Math.max(5,(c.xb-c.xa)/2*1.1),ry:Math.max(4.5,(c.yB-c.yT)/2*1.05),rot:Math.round(-q.al*180/Math.PI),flip:false,lab:String(c.n)}); })); const bb=backBeadItem(o,geo,String(out.length+1)); if(bb) out.push(bb); return out; }
 const strHash=t=>{ let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))|0; return Math.abs(h).toString(36); };
 function beadCells(o,polys){ let defs='', body='', nums='';
   cellLayout(o,polys).forEach((q,qi)=>{ const {pl,al,a,cells,bk}=q, {b,amt}=pl.crown, [nx,ny]=crownN(pl), CID='wk'+strHash(JSON.stringify(pl.pts))+qi, cap=[a,b,[b[0]+nx*(amt+8),b[1]+ny*(amt+8)],[a[0]+nx*(amt+8),a[1]+ny*(amt+8)]], pts=x=>x.map(p=>p.join(',')).join(' ');
@@ -1426,19 +1459,21 @@ function beadCells(o,polys){ let defs='', body='', nums='';
     cells.forEach(c=>{ const m=bk([(c.xa+c.xb)/2,(c.yT+c.yB)/2+c.hb*.3]); const fs=Math.max(6,Math.min(10,(c.xb-c.xa)*.55,(c.yB-c.yT)*.75)); nums+=`<text x="${m[0]}" y="${m[1]+fs*.35}" font-size="${fs}" text-anchor="middle" font-family="Arial" fill="#000" pointer-events="none">${c.n}</text>`; }); });
   return `<defs>${defs}</defs>${body}${nums}`; }
 // 이면(백) 비드: 백킹이 없을 때 루트 뒤로 용입된 비드(맞대기=아래쪽, T 베벨=뒷면 쪽)
-// 백비드 도형: 맞대기=루트 아래로 얕게 볼록한 호, T 베벨=스템 뒷면 모서리(스템 면~바닥판)를 메우는 볼록한 필렛형
-function backBeadShape(o,geo){ if(!geo) return null; const ty=o.type, h=Math.max(2.5,(o.backH>0?o.backH:1.5)*geo.sc);
-  if(['vgroove','bevel','ugroove','jgroove','custom'].includes(ty)){ const rx=Math.max(8,geo.g/2+h*.9), y=geo.y0+geo.Tp, x=geo.cx; return {kind:'arc',d:`M${x-rx},${y} Q${x},${y+2*h} ${x+rx},${y}`,fill:`M${x-rx},${y-1.5} L${x+rx},${y-1.5} L${x+rx},${y} Q${x},${y+2*h} ${x-rx},${y} Z`}; }
-  if(ty==='tbevel'&&geo.cc!=null){ const x=geo.vx0, yv=geo.yv, yb=geo.yb, L=Math.max(h*1.1,(yb-yv)+h*.8), P1=[x,yv-h*.5], P2=[x-L,yb], m=[(P1[0]+P2[0])/2,(P1[1]+P2[1])/2], C=[m[0]-L*.32,m[1]-L*.32];
-    return {kind:'arc',d:`M${P1[0]},${P1[1]} Q${C[0]},${C[1]} ${P2[0]},${P2[1]}`,fill:`M${x+geo.cc},${yv} L${P1[0]},${P1[1]} Q${C[0]},${C[1]} ${P2[0]},${P2[1]} L${x+geo.cc},${yb} Z`}; }
+// 이면(백) 비드: 번호가 있는 하나의 비드로 취급(순서 도면의 마지막 번호). 맞대기=루트 아래로 얕게 볼록, T 베벨=스템 뒷면 쪽으로 볼록
+function backBeadItem(o,geo,lab){ if(!geo||!o.backBead||o.backing!=='none') return null; const ty=o.type, h=Math.max(2.5,(o.backH>0?o.backH:1)*geo.sc);
+  if(['vgroove','bevel','ugroove','jgroove','custom'].includes(ty)) return {x:geo.cx,y:geo.y0+geo.Tp,rx:Math.max(8,geo.g/2+h*1.2),ry:h,rot:0,flip:true,seg:true,free:true,back:true,lab};
+  if(ty==='tbevel'&&geo.cc!=null){ const gp=Math.max(o.gap*geo.sc,2), rx=Math.max(7,gp/2+h*.8); return {x:geo.vx0,y:geo.yb-rx,rx,ry:h,rot:-90,flip:false,seg:true,free:true,back:true,lab}; }
   return null; }
-function backBeadSvg(o,geo){ if(!o.backBead||o.backing!=='none') return ''; const q=backBeadShape(o,geo); if(!q) return ''; return `<path d="${q.fill}" fill="${BEAD_FILL}" stroke="none"/><path d="${q.d}" fill="none" stroke="#000" stroke-width="1.3" stroke-linecap="round"/>`; }
+const beadTf=b=>`translate(${b.x} ${b.y}) rotate(${b.rot||0})${b.flip?' scale(1 -1)':''}`;
+const beadShape=b=>b.seg?`<path d="M${-b.rx},0 Q0,${-2*b.ry} ${b.rx},0 Z" fill="${BEAD_FILL}" stroke="#000" stroke-width="1.1" stroke-linejoin="round"/>`:`<path d="${beadPath(0,0,b.rx,b.ry)}" fill="${BEAD_FILL}" stroke="#000" stroke-width="1.1"/>`;
+function beadLabelXY(b){ if(!b.back) return [b.x,b.y+3.5]; const ly=-(b.ry+8)*(b.flip?-1:1), a=(b.rot||0)*Math.PI/180; return [b.x-ly*Math.sin(a),b.y+ly*Math.cos(a)+3.5]; }
+function backBeadSvg(o,geo,n){ const b=backBeadItem(o,geo,String(n)); if(!b) return ''; const l=beadLabelXY(b); return `<g transform="${beadTf(b)}">${beadShape(b)}</g><text x="${l[0]}" y="${l[1]}" font-size="10" text-anchor="middle" font-family="Arial" fill="#000">${b.lab}</text>`; }
 function beadsSvg(o,polys,list){
   const CID='wc'+strHash(JSON.stringify(polys.map(p=>p.pts))), clip=`<clipPath id="${CID}">${polys.map(pl=>{ const {a,b,amt}=pl.crown, [nx,ny]=crownN(pl), mx=(a[0]+b[0])/2+nx*amt*2, my=(a[1]+b[1])/2+ny*amt*2; return `<polygon points="${pl.pts.map(p=>p.join(',')).join(' ')}"/><path d="M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]} Z"/>`; }).join('')}</clipPath>`;
   let g='', nums='', crowns=polys.map(pl=>{ const {a,b,amt}=pl.crown, [nx,ny]=crownN(pl), mx=(a[0]+b[0])/2+nx*amt*2, my=(a[1]+b[1])/2+ny*amt*2; return `<path d="M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]}" fill="none" stroke="#000" stroke-width="1.6"/>`; }).join('');
-  let gf='', gh=''; list.forEach((b,i)=>{ const tf=`translate(${b.x} ${b.y}) rotate(${b.rot||0})${b.flip?' scale(1 -1)':''}`, sh=`<path d="${beadPath(0,0,b.rx,b.ry)}" fill="${BEAD_FILL}" stroke="#000" stroke-width="1.1"/>`, gg=`<g ${o.edit?`data-mv="bead:${i}" `:''}transform="${tf}">${sh}</g>`;
+  let gf='', gh=''; list.forEach((b,i)=>{ const tf=`translate(${b.x} ${b.y}) rotate(${b.rot||0})${b.flip?' scale(1 -1)':''}`, sh=beadShape(b), gg=`<g ${o.edit?`data-mv="bead:${i}" `:''}transform="${tf}">${sh}</g>`;
     if(b.free) gf+=gg; else g+=gg; if(o.edit&&o.sel===i&&!b.free) gh+=`<g transform="${tf}" opacity=".3" pointer-events="none">${sh}</g>`;
-    nums+=`<text x="${b.x}" y="${b.y+3.5}" font-size="10" text-anchor="middle" font-family="Arial" fill="#000" pointer-events="none">${dmlEsc(b.lab)}</text>`; });
+    { const lp=beadLabelXY(b); nums+=`<text x="${lp[0]}" y="${lp[1]}" font-size="10" text-anchor="middle" font-family="Arial" fill="#000" pointer-events="none">${dmlEsc(b.lab)}</text>`; } });
   let ov=''; const sb=o.edit&&o.sel>=0?list[o.sel]:null;
   if(sb){ const a=(sb.rot||0)*Math.PI/180, ca=Math.cos(a), sa=Math.sin(a), loc=(lx,ly)=>[sb.x+lx*ca-ly*sa,sb.y+lx*sa+ly*ca], R=loc(0,-(sb.ry+20)), top=loc(0,-sb.ry);
     ov=`<g transform="translate(${sb.x} ${sb.y}) rotate(${sb.rot||0})" pointer-events="none"><ellipse rx="${sb.rx+2}" ry="${sb.ry+2}" fill="none" stroke="#1f5fae" stroke-dasharray="3 2"/></g><line x1="${top[0]}" y1="${top[1]}" x2="${R[0]}" y2="${R[1]}" stroke="#1f5fae" stroke-width=".8" pointer-events="none"/>`+
@@ -1470,14 +1505,14 @@ function genSeq(o){
   const {svg,polys,geo}=genJoint({...o,dims:false,weld:false,symbol:false,edit:!!o.edit,seqView:true},true);
   if(!polys.length||o.type==='square') return svg.replace('</svg>',`<text x="260" y="150" font-size="13" text-anchor="middle" font-family="Malgun Gothic,Arial" fill="#666">이 형상은 용접 순서 도면을 지원하지 않습니다</text></svg>`);
   const manual=o.beadMode==='manual'&&Array.isArray(o.beads)&&o.beads.length, style=o.beadStyle||'auto';
-  const body=manual?beadsSvg(o,polys,o.beads):style==='beads'?beadsSvg(o,polys,beadAuto(o,polys)):style==='band'?seqBandSvg(o,polys):beadCells(o,polys), bb=backBeadSvg(o,geo);
+  const body=manual?beadsSvg(o,polys,o.beads):style==='beads'?beadsSvg(o,polys,beadAuto(o,polys,geo)):style==='band'?seqBandSvg(o,polys):beadCells(o,polys), bb=(manual||style==='beads')?'':backBeadSvg(o,geo,cellLayout(o,polys).reduce((t,q)=>t+q.cells.length,0)+1);
   const hh=!o.edit?'':polys.filter(pl=>pl.crown&&pl.crown.nx===0).map(pl=>{ const {a,amt,ny}=pl.crown, mx=(pl.crown.a[0]+pl.crown.b[0])/2, my=a[1]+ny*amt, k=JSON.stringify({sc:geo.sc,ya:a[1],sg:ny});
     return `<g data-p="reinf" data-ax="y" data-k='${k}'><title>보강 높이 h — 끌어서 조절</title><circle cx="${mx}" cy="${my}" r="7" fill="transparent"/><rect x="${mx-5}" y="${my-5}" width="10" height="10" rx="2" fill="#ff9f1c" stroke="#fff" stroke-width="1.5"/></g>`; }).join('');
   return svg.replace('</svg>',body+bb+hh+'</svg>'); }
 // ---- 마우스 편집 (미리보기에서 요소 끌기 / 비드 선택 후 핸들로 크기·회전)
 let DRAG=null, NUMMODE=false, NUMNEXT=1, LASTDN=null;
 function svgPt(box,e){ const sv=box.querySelector('svg'), pt=sv.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; const m=sv.getScreenCTM(); const q=m?pt.matrixTransform(m.inverse()):{x:0,y:0}; return {x:q.x,y:q.y}; }
-function beadEnsureManual(){ if(GEN.beadMode==='manual'&&GEN.beads&&GEN.beads.length) return; genValues(); const {polys}=genJoint({...GEN,dims:false,weld:false,symbol:false,edit:false},true); GEN.beads=beadAuto(GEN,polys); GEN.beadMode='manual'; }
+function beadEnsureManual(){ if(GEN.beadMode==='manual'&&GEN.beads&&GEN.beads.length) return; genValues(); const {polys,geo}=genJoint({...GEN,dims:false,weld:false,symbol:false,edit:false},true); GEN.beads=beadAuto(GEN,polys,geo); GEN.beadMode='manual'; }
 // 치수 핸들(주황 네모)로 형상 값을 직접 조절: 고정 스케일(pointerdown 시점의 geo)로 역산
 const GEN_PLABEL={t:'판 두께 t',t2:'바닥판 t2',gap:'루트 간격 b',angle:'개선 각도 α',face:'루트 면 c',r:'반지름 R',leg:'필릿 각장 z'};
 const DIM_KEY={dim_t:'t',dim_b:'gap',dim_a:'angle',dim_c:'face',dim_r:'r',dim_z:'leg',dim_t2:'t2'};
@@ -1534,7 +1569,9 @@ function beadAddAt(x,y){ beadEnsureManual(); const s=GEN.beads[GEN.sel]||GEN.bea
 function beadAdd(){ genValues(); const {polys}=genJoint({...GEN,dims:false,weld:false,symbol:false,edit:false},true); const pts=(polys[0]&&polys[0].pts)||[[240,140],[280,140]], xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]), n=(GEN.beads||[]).length;
   beadAddAt((Math.min(...xs)+Math.max(...xs))/2+((n%3)-1)*10,(Math.min(...ys)+Math.max(...ys))/2-(n%2)*8); }
 function beadBack(){ genValues(); if(GEN.backing!=='none') return toast('백킹이 선택돼 있어 백비드는 그려지지 않습니다. 백킹을 "없음"으로 바꾸세요.',3500);
-  GEN.backBead=true; const el=document.querySelector('#genbox [data-g="backBead"]'); if(el) el.checked=true; genDraw(); toast('이면(백) 비드를 표시했습니다. 높이는 "이면 비드 높이"로 조절합니다.',3000); }
+  GEN.backBead=true; const el=document.querySelector('#genbox [data-g="backBead"]'); if(el) el.checked=true;
+  if(GEN.beadMode==='manual'&&GEN.beads&&GEN.beads.length&&!GEN.beads.some(b=>b.back)){ const {geo}=genJoint({...GEN,dims:false,weld:false,symbol:false,edit:false},true), it=backBeadItem(GEN,geo,String(GEN.beads.length+1)); if(it){ GEN.beads.push(it); GEN.sel=GEN.beads.length-1; } }
+  genDraw(); toast('이면(백) 비드를 순서 도면에 포함했습니다(마지막 번호). 비드를 선택해 위치·크기·번호를 조절하세요.',3500); }
 function beadDup(){ const b=GEN.beads&&GEN.beads[GEN.sel]; if(!b) return toast('복제할 비드를 먼저 클릭해 선택하세요.',2500); GEN.beads.push({...b,x:b.x+10,y:b.y-10,lab:String(GEN.beads.length+1)}); GEN.sel=GEN.beads.length-1; genDraw(); }
 function beadDel(){ if(GEN.sel<0||!GEN.beads) return toast('삭제할 비드를 먼저 클릭해 선택하세요. (비드 우클릭 / Delete 키로도 삭제)',3000); GEN.beads.splice(GEN.sel,1); GEN.sel=-1; genDraw(); }
 function beadNumMode(){ if(!NUMMODE){ beadEnsureManual(); GEN.beads.forEach(b=>b.lab='?'); NUMMODE=true; NUMNEXT=1; GEN.sel=-1; toast('비드를 용접 순서대로 클릭하면 1, 2, 3… 번호가 매겨집니다. (Esc로 종료)',4500); } else NUMMODE=false; numBtn(); genDraw(); }
@@ -1596,7 +1633,7 @@ function wpsDocHTML(m){
    <table class="wg"><tr><td>${L('관련 코드',esc(F.codeStd))}${L('WPS No. :',`<span class="val">${esc(m.wpsNo)}</span>`)}${L('WPQR No. :',esc((m.pqrNos||[]).join(', ')))}${L('제조사 manufacturer :',esc(F.manufacturer))}${L('용접 방법 Weld Type :',esc(F.processIso))}${L('이음 형태 Joint Type :',esc(F.jointType))}${L('용접자세 Welding Position :',esc(F.positionIso))}${L('용접 이행 모드 Mode of metal transfer :',esc(F.transfer))}</td>
     <td>${L('용접준비 및 청결 방법 Method of Preparation and Cleaning :',esc(F.prep))}${L('모재 사양 Parent Material Specification :',esc(F.parentSpec))}${L('모재 두께 Material Thickness(mm) :',esc(F.thickness))}${L('용접 금속 두께 Weld Metal Thickness(mm) :',esc(F.weldMetalThk))}${L('목 두께 Throat Thickness(mm) :',esc(F.throatThk))}${F.legZ?L('※ 각장 :',esc(F.legZ)):''}${L('파이프 직경 Outside Pipe Diameter(mm) :',esc(F.pipeDia))}</td></tr></table>
    <table class="wg"><tr><th colspan="2">용접 이음부 상세 Weld Preparation Details (Sketch)</th></tr><tr><th>이음부 형상 Joint Design</th><th>용접 순서 Welding Sequence</th></tr><tr><td class="sk">${sk.joint?`<img src="${sk.joint}">`:''}</td><td class="sk">${sk.sequence?`<img src="${sk.sequence}">`:''}</td></tr></table>
-   <table class="wg wp"><tr><th colspan="10">용접 상세 Welding Details</th></tr><tr>${PARAM_COLS.map(([,l])=>`<th>${l}</th>`).join('')}</tr>${par.map(r=>`<tr>${PARAM_COLS.map(([k])=>`<td>${esc(r[k])}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="10" style="height:14mm"></td></tr>'}</table>
+   <table class="wg wp"><tr><th colspan="10">용접 상세 Welding Details</th></tr><tr>${PARAM_COLS.map(([,l])=>`<th>${l}</th>`).join('')}</tr>${par.map(r=>`<tr>${PARAM_COLS.map(([k])=>`<td>${esc(r[k])}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="10" style="height:14mm"></td></tr>'}${F.passNote?`<tr><td colspan="10" style="text-align:left;font-size:10.5px">${esc(F.passNote)}</td></tr>`:''}</table>
    <table class="wg"><tr><td>${L('용가재 사양 Filler Metal Designation',`<div>${esc(F.filler)}</div>`)}${L('보호가스 Gas/Flux :',esc(F.gas))}${L('가스 유량 Gas Flow Rate :',esc(F.gasFlow))}${L('텅스텐 전극 형태/크기 :',esc(F.tungsten))}${L('가우징/배킹 상세 Details of back gouging/backing :',esc(F.backingDetail))}${L('예열온도 Preheat Temperature :',esc(F.preheat))}${L('층간 온도 Interpass temperature :',esc(F.interpass))}${L('후열처리 Post-Weld Heat Treatment :',esc(F.pwht))}${pw.map(x=>`<div class="wl">${esc(x)}</div>`).join('')}</td>
     <td>${L('※ 기타 정보 Other information','')}${L('Weaving :',esc(F.weaving))}${L('Oscillation :',esc(F.oscillation))}${L('Pulse welding details :',esc(F.pulse))}${L('Distance contact tube/Work piece :',esc(F.ctwd))}${L('Torch angle :',esc(F.torch))}
      <div class="wsig">${S.stamp?`<img class="stamp" src="${S.stamp}">`:''}${S.signature?`<img class="sign" src="${S.signature}">`:''}<div><b>${esc(F.signer)}</b></div><div>책임 용접 조정자</div><div>Responsible welding coordinator</div><div>날짜 ${esc(F.signDate||'')}${F.firstDate?`<br>${esc(F.firstDate)}`:''}</div></div></td></tr></table></div>`; }
