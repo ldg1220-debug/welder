@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v48 · 보강 높이</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v49 · 비드 셀 배치</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -1239,13 +1239,13 @@ function saveSlotToLib(slot){ collectDoc(); const sv=svgFromUrl(WD.obj.sketches[
   saveToLib(slot,sv,`${WD.obj.wpsNo||'새 WPS'} ${KIND_L[slot]}`,{weldType:WD.obj.weldType,process:WD.obj.process,thk:WD.obj.thk,backing:WD.obj.backing}); }
 
 // ---- 형상 생성기 (값 입력 -> SVG)
-const GEN={open:false,type:'vgroove',t:12,t2:12,angle:60,gap:2,face:1.5,r:6,leg:6,backing:'none',layers:'1,2,3',dims:true,weld:true,symbol:true,symSystem:'A',symSide:'arrow',symDim:'z',symS:'',symN:'',symL:'',symE:'',contour:'none',allAround:false,field:false,tailProc:'135',tailLvl:'B',tailLvlPrefix:false,tailPos:'PA',tailFiller:'',tailRef:'',custom:'9,0; 1.5,10.5; 1.5,12',mirror:true,symKind:'V',pos:{},beads:null,beadMode:'auto',beadStyle:'auto',clipBeads:true,sel:-1,reinf:0};
+const GEN={open:false,type:'vgroove',t:12,t2:12,angle:60,gap:2,face:1.5,r:6,leg:6,backing:'none',layers:'1,2,3',dims:true,weld:true,symbol:true,symSystem:'A',symSide:'arrow',symDim:'z',symS:'',symN:'',symL:'',symE:'',contour:'none',allAround:false,field:false,tailProc:'135',tailLvl:'B',tailLvlPrefix:false,tailPos:'PA',tailFiller:'',tailRef:'',custom:'9,0; 1.5,10.5; 1.5,12',mirror:true,symKind:'V',pos:{},beads:null,beadMode:'auto',beadStyle:'auto',clipBeads:true,sel:-1,reinf:0,backBead:true,backH:1.5};
 const GEN_TYPES=[['square','I형 맞대기 (Square butt)'],['vgroove','단면 V형 맞대기'],['xgroove','양면 V형(X) 맞대기'],['bevel','단면 베벨 맞대기'],['kgroove','양면 베벨(K형) 맞대기'],['ugroove','U형 맞대기'],['jgroove','단면 J형 맞대기'],['tee','T이음 필릿'],['tbevel','T이음 베벨(개선)'],['lap','겹치기 필릿'],['custom','사용자 정의 (개선면 좌표 입력)']];
 // ---------- 기하 유틸 ----------
 function polyExt(poly,y){ const xs=[]; for(let i=0;i<poly.length;i++){ const a=poly[i], b=poly[(i+1)%poly.length]; if((a[1]<=y&&b[1]>y)||(b[1]<=y&&a[1]>y)) xs.push(a[0]+(y-a[1])*(b[0]-a[0])/(b[1]-a[1])); } return xs.length>=2?[Math.min(...xs),Math.max(...xs)]:null; }
 const arcPts=(cx,cy,R,a1,a2,n=10)=>Array.from({length:n+1},(_,k)=>{ const a=a1+(a2-a1)*k/n; return [cx+R*Math.cos(a),cy+R*Math.sin(a)]; });
 // 용접 비드: 위로 볼록한 렌즈형(바닥은 이전 층/개선면에 융합되도록 넓게)
-const beadPath=(x,y,rx,ry)=>`M${x-rx},${y+ry*.45} C${x-rx*.92},${y-ry*1.05} ${x+rx*.92},${y-ry*1.05} ${x+rx},${y+ry*.45} C${x+rx*.7},${y+ry*1.15} ${x-rx*.7},${y+ry*1.15} ${x-rx},${y+ry*.45} Z`;
+const beadPath=(x,y,rx,ry)=>`M${x-rx},${y+ry*.6} C${x-rx},${y-ry*.35} ${x-rx*.55},${y-ry} ${x},${y-ry} C${x+rx*.55},${y-ry} ${x+rx},${y-ry*.35} ${x+rx},${y+ry*.6} C${x+rx*.5},${y+ry*.95} ${x-rx*.5},${y+ry*.95} ${x-rx},${y+ry*.6} Z`;
 // 이동 가능한 요소: 편집 미리보기에서는 data-mv 를 붙여 마우스로 끌 수 있고, 저장본에는 위치(translate)만 남는다
 const mvOf=o=>(id,c)=>{ if(!c) return ''; const q=(o.pos&&o.pos[id])||{dx:0,dy:0}; return `<g ${o.edit?`data-mv="${id}" `:''}transform="translate(${q.dx||0} ${q.dy||0})">${c}</g>`; };
 // ---------- ISO 2553 용접 기호 ----------
@@ -1354,8 +1354,8 @@ function genJoint(o,seq){
     if(type==='lap'){ const x0=80,x1=cx+30; plates=poly([[x0,yb-Tp],[x1,yb-Tp],[x1,yb],[x0,yb]])+poly([[cx-90,yb],[cx+140,yb],[cx+140,yb+T2],[cx-90,yb+T2]]);
       const tri=[[x1,yb],[x1+z,yb],[x1,yb-z]]; weld=`<polygon points="${P(tri)}" fill="${hatchOn?'url(#hatch)':seq?'none':'#fff'}" stroke="${seq?'none':K}" stroke-width="1.4"/>`;
       polys=[{pts:tri,crown:{a:[x1+z,yb],b:[x1,yb-z],nx:Math.SQRT1_2,ny:-Math.SQRT1_2,amt:FC(z*.16)},fillet:{C:[x1,yb],u:[1,0],z}}]; kinds=['fillet']; anc=[x1+z*.42,yb-z*.42]; ref={x0:x1+z+42,y:yb-Tp-34,len:80}; Object.assign(geo,{fx:x1,yb}); HP('leg',x1+z,yb,'x','필릿 각장 z'); HP('lapT',x0+25,yb-Tp,'y','윗판 두께 t'); HP('t2b',cx+100,yb,'y','바닥판 t2');
-      dimsArr.push(mv('dim_t',dimV(60,yb-Tp,yb,`t=${o.t}`)),mv('dim_t2',dimV(cx+156,yb,yb+T2,`t2=${o.t2}`))); }
-    else { const bw=170, vx0=cx-Tp/2, vx1=cx+Tp/2, y1=Math.max(yb-150,26), gp=type==='tbevel'?Math.max(o.gap*sc,2):0, yv=yb-gp;
+      dimsArr.push(mv('dim_t',dimV(60,yb-Tp,yb,`t=${o.t}`)),mv('dim_t2',dimV(cx+192,yb,yb+T2,`t2=${o.t2}`))); }
+    else { const bw=170, vx0=cx-Tp/2, vx1=cx+Tp/2, y1=Math.max(yb-150,46), gp=type==='tbevel'?Math.max(o.gap*sc,2):0, yv=yb-gp;
       plates=poly([[cx-bw,yb],[cx+bw,yb],[cx+bw,yb+T2],[cx-bw,yb+T2]]);
       Object.assign(geo,{fx:vx1,yb}); if(type==='tee') HP('leg',vx1+z,yb,'x','필릿 각장 z'); HP('teeT',vx1,y1,'x','세운 판 두께 t'); HP('t2b',cx-bw+30,yb,'y','바닥판 t2');
       const fill=hatchOn?'url(#hatch)':'#fff';
@@ -1366,8 +1366,8 @@ function genJoint(o,seq){
         const wp=[[vx1,yv-rise],[vx0+cc,yv],[vx0+cc,yb],[vx1+z*.6,yb]]; plates+=`<polygon points="${P(wp)}" fill="${seq?'none':fill}" stroke="${seq?'none':K}" stroke-width="1.2"/>`;
         polys=[{pts:wp,crown:{a:[vx1+z*.6,yb],b:[vx1,yv-rise],nx:Math.SQRT1_2,ny:-Math.SQRT1_2,amt:FC(z*.12)},fillet:{C:[vx0+cc,yb],u:[1,0],z:Math.max(20,(vx1+z*.6)-(vx0+cc)),phi:Math.atan2(rise,run)}}]; kinds=['bevel','fillet']; Object.assign(geo,{vx0,vx1,gp,cc,yv});
         if(o.backing!=='none'){ const bt=Math.max(12,4*sc), bh=Math.max(gp+cc+24,36), cer=o.backing==='ceramic'; back=`<rect x="${vx0-bt}" y="${yb-bh}" width="${bt}" height="${bh}" fill="${cer?'#e6d8c3':'#cfcfcf'}" stroke="${K}" stroke-width="1.2"/>`+txt(vx0-bt/2,yb-bh-6,cer?'Ceramic backing':'Backing plate'); }
-        anc=[vx1+z*.25,yb-z*.9]; ref={x0:vx1+z+50,y:yb-90,len:78}; dimsArr.push(txt(vx1+z*.6+14,yb+16,`α=${o.angle}°`,'start')); }
-      dimsArr.push(mv('dim_t',dimV(vx0-30-(type==='tbevel'&&o.backing!=='none'?Math.max(12,4*sc)+4:0),y1,yb,`t=${o.t}`)),mv('dim_t2',dimV(cx+bw+22,yb,yb+T2,`t2=${o.t2}`))); } }
+        anc=[vx1+z*.3,(yb+yv-rise)/2]; ref={x0:vx1+z+50,y:yb-90,len:78}; dimsArr.push(txt(vx1+z*.6+14,yb+16,`α=${o.angle}°`,'start')); }
+      { const yd=y1-12, th=`stroke="${K}" stroke-width=".8"`; dimsArr.push(mv('dim_t',`<line x1="${vx0}" y1="${y1-2}" x2="${vx0}" y2="${yd-5}" ${th}/><line x1="${vx1}" y1="${y1-2}" x2="${vx1}" y2="${yd-5}" ${th}/>${arrow(vx0,yd,vx1,yd)}${txt((vx0+vx1)/2,yd-7,`t=${o.t}`)}`),mv('dim_t2',dimV(cx+bw+52,yb,yb+T2,`t2=${o.t2}`))); } } }
   if(o.dims&&['square','vgroove','xgroove','bevel','ugroove','kgroove','jgroove','custom'].includes(type)){ const yb=y0+Tp;
     const thin=`stroke="${K}" stroke-width=".8"`, hal=`stroke="#fff" stroke-width="3" paint-order="stroke"`;
     const dimH=(xa,xb,yTop,yy,label)=>{ let c=`<line x1="${xa}" y1="${yTop+2}" x2="${xa}" y2="${yy+5}" ${thin}/><line x1="${xb}" y1="${yTop+2}" x2="${xb}" y2="${yy+5}" ${thin}/>`;
@@ -1394,16 +1394,36 @@ function genJoint(o,seq){
 // ---------- 용접 순서(비드 배치) 생성 ----------
 const BEAD_FILL='#e6e6e6';
 // ---- 개별 비드(렌즈형): 자동 배치 -> 필요하면 수동 편집 목록(GEN.beads)으로 전환
-function beadAuto(o,polys){ const layers=String(o.layers||'1').split(/[,\s]+/).map(x=>Math.max(1,parseInt(x)||1)).slice(0,8), nL=layers.length; let n=0; const out=[];
-  polys.forEach(pl=>{ if(pl.fillet){ // 필릿: 모서리에서 바깥으로 층을 쌓고, 비드는 빗변(바깥) 쪽으로 볼록하게 기울인다
-      const {C,u,z}=pl.fillet, ph=pl.fillet.phi||Math.PI/2, sx=u[0]>0?1:-1;
-      layers.forEach((k,li)=>{ const r=(li+0.62)/(nL+0.25)*z*0.96; for(let j=0;j<k;j++){ n++; const th=ph*Math.max(.15,Math.min(.85,k===1?.5:(j+.5)/k)), bw=r*ph/k;
-        out.push({x:C[0]+sx*r*Math.cos(th),y:C[1]-r*Math.sin(th),rx:Math.max(6,bw*.66),ry:Math.max(5,z/nL*.62),rot:Math.round(sx*(90-th*180/Math.PI)),flip:false,lab:String(n)}); } }); return; }
-    const ys=pl.pts.map(p=>p[1]), yt=Math.min(...ys), yb=Math.max(...ys), hL=(yb-yt)/nL, down=!!pl.down;
-    layers.forEach((k,li)=>{ const yc=down?yt+hL*(li+.5):yb-hL*(li+.5), ex=polyExt(pl.pts,Math.min(Math.max(yc,yt+1),yb-1)); if(!ex) return; const w=ex[1]-ex[0];
-      for(let j=0;j<k;j++){ n++; const bw=w/k; out.push({x:ex[0]+bw*(j+.5),y:yc,rx:Math.max(5,bw*.6),ry:Math.max(4.5,hL*.6),rot:pl.fillet?(pl.fillet.u[0]>0?1:-1)*(li?22:8):0,flip:down,lab:String(n)}); } }); });
+// ---- 층별 비드 셀 배치: 용접 표면이 위를 향하도록 좌표를 회전해(홈=그대로, 아래쪽 홈=180°, 필릿=45°) 같은 알고리즘으로 층을 쌓는다
+function cellLayout(o,polys){
+  const layers=String(o.layers||'1').split(/[,\s]+/).map(x=>Math.max(1,parseInt(x)||1)).slice(0,8), nL=layers.length; let n=0; const out=[];
+  polys.forEach(pl=>{ const {a,nx,ny,amt}=pl.crown, al=-Math.PI/2-Math.atan2(ny,nx), ca=Math.cos(al), sa=Math.sin(al);
+    const fw=p=>[a[0]+(p[0]-a[0])*ca-(p[1]-a[1])*sa,a[1]+(p[0]-a[0])*sa+(p[1]-a[1])*ca], bk=p=>[a[0]+(p[0]-a[0])*ca+(p[1]-a[1])*sa,a[1]-(p[0]-a[0])*sa+(p[1]-a[1])*ca];
+    const P=pl.pts.map(fw), ySurf=fw(a)[1], yRoot=Math.max(...P.map(p=>p[1])), hL=(yRoot-ySurf)/nL; if(!(hL>1)) return;
+    const cells=[];
+    layers.forEach((k,li)=>{ const yB=yRoot-hL*li, yT=yRoot-hL*(li+1), ym=(yB+yT)/2, ex=polyExt(P,ym); if(!ex) return; const eb=polyExt(P,yB-.5), et=polyExt(P,yT+.5),
+        e0=Math.min(ex[0],eb?eb[0]:ex[0],et?et[0]:ex[0]), e1=Math.max(ex[1],eb?eb[1]:ex[1],et?et[1]:ex[1]), last=li===nL-1, step=(ex[1]-ex[0])/k,
+        hb=Math.max(1.5,Math.min(last?amt:step*.22,step*(last?.32:.24),last?99:hL*.5));
+      for(let j=0;j<k;j++){ n++; cells.push({n,li,j,k,xa:ex[0]+step*j,xb:ex[0]+step*(j+1),X0:j===0?e0-4:ex[0]+step*j,X1:j===k-1?e1+4:ex[0]+step*(j+1),yT,yB,hb}); } });
+    out.push({pl,al,fw,bk,a,yRoot,cells}); });
   return out; }
+function beadAuto(o,polys){ const out=[]; cellLayout(o,polys).forEach(q=>q.cells.forEach(c=>{ const m=q.bk([(c.xa+c.xb)/2,(c.yT+c.yB)/2+c.hb*.25]);
+  out.push({x:m[0],y:m[1],rx:Math.max(5,(c.xb-c.xa)/2*1.1),ry:Math.max(4.5,(c.yB-c.yT)/2*1.05),rot:Math.round(-q.al*180/Math.PI),flip:false,lab:String(c.n)}); })); return out; }
 const strHash=t=>{ let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))|0; return Math.abs(h).toString(36); };
+function beadCells(o,polys){ let defs='', body='', nums='';
+  cellLayout(o,polys).forEach((q,qi)=>{ const {pl,al,a,cells,bk}=q, {b,nx,ny,amt}=pl.crown, CID='wk'+strHash(JSON.stringify(pl.pts))+qi, cap=[a,b,[b[0]+nx*(amt+8),b[1]+ny*(amt+8)],[a[0]+nx*(amt+8),a[1]+ny*(amt+8)]], pts=x=>x.map(p=>p.join(',')).join(' ');
+    defs+=`<clipPath id="${CID}"><polygon points="${pts(pl.pts)}"/><polygon points="${pts(cap)}"/></clipPath>`; let g='';
+    cells.slice().sort((u,v)=>v.li-u.li||u.j-v.j).forEach(c=>{ const yF=q.yRoot+40, xm=(c.X0+c.X1)/2;
+      g+=`<path d="M${c.X0},${yF} L${c.X0},${c.yT} Q${xm},${c.yT-2*c.hb} ${c.X1},${c.yT} L${c.X1},${yF} Z" fill="${BEAD_FILL}" stroke="#000" stroke-width="1.1" stroke-linejoin="round"/>`; });
+    body+=`<g clip-path="url(#${CID})"><g transform="rotate(${-al*180/Math.PI} ${a[0]} ${a[1]})">${g}</g></g>`;
+    cells.forEach(c=>{ const m=bk([(c.xa+c.xb)/2,(c.yT+c.yB)/2+c.hb*.3]); const fs=Math.max(6,Math.min(10,(c.xb-c.xa)*.55,(c.yB-c.yT)*.75)); nums+=`<text x="${m[0]}" y="${m[1]+fs*.35}" font-size="${fs}" text-anchor="middle" font-family="Arial" fill="#000" pointer-events="none">${c.n}</text>`; }); });
+  return `<defs>${defs}</defs>${body}${nums}`; }
+// 이면(백) 비드: 백킹이 없을 때 루트 뒤로 용입된 비드(맞대기=아래쪽, T 베벨=뒷면 쪽)
+function backBeadSvg(o,geo){ if(!o.backBead||o.backing!=='none'||!geo) return ''; const ty=o.type, ry=Math.max(2.5,(o.backH>0?o.backH:1.5)*geo.sc),
+  bead=(x,y,rx,ry2,rot,flip)=>`<g transform="translate(${x} ${y}) rotate(${rot})${flip?' scale(1 -1)':''}"><path d="${beadPath(0,0,rx,ry2)}" fill="${BEAD_FILL}" stroke="#000" stroke-width="1.1"/></g>`;
+  if(['vgroove','bevel','ugroove','jgroove','custom'].includes(ty)) return bead(geo.cx,geo.y0+geo.Tp-ry*.2,Math.max(8,geo.g/2+7),ry,0,true);
+  if(ty==='tbevel'&&geo.cc!=null){ const gp=Math.max(o.gap*geo.sc,2), rx=Math.max(8,gp/2+6); return bead(geo.vx0+geo.cc*.3,geo.yb-rx,rx,ry,-90,false); }
+  return ''; }
 function beadsSvg(o,polys,list){
   const CID='wc'+strHash(JSON.stringify(polys.map(p=>p.pts))), clip=`<clipPath id="${CID}">${polys.map(pl=>{ const {a,b,nx,ny,amt}=pl.crown, mx=(a[0]+b[0])/2+nx*amt*2, my=(a[1]+b[1])/2+ny*amt*2; return `<polygon points="${pl.pts.map(p=>p.join(',')).join(' ')}"/><path d="M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]} Z"/>`; }).join('')}</clipPath>`;
   let g='', nums='', crowns=polys.map(pl=>{ const {a,b,nx,ny,amt}=pl.crown, mx=(a[0]+b[0])/2+nx*amt*2, my=(a[1]+b[1])/2+ny*amt*2; return `<path d="M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]}" fill="none" stroke="#000" stroke-width="1.6"/>`; }).join('');
@@ -1440,11 +1460,11 @@ function seqBandSvg(o,polys){
 function genSeq(o){
   const {svg,polys,geo}=genJoint({...o,dims:false,weld:false,symbol:false,edit:false},true);
   if(!polys.length||o.type==='square') return svg.replace('</svg>',`<text x="260" y="150" font-size="13" text-anchor="middle" font-family="Malgun Gothic,Arial" fill="#666">이 형상은 용접 순서 도면을 지원하지 않습니다</text></svg>`);
-  const manual=o.beadMode==='manual'&&Array.isArray(o.beads)&&o.beads.length, fil=polys.some(p=>p.fillet), style=(!o.beadStyle||o.beadStyle==='auto')?(fil?'beads':'band'):o.beadStyle;
-  const body=(manual||style==='beads')?beadsSvg(o,polys,manual?o.beads:beadAuto(o,polys)):seqBandSvg(o,polys);
+  const manual=o.beadMode==='manual'&&Array.isArray(o.beads)&&o.beads.length, style=o.beadStyle||'auto';
+  const body=manual?beadsSvg(o,polys,o.beads):style==='beads'?beadsSvg(o,polys,beadAuto(o,polys)):style==='band'?seqBandSvg(o,polys):beadCells(o,polys), bb=manual?'':backBeadSvg(o,geo);
   const hh=!o.edit?'':polys.filter(pl=>pl.crown&&pl.crown.nx===0).map(pl=>{ const {a,amt,ny}=pl.crown, mx=(pl.crown.a[0]+pl.crown.b[0])/2, my=a[1]+ny*amt, k=JSON.stringify({sc:geo.sc,ya:a[1],sg:ny});
     return `<g data-p="reinf" data-ax="y" data-k='${k}'><title>보강 높이 h — 끌어서 조절</title><circle cx="${mx}" cy="${my}" r="7" fill="transparent"/><rect x="${mx-5}" y="${my-5}" width="10" height="10" rx="2" fill="#ff9f1c" stroke="#fff" stroke-width="1.5"/></g>`; }).join('');
-  return svg.replace('</svg>',body+hh+'</svg>'); }
+  return svg.replace('</svg>',body+bb+hh+'</svg>'); }
 // ---- 마우스 편집 (미리보기에서 요소 끌기 / 비드 선택 후 핸들로 크기·회전)
 let DRAG=null, NUMMODE=false, NUMNEXT=1, LASTDN=null;
 function svgPt(box,e){ const sv=box.querySelector('svg'), pt=sv.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; const m=sv.getScreenCTM(); const q=m?pt.matrixTransform(m.inverse()):{x:0,y:0}; return {x:q.x,y:q.y}; }
@@ -1535,7 +1555,7 @@ const SYM_GUIDE=`<details style="margin-top:8px"><summary style="cursor:pointer;
  <p style="color:var(--mute);margin:6px 0 0">출처: 사내 교육자료 「AWS D1.1 & ISO 용접기호」(2025.01.07) 및 EN ISO 2553 공개 해설. 최종 적용 전 규격서 원문을 확인하세요.</p></div></details>`;
 function genPanelHTML(mode){ const G=GEN, tab=mode==='tab', num=(k,l)=>`<label>${l}<input type="number" step="any" data-g="${k}" value="${G[k]}"></label>`, chk=(k,l)=>`<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" data-g="${k}" ${G[k]?'checked':''}>${l}</label>`, sel=(k,l,opts)=>`<label>${l}<select data-g="${k}">${opts.map(([v,t])=>`<option value="${v}" ${G[k]===v?'selected':''}>${t}</option>`).join('')}</select></label>`, txt=(k,l,ph)=>`<label>${l}<input data-g="${k}" value="${esc(G[k])}" placeholder="${ph||''}"></label>`;
   return `<div class="card" id="genbox" style="border-color:var(--accent);margin-bottom:0"><div class="row" style="margin:0"><h3 style="margin:0;flex:1">${tab?'형상 생성 (값 입력 → 도면)':'형상 생성 (값 입력 → 도면)'}</h3>${tab?'':'<button type="button" class="b sec" onclick="GEN.open=false;vWpsDoc()">닫기</button>'}</div>
-   <h3>① 형상</h3><div class="grid">${sel('type','형상 종류',GEN_TYPES)}${num('t','판 두께 t (mm)')}${num('t2','바닥판 t2 (T·겹치기)')}${num('angle','개선 각도 α (°)')}${num('gap','루트 간격 b (mm)')}${num('face','루트 면 c (mm)')}${num('r','U·J 반지름 R (mm)')}${num('leg','필릿 각장 z (mm)')}${num('reinf','보강 높이 h (mm, 0=ISO 5817 자동)')}
+   <h3>① 형상</h3><div class="grid">${sel('type','형상 종류',GEN_TYPES)}${num('t','판 두께 t (mm)')}${num('t2','바닥판 t2 (T·겹치기)')}${num('angle','개선 각도 α (°)')}${num('gap','루트 간격 b (mm)')}${num('face','루트 면 c (mm)')}${num('r','U·J 반지름 R (mm)')}${num('leg','필릿 각장 z (mm)')}${num('reinf','보강 높이 h (mm, 0=ISO 5817 자동)')}${chk('backBead','이면(백) 비드 표시 (백킹 없을 때)')}${num('backH','이면 비드 높이 (mm)')}
     ${sel('backing','백킹',[['none','없음'],['ceramic','세라믹(제거형 MR)'],['metal','금속(영구 M)']])}${txt('layers','층별 비드 수 (용접 순서)','1,2,3,3')}${chk('dims','치수 표시')}${chk('weld','용접부 채움(빗금)')}</div>
    <div style="font-size:12px;color:var(--mute);margin:4px 0">보강 높이 자동값 = 꼬리의 <b>품질등급(B/C/D)</b>별 EN ISO 5817 허용치(맞대기 h ≤ 1+0.1b / 1+0.15b / 1+0.25b, b=용접폭)의 60%. 순서 도면의 <span style="color:#e07b00">주황 네모</span>를 위아래로 끌어도 조절됩니다.</div>
    <div class="grid" style="margin-top:6px;grid-template-columns:2fr 1fr 1fr"><label>사용자 정의: 개선면 좌표 "x,깊이; x,깊이; …" (mm, 중심선 기준 오른쪽 판, 위→아래)<textarea data-g="custom" rows="2">${esc(G.custom)}</textarea></label>${chk('mirror','왼쪽 판 대칭')}${sel('symKind','사용자 정의의 기호',[['V','V'],['bevel','베벨 ⊢'],['U','U'],['J','J'],['II','I ║']])}</div>
@@ -1543,7 +1563,7 @@ function genPanelHTML(mode){ const G=GEN, tab=mode==='tab', num=(k,l)=>`<label>$
     ${sel('symDim','필릿 치수 (ISO)',[['z','각장 z'],['a','각목 a'],['both','a, z 모두']])}${num('symN','단속: 개수 n')}${num('symL','단속: 길이 L')}${num('symE','단속: 간격 E(끝단~끝단)')}${txt('symS','홈 용접 s 치수(선택)','예: 12')}${sel('contour','표면 형상 기호',[['none','없음'],['flush','평탄(—)'],['convex','볼록'],['concave','오목']])}${chk('allAround','전둘레 ○')}${chk('field','현장 용접 ▶')}</div>
    <div class="grid" style="margin-top:6px">${txt('tailProc','꼬리: 공정 (ISO 4063)','135')}${txt('tailLvl','품질등급 (ISO 5817)','B')}${chk('tailLvlPrefix','등급에 "ISO 5817-" 붙이기')}${txt('tailPos','자세 (ISO 6947)','PA')}${txt('tailFiller','충전재(선택)','')}${txt('tailRef','WPS 참조(선택)','WPS-RM001')}</div>${SYM_GUIDE}
    <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:8px"><div style="border:1px solid var(--line);border-radius:6px"><div style="font-size:12px;padding:4px 8px;color:var(--mute)">이음부 형상</div><div id="genj" style="height:${tab?300:220}px"></div></div><div style="border:1px solid var(--line);border-radius:6px"><div style="font-size:12px;padding:4px 8px;color:var(--mute)">용접 순서</div><div id="gens" style="height:${tab?300:220}px"></div></div></div>
-   <div class="row" style="margin-top:6px">${sel('beadStyle','비드 표현',[['auto','자동 (홈=층별 띠, 필릿=개별 비드)'],['band','층별 띠 (사내 스타일)'],['beads','개별 비드(렌즈형)']])}${chk('clipBeads','개선면 안으로 자르기')}<button type="button" class="b sm sec" onclick="beadAdd()">+ 비드 추가</button><button type="button" class="b sm sec" onclick="beadDup()">복제</button><button type="button" class="b sm sec" onclick="beadBack()" title="뒷면으로 용입된 이면(백) 비드를 추가">+ 백비드(이면)</button><button type="button" class="b sm sec" onclick="beadDel()">삭제</button><button type="button" class="b sm sec" id="nmbtn" onclick="beadNumMode()">번호 순서 입력</button><button type="button" class="b sm sec" onclick="beadReset()">비드 자동 배치로 되돌리기</button><button type="button" class="b sm sec" onclick="posReset()">지시선·치수 위치 초기화</button></div>
+   <div class="row" style="margin-top:6px">${sel('beadStyle','비드 표현',[['auto','자동 (층별 비드 셀 · 권장)'],['band','층별 띠 (구형)'],['beads','개별 렌즈형 비드']])}${chk('clipBeads','개선면 안으로 자르기')}<button type="button" class="b sm sec" onclick="beadEnsureManual();genDraw()" title="자동 배치된 비드를 하나씩 선택·이동·크기 조절할 수 있게 전환">비드 개별 편집 시작</button><button type="button" class="b sm sec" onclick="beadAdd()">+ 비드 추가</button><button type="button" class="b sm sec" onclick="beadDup()">복제</button><button type="button" class="b sm sec" onclick="beadBack()" title="뒷면으로 용입된 이면(백) 비드를 추가">+ 백비드(이면)</button><button type="button" class="b sm sec" onclick="beadDel()">삭제</button><button type="button" class="b sm sec" id="nmbtn" onclick="beadNumMode()">번호 순서 입력</button><button type="button" class="b sm sec" onclick="beadReset()">비드 자동 배치로 되돌리기</button><button type="button" class="b sm sec" onclick="posReset()">지시선·치수 위치 초기화</button></div>
    <div id="beadpan" class="row" style="display:none;align-items:center;gap:12px;margin:4px 0;font-size:12px;background:#f3f7fc;border:1px solid var(--line);border-radius:6px;padding:4px 8px"><b>선택 비드</b><span>가로 <input type="range" data-f="rx" min="3" max="80" step="0.5" oninput="beadPan(this)"></span><span>세로 <input type="range" data-f="ry" min="3" max="60" step="0.5" oninput="beadPan(this)"></span><span>회전 <input type="range" data-f="rot" min="-90" max="90" step="1" oninput="beadPan(this)"></span><span>번호 <input data-f="lab" style="width:44px" oninput="beadPan(this)"></span><label style="flex-direction:row;align-items:center;gap:4px;color:var(--ink)"><input type="checkbox" data-f="free" onchange="beadPan(this)">개선면 밖 허용(백비드)</label></div>
    <div style="color:var(--mute);font-size:12px;margin:4px 0;line-height:1.6"><b>이음부 형상</b>: <span style="color:#e07b00">주황 네모</span>를 끌면 <b>간격 b·개선각·루트면 c·두께 t·반지름 R·각장 z</b>가 실제로 바뀌고 입력칸에도 반영됩니다. 치수 글자를 <b>더블클릭</b>하면 값을 직접 입력합니다. 지시선·기호·치수는 끌어서 위치만 이동합니다.<br><b>용접 순서</b>: 비드 <b>클릭=선택</b>·끌어서 이동 / <b>빈 곳 더블클릭=그 자리에 비드 추가</b> / 비드 <b>우클릭 또는 Delete=삭제</b> / 핸들: 좌우·상하=크기, 모서리=비율 유지 크기, 위 파란 점=회전 / 키보드 방향키=미세 이동(Shift×5), +/-=크기, Ctrl+D=복제 / <b>번호 순서 입력</b>=작업 순서대로 클릭하면 번호 자동 부여</div>
    <div class="row">${tab?`<button type="button" class="b" onclick="genSave('joint')">이음부 형상을 라이브러리에 저장</button><button type="button" class="b" onclick="genSave('sequence')">용접 순서를 라이브러리에 저장</button><button type="button" class="b sec" onclick="dlSvg('joint')">SVG 다운로드(형상)</button><button type="button" class="b sec" onclick="dlSvg('sequence')">SVG(순서)</button><button type="button" class="b sec" onclick="dlPng('joint')">PNG(형상)</button><button type="button" class="b sec" onclick="dlPng('sequence')">PNG(순서)</button><button type="button" class="b sec" onclick="Object.assign(GEN,JSON.parse(JSON.stringify(GEN_DEF)));vShape()">초기화</button>`
