@@ -82,7 +82,7 @@ table.list th{background:#eef2f6;font-size:12px}
 .wdoc table{width:100%;border-collapse:collapse;margin-bottom:2mm}.wdoc td,.wdoc th{border:1px solid #000;padding:1.5mm 2mm;vertical-align:top}.wdoc th{background:#f2f2f2;font-size:8.5pt}
 .wdoc .wh{display:flex;justify-content:space-between;align-items:center;border:1px solid #000;padding:2mm 4mm;margin-bottom:2mm}.wdoc .wt b{display:block;font-size:15pt}.wdoc .wt span{font-size:10pt;font-weight:700}
 .wdoc .wc{text-align:right;font-weight:700}.wdoc .wc img{max-height:13mm;display:block;margin-left:auto}.wdoc .wl{margin:.6mm 0}.wdoc .val{color:#1a33d6;font-weight:700}
-.wdoc .sk{height:50mm;text-align:center;vertical-align:middle;width:50%}.wdoc .sk img{max-height:48mm;max-width:100%}.wdoc .wcap{font-weight:700;font-size:9.5pt;margin:3mm 0 1mm}.wdoc .ws{border:1.5px solid #000}.wdoc .ws th{background:#b9ecde;font-size:11pt;line-height:1.3;padding:1.6mm}.wdoc .wp th{background:#b9ecde;font-size:8.6pt;line-height:1.3;vertical-align:middle}.wdoc .wp td{vertical-align:middle}.wdoc .wp td{text-align:center;height:6mm;padding:.5mm 1mm}.wdoc .wsig{position:relative;margin-top:6mm;min-height:24mm;text-align:left;padding-left:2mm}
+.wdoc .sk{height:50mm;text-align:center;vertical-align:middle;width:50%}.wdoc .sk img{max-height:48mm;max-width:100%}.wdoc .wh3 td{text-align:center;vertical-align:middle;height:16mm}.wdoc .wh3 .wlg{width:27%}.wdoc .wh3 .wlg img{max-height:13mm;max-width:100%}.wdoc .wh3 .wtt{width:46%}.wdoc .wh3 .wtt b{font-size:15pt}.wdoc .wh3 .wtt span{font-size:12pt;font-weight:700}.wdoc .wh3 .wrv{width:27%;font-size:11pt}.wdoc .wcap{font-weight:700;font-size:9.5pt;margin:3mm 0 1mm}.wdoc .ws{border:1.5px solid #000}.wdoc .ws th{background:#b9ecde;font-size:11pt;line-height:1.3;padding:1.6mm}.wdoc .wp th{background:#b9ecde;font-size:8.6pt;line-height:1.3;vertical-align:middle}.wdoc .wp td{vertical-align:middle}.wdoc .wp td{text-align:center;height:6mm;padding:.5mm 1mm}.wdoc .wsig{position:relative;margin-top:6mm;min-height:24mm;text-align:left;padding-left:2mm}
 .wdoc .wsig .stamp{position:absolute;left:38mm;top:0;height:16mm;opacity:.9}.wdoc .wsig .sign{position:absolute;left:56mm;top:2mm;height:13mm;max-width:24mm}
 .cert+.cert,.wdoc+.wdoc{margin-top:14px}
 #libpick{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:30;overflow:auto;padding:24px}.libwin{background:#fff;border-radius:10px;padding:16px;max-width:1100px;margin:0 auto}
@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v55 · 다중 삭제</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v56 · WPS 양식 배치</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -833,10 +833,23 @@ function dmlShape(el,st,k,fl){
   else if(prst==='triangle') g=`<polygon points="0,${h} ${w/2},0 ${w},${h}" ${sa}/>`;
   else if(prst==='rect'||prst==='roundRect'||prst==='snip1Rect'||prst==='snip2SameRect') g=`<rect x="0" y="0" width="${w}" height="${h}" ${sa}/>`;
   // 텍스트 (도형 뒤집기에 영향받지 않게 상쇄)
-  let txt=''; const tb=DML(el,'txBody'); if(tb){ const bp=DML(tb,'bodyPr'), anchor=bp&&bp.getAttribute('anchor')||'t', paras=DMLall(tb,'p'); const lines=paras.map(pp=>{ const rs=[...pp.children].filter(x=>x.localName==='r'); const t=rs.map(r=>(DML(r,'t')||{textContent:''}).textContent).join(''); const rp=rs[0]&&DML(rs[0],'rPr'); const sz=(rp&&rp.getAttribute('sz'))||((DML(pp,'endParaRPr')||{getAttribute:()=>null}).getAttribute('sz'))||'1100'; const pPr=DML(pp,'pPr'); return {t,sz:+sz/100/k,al:pPr&&pPr.getAttribute('algn')||'l'}; }).filter(l=>l.t.trim());
-    if(lines.length){ const tot=lines.reduce((a,l)=>a+l.sz*1.2,0); let y=anchor==='ctr'?(h-tot)/2:anchor==='b'?h-tot:3.6; const parts=lines.map(l=>{ const yy=y+l.sz; y+=l.sz*1.2; const x=l.al==='ctr'?w/2:l.al==='r'?w-7.2:7.2, ta=l.al==='ctr'?'middle':l.al==='r'?'end':'start'; return `<text x="${x}" y="${yy}" font-size="${l.sz}" text-anchor="${ta}" font-family="Malgun Gothic,Arial,sans-serif" fill="#000">${dmlEsc(l.t)}</text>`; }).join('');
+  let txt=''; const tb=DML(el,'txBody'); if(tb){ const bp=DML(tb,'bodyPr'), anchor=bp&&bp.getAttribute('anchor')||'t', paras=DMLall(tb,'p'); const lines=paras.map(pp=>{ const rs=[...pp.children].filter(x=>x.localName==='r'); const t=rs.map(r=>(DML(r,'t')||{textContent:''}).textContent).join(''); const rp=rs[0]&&DML(rs[0],'rPr'), rsf=rp&&DML(rp,'solidFill'); const sz=(rp&&rp.getAttribute('sz'))||((DML(pp,'endParaRPr')||{getAttribute:()=>null}).getAttribute('sz'))||'1100'; const pPr=DML(pp,'pPr'); return {t,sz:+sz/100/k,al:pPr&&pPr.getAttribute('algn')||'l',col:rsf?dmlColor(rsf,TH):''}; }).filter(l=>l.t.trim());
+    const fre=stl&&DML(stl,'fontRef'), tdef=(fre&&dmlColor(fre,TH))||'#000'; // 글자색 기본값: 도형 스타일의 fontRef (lt1=흰색이면 엑셀에서도 안 보이는 글자)
+    if(lines.length){ const tot=lines.reduce((a,l)=>a+l.sz*1.2,0); let y=anchor==='ctr'?(h-tot)/2:anchor==='b'?h-tot:3.6; const parts=lines.map(l=>{ const yy=y+l.sz; y+=l.sz*1.2; const x=l.al==='ctr'?w/2:l.al==='r'?w-7.2:7.2, ta=l.al==='ctr'?'middle':l.al==='r'?'end':'start'; return `<text x="${x}" y="${yy}" font-size="${l.sz}" text-anchor="${ta}" font-family="Malgun Gothic,Arial,sans-serif" fill="${l.col||tdef}">${dmlEsc(l.t)}</text>`; }).join('');
       txt=`<g transform="translate(${w/2} ${h/2}) scale(${(fl.h!==f.fh)?-1:1} ${(fl.v!==f.fv)?-1:1}) translate(${-w/2} ${-h/2})">${parts}</g>`; } }
-  return `<g transform="${dmlPlace(f)}">${g}${txt}</g>`; }
+  const bk=tb&&/^MR?$/.test((tb.textContent||'').trim())&&(prst==='rect'||!prst)?' data-bk="1"':'';
+  return `<g transform="${dmlPlace(f)}"${bk}>${g}${txt}</g>`; }
+// 변환한 도형을 화면 밖에서 실제로 그려 보고: ① 백킹 M/MR 상자를 점선 바로 아래로 붙이고 ② 실제 그려진 범위(getBBox)로 보기 영역을 맞춘다(가운데 정렬·잘림 방지)
+function fitSketch(body){ const host=document.createElement('div'); host.style.cssText='position:fixed;left:-99999px;top:0;width:800px;height:600px;visibility:hidden;pointer-events:none';
+  host.innerHTML=`<svg xmlns="${SVGNS}" width="800" height="600" viewBox="0 0 800 600"><g id="fitb">${body}</g></svg>`; document.body.appendChild(host);
+  try{ const svg=host.querySelector('svg'), g=svg.querySelector('#fitb');
+    const dashes=[...svg.querySelectorAll('[stroke-dasharray]')].map(e=>({e,r:e.getBoundingClientRect()})).filter(x=>x.r.height<3&&x.r.width>10);
+    svg.querySelectorAll('[data-bk]').forEach(el=>{ const r=el.getBoundingClientRect(); let best=null;
+      for(const d of dashes){ if(d.r.right<r.left||d.r.left>r.right) continue; const dy=d.r.top-r.top; if(dy>0.5&&dy<30&&(!best||dy<best)) best=dy; }
+      if(best){ const m=el.parentNode.getScreenCTM(); if(m&&Math.abs(m.d)>1e-6){ el.setAttribute('transform',`translate(0 ${best/m.d}) `+(el.getAttribute('transform')||'')); } } });
+    const bb=g.getBBox(); if(!(bb.width>0&&bb.height>0)) return null; g.removeAttribute('id');
+    return {x:bb.x,y:bb.y,w:bb.width,h:bb.height,body:new XMLSerializer().serializeToString(g)}; }
+  catch(e){ return null; } finally{ host.remove(); } }
 // 시트 drawing XML에서 스케치 영역(이음부 형상: B~F열, 용접 순서: G~K열, 14~21행)의 도형만 SVG로
 function drawingSketches(xml,th){
   const doc=new DOMParser().parseFromString(xml,'application/xml'), res={joint:'',sequence:''}, groups={joint:[],sequence:[]};
@@ -845,9 +858,8 @@ function drawingSketches(xml,th){
     const sh=[...a.children].find(e=>/^(sp|cxnSp|grpSp)$/.test(e.localName)); if(!sh) continue; groups[col<=5?'joint':'sequence'].push(sh); }
   for(const k of ['joint','sequence']){ if(!groups[k].length) continue;
     const st={th:th||THEME_DEF}, body=groups[k].map(e=>dmlShape(e,st,1)).join(''); if(!body) continue;
-    let x0=1e18,y0=1e18,x1=-1e18,y1=-1e18; for(const e of groups[k]){ const f=dmlXfrm(e.localName==='grpSp'?DML(e,'grpSpPr'):DML(e,'spPr')); if(!f) continue; x0=Math.min(x0,f.x); y0=Math.min(y0,f.y); x1=Math.max(x1,f.x+f.cx); y1=Math.max(y1,f.y+f.cy); }
-    if(!isFinite(x0)||x1<=x0||y1<=y0) continue; const pad=Math.max(x1-x0,y1-y0)*.04, W=x1-x0+2*pad, H=y1-y0+2*pad, f1=v=>Number(v.toFixed(2));
-    res[k]=`<svg xmlns="${SVGNS}" viewBox="0 0 ${f1(W)} ${f1(H)}" preserveAspectRatio="xMidYMid meet"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs><rect width="100%" height="100%" fill="#fff"/><g transform="translate(${f1(pad-x0)} ${f1(pad-y0)})">${body}</g></svg>`; }
+    const fit=fitSketch(body); if(!fit) continue; const pad=Math.max(fit.w,fit.h)*.04+3, f1=v=>Number(v.toFixed(2));
+    res[k]=`<svg xmlns="${SVGNS}" viewBox="${f1(fit.x-pad)} ${f1(fit.y-pad)} ${f1(fit.w+2*pad)} ${f1(fit.h+2*pad)}" preserveAspectRatio="xMidYMid meet"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#000"/></marker></defs><rect x="${f1(fit.x-pad)}" y="${f1(fit.y-pad)}" width="${f1(fit.w+2*pad)}" height="${f1(fit.h+2*pad)}" fill="#fff"/>${fit.body}</svg>`; }
   return res; }
 const svgUrl=svg=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
 
@@ -1345,7 +1357,7 @@ function weldSymbol(o,kinds,anc,ref,bent){
     let right=''; const L=+o.symL, E=+o.symE, n=+o.symN; if(L>0){ right=aws?`${L}-${L+(E||0)}`:`${n>1?n+' x ':''}${L}${E>0?`(${E})`:''}`; }
     if(right) out+=mv('sym_right'+(bi?'2':''),`<text x="${sx+14+(kinds.length>1?13:0)}" y="${my}" font-size="11" text-anchor="start" font-family="Arial" fill="${K}" stroke="#fff" stroke-width="3" paint-order="stroke">${dmlEsc(right)}</text>`);
     // 백킹 M / MR: 용접 기호 반대편 (ISO: 실선 아래로 점선을 가로지름)
-    if(bi===0&&o.backing!=='none'&&['II','V','bevel','U','J'].includes(kind)){ const t=o.backing==='ceramic'?'MR':'M', bw=t.length*9+8, up=s>0; const ry=up?y-13:(single?y+0:y+0.5);
+    if(bi===0&&o.backing!=='none'&&['II','V','bevel','U','J'].includes(kind)){ const t=o.backing==='ceramic'?'MR':'M', bw=t.length*9+8, up=s>0; const ry=up?y-13:(single?y+0:y+3.6); // 백킹 상자: 점선 바로 아래에 붙인다
       out+=mv('sym_backing',`<rect x="${sx-bw/2}" y="${ry}" width="${bw}" height="13" fill="#fff" stroke="${K}" stroke-width="1.1"/><text x="${sx}" y="${ry+10.5}" font-size="10.5" text-anchor="middle" font-family="Arial" fill="${K}">${t}</text>`); }
     // AWS: 개선각(A) · 루트갭(R)을 기호 위에 표기
     if(aws&&bi===0&&['V','bevel','U','J'].includes(kind)) out+=mv('sym_ar',`<text x="${sx}" y="${by+(s>0?32:-18)}" font-size="9.5" text-anchor="middle" font-family="Arial" fill="${K}" stroke="#fff" stroke-width="3" paint-order="stroke">${o.angle?o.angle+'° ':''}${o.gap>0?'R'+o.gap:''}</text>`); });
@@ -1650,8 +1662,8 @@ function wpsDocHTML(m){
   const F=m.form||{}, L=(a,b)=>`<div class="wl"><b>${a}</b> ${b}</div>`, pw=(F.pwhtDetail||'').split('\n').filter(x=>x.trim()&&!/:\s*$/.test(x.trim()));
   const par=(m.params||[]).length?m.params:[]; const sk=m.sketches||{};
   return `<div class="wdoc">
-   <div class="wh"><div class="wt"><b>WPS</b><span>(Welding Procdure Specification)</span></div><div class="wc">${S.logo?`<img src="${S.logo}">`:`<b>${esc(S.company)}</b>`}<div>Rev. ${esc(m.rev||'')}</div></div></div>
-   <table class="wg"><tr><td>${L('관련 코드',esc(F.codeStd))}${L('WPS No. :',`<span class="val">${esc(m.wpsNo)}</span>`)}${L('WPQR No. :',esc((m.pqrNos||[]).join(', ')))}${L('제조사 manufacturer :',esc(F.manufacturer))}${L('용접 방법 Weld Type :',esc(F.processIso))}${L('이음 형태 Joint Type :',esc(F.jointType))}${L('용접자세 Welding Position :',esc(F.positionIso))}${L('용접 이행 모드 Mode of metal transfer :',esc(F.transfer))}</td>
+   <table class="wg wh3"><tr><td class="wlg">${S.logo?`<img src="${S.logo}">`:`<b>${esc(S.company)}</b>`}</td><td class="wtt"><b>WPS</b><br><span>(Welding Procdure Specification)</span></td><td class="wrv"><b>${esc(S.company||'')}</b><br>Rev. ${esc(m.rev||'')}</td></tr></table>
+   <table class="wg"><tr><td colspan="2">${L('관련 코드',esc(F.codeStd))}</td></tr><tr><td style="width:50%">${L('WPS No. :',`<span class="val">${esc(m.wpsNo)}</span>`)}${L('WPQR No. :',esc((m.pqrNos||[]).join(', ')))}${L('제조사 manufacturer :',esc(F.manufacturer))}${L('용접 방법 Weld Type :',esc(F.processIso))}${L('이음 형태 Joint Type :',esc(F.jointType))}${L('용접자세 Welding Position :',esc(F.positionIso))}${L('용접 이행 모드 Mode of metal transfer :',esc(F.transfer))}</td>
     <td>${L('용접준비 및 청결 방법 Method of Preparation and Cleaning :',esc(F.prep))}${L('모재 사양 Parent Material Specification :',esc(F.parentSpec))}${L('모재 두께 Material Thickness(mm) :',esc(F.thickness))}${L('용접 금속 두께 Weld Metal Thickness(mm) :',esc(F.weldMetalThk))}${L('목 두께 Throat Thickness(mm) :',esc(F.throatThk))}${F.legZ?L('※ 각장 :',esc(F.legZ)):''}${L('파이프 직경 Outside Pipe Diameter(mm) :',esc(F.pipeDia))}</td></tr></table>
    <div class="wcap">용접 이음부 상세 Weld Preparation Details (Sketch)</div>
    <table class="wg ws"><tr><th>이음부 형상<br>Joint Design</th><th>용접 순서<br>Welding Sequence</th></tr><tr><td class="sk">${sk.joint?`<img src="${sk.joint}">`:''}</td><td class="sk">${sk.sequence?`<img src="${sk.sequence}">`:''}</td></tr></table>
