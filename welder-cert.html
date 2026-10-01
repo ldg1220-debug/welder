@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v62 · 인증서→영문명·출생지</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v63 · 인증서 WPS 연결 개선</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -763,7 +763,7 @@ function mapWorkbook(sheets){
   return {W,R,info};
 }
 // ---------- 발행된 인증서 엑셀(시트 1장 = 인증서 1장) -> WPS 번호 등을 시험 기록에 연결 ----------
-const PROC_BY_CODE={'135':'135 MAG','136':'136 FCAW','141':'141 TIG','111':'111 MMA','121':'121 SAW','521':'521 LBW'};
+const PROC_BY_CODE={'135':'135 MAG','136':'136 FCAW','141':'141 TIG','111':'111 MMA','121':'121 SAW','521':'521 LBW','52':'521 LBW'};
 function parseCerts(sheets){
   const out=[];
   for(const sh of sheets){
@@ -772,7 +772,7 @@ function parseCerts(sheets){
     const find=re=>{for(const c of strs){const m=c.v.match(re); if(m) return m;} return null;};
     const idm=find(/Welder'?s ID No\.?\s*:\s*([A-Za-z0-9][A-Za-z0-9\-_.]*)/), dm=find(/Designation\s*:\s*(.+)/);
     if(!idm||!dm) continue;                                    // 인증서 시트가 아님(양식 등)
-    const d=dm[1].match(/9606-1\s+(\d+)\s+(P|T)\s+(BW|FW)\s+(FM\s?\d)\s+(\w)\s+t([\d.]+)\s+(\w+)(?:\s+(.*))?/i);
+    const d=dm[1].match(/(?:9606-1|14732)\s+(\d+)\s+(P|T)\s+(BW|FW)\s+(FM\s?\d)\s+(\w)\s+t([\d.]+)\s+(\w+)(?:\s+(.*))?/i);
     if(!d){ out.push({sheet:sh.name,bad:'Designation 형식 인식 불가: '+dm[1]}); continue; }
     const wps=find(/WPS No\s*:\s*(.*)/), ref=find(/Reference No\.?\s*:\s*(.+)/), nm=find(/Welder'?s Name\s*:\s*(.+)/), bp=find(/생년월일\s*:\s*(.+?),\s*(\d{4})\.(\d{2})\.(\d{2})/), emp=find(/Employer\s*:\s*(.+)/);
     const rowOf=re=>{const c=strs.find(x=>re.test(x.v)); return c?cells.filter(x=>x.ri===c.ri&&x.ci>c.ci):[];};
@@ -782,13 +782,21 @@ function parseCerts(sheets){
     const photo=strs.find(x=>x.v.trim()==='Photo'), en=photo?cells.find(x=>x.ri===photo.ri&&x.ci>photo.ci&&typeof x.v==='string'&&!/:/.test(x.v)):null;
     const rawName=nm?nm[1].trim():'', han=(rawName.match(/[가-힣]+/)||[''])[0], enFromName=rawName.replace(han,'').replace(/^[,\s]+/,'').trim(), inl=re=>[...new Set(strs.map(c=>c.v.match(re)).filter(Boolean).map(m=>xDate(m[1])).filter(Boolean))];
     const wInl=inl(/Date of Welding\s*:\s*(\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2})/), iInl=inl(/Date of issue\s*:\s*(\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2})/), wCell=dateAfter(/Date of Welding\s*:\s*$/), iCell=dateAfter(/Date of issue\s*:\s*$/);
-    out.push({sheet:sh.name,welderNo:normNo(idm[1]),name:han||rawName,nameEn:(en?en.v.trim():'')||enFromName,wDates:[...wInl,wCell].filter(Boolean),birthPlace:bp?bp[1].trim():'',birthDate:bp?`${bp[2]}-${bp[3]}-${bp[4]}`:'',employer:emp?emp[1].trim():'',
+    const posSheet=((sh.name.match(/\bP[A-G]\b/gi)||[]).pop()||'').toUpperCase();
+    out.push({sheet:sh.name,posSheet,welderNo:normNo(idm[1]),name:han||rawName,nameEn:(en?en.v.trim():'')||enFromName,wDates:[...wInl,wCell].filter(Boolean),birthPlace:bp?bp[1].trim():'',birthDate:bp?`${bp[2]}-${bp[3]}-${bp[4]}`:'',employer:emp?emp[1].trim():'',
       refNo:ref?ref[1].trim():'',wpsNo:wps?wps[1].trim():'',code:d[1],productType:d[2].toUpperCase(),joint:d[3].toUpperCase(),fillerGroup:d[4].replace(/\s/,' ').toUpperCase().replace(/^FM(\d)/,'FM $1'),fillerType:d[5].toUpperCase(),
       thickness:+d[6],position:d[7].toUpperCase(),backing:d[8]?String(d[8]).trim():'',weldingDate:wInl[0]||wCell||dateAfter(/Date of Welding/),issueDate:iInl[0]||iCell||dateAfter(/Date of issue/),dateConflict:!!(wInl[0]&&wCell&&wInl[0]!==wCell),
       tests:{vt:mark(/Visual Testing/),rtut:mark(/X-ray|UT testing|MT testing/),macro:mark(/Macroscopic/),fracture:mark(/Fracture/),bend:mark(/Bend Test/),additional:mark(/Additional Test/)}});
   }
   return out;
 }
+// 같은 용접사·같은 조인트(유형·공정·두께·자세)의 재시험(불합격) 기록은 같은 WPS를 쓴 것으로 보고, 한쪽에만 WPS가 있으면 나머지에 복사
+function inheritWpsPlan(){ const g=new Map(); for(const r of records){ const k=gkey(r); (g.get(k)||g.set(k,[]).get(k)).push(r); } const up=[];
+  for(const list of g.values()){ const set=new Set(list.map(r=>(r.wpsNo||'').trim()).filter(Boolean)); if(set.size!==1) continue; const no=[...set][0]; for(const r of list) if(!(r.wpsNo||'').trim()) up.push({...r,wpsNo:no}); }
+  return up; }
+async function inheritWpsApply(silent){ const up=inheritWpsPlan(); if(!up.length){ if(!silent) toast('복사할 기록이 없습니다. (같은 조인트에 WPS가 한 종류만 있는 기록만 대상)',3500); return 0; }
+  if(!silent&&!confirm(`같은 용접사·같은 조인트(유형·공정·두께·자세)의 다른 기록에 WPS가 한 종류만 지정돼 있는 WPS 미지정 기록 ${up.length}건에 그 WPS를 복사할까요?\n(재시험·불합격 기록은 같은 WPS로 시험한 것으로 봅니다)`)) return 0;
+  await DB.putMany('records',up); await load(); if(!silent){ drawWps(); toast(`${up.length}건에 WPS를 복사했습니다.`,3000); } return up.length; }
 async function importCerts(certs){
   const bad=certs.filter(c=>c.bad), ok=certs.filter(c=>!c.bad&&c.weldingDate), noDate=certs.filter(c=>!c.bad&&!c.weldingDate);
   const byNo=new Map(welders.map(w=>[normNo(w.welderNo),w])), byName=new Map(); welders.forEach(w=>{(byName.get(w.name)||byName.set(w.name,[]).get(w.name)).push(w);});
@@ -798,8 +806,10 @@ async function importCerts(certs){
     let w=byNo.get(c.welderNo);
     if(w&&c.name&&w.name!==c.name){ const alt=(byName.get(c.name)||[]); if(alt.length===1){ notes.push(`${c.sheet}: 번호 ${c.welderNo}는 ${w.name}인데 인증서 이름은 ${c.name} → 이름 기준 ${alt[0].welderNo}로 연결`); w=alt[0]; } else notes.push(`${c.sheet}: 번호 ${c.welderNo}의 명단 이름(${w.name})과 인증서 이름(${c.name})이 다릅니다`); }
     if(!w){ const alt=(byName.get(c.name)||[]); if(alt.length===1) w=alt[0]; }
-    const cond=r=>r.joint===c.joint&&String(r.position).toUpperCase()===c.position&&Math.abs(r.thickness-c.thickness)<0.05&&processCode(r.process)===c.code;
-    const rs=w?records.filter(r=>r.welderId===w.id&&cond(r)&&!used.has(r.id)):[];
+    const condP=(r,pp)=>r.joint===c.joint&&String(r.position).toUpperCase()===pp&&Math.abs(r.thickness-c.thickness)<0.05&&processCode(r.process).slice(0,2)===String(c.code).slice(0,2);
+    let cond=r=>condP(r,c.position), rs=w?records.filter(r=>r.welderId===w.id&&cond(r)&&!used.has(r.id)):[];
+    // 인증서 본문의 자세와 시트 이름의 자세가 다르면(예: 시트명 'BW PC' / 본문 'PF') 시험 기록과 안 맞아 중복 기록이 생기므로, 본문 조건에 맞는 기록이 없을 때 시트명 자세로 한 번 더 찾는다
+    if(w&&!rs.length&&c.posSheet&&c.posSheet!==c.position){ const alt=records.filter(r=>r.welderId===w.id&&condP(r,c.posSheet)&&!used.has(r.id)); if(alt.length){ rs=alt; cond=r=>condP(r,c.posSheet); notes.push(`${c.sheet.trim()}: 인증서 본문 자세(${c.position})와 시트 이름 자세(${c.posSheet})가 달라 시트 이름 자세 기준으로 연결 (인증서 자세 확인 필요)`); } }
     // 인증서의 용접일은 양식 복사로 낡은 값인 경우가 많아, 날짜보다 '조건이 같은 합격 기록'을 우선 연결한다
     let pick=rs.find(r=>c.wDates.includes(r.weldingDate)&&recStatus(r)==='pass')||null, kind='exact';
     if(!pick){ const ps=rs.filter(r=>recStatus(r)==='pass').sort((a,b)=>dayDiff(a.weldingDate,c.weldingDate)-dayDiff(b.weldingDate,c.weldingDate)||b.weldingDate.localeCompare(a.weldingDate)); pick=ps[0]||null; kind=ps.length>1?'multi':'near'; }
@@ -827,8 +837,8 @@ async function importCerts(certs){
       tests:applyImpliedVT(c.tests),refNo:'',issueDate:c.issueDate,renewals:[]});
   }
   if(upW.size) await DB.putMany('welders',[...upW.values()]);
-  await DB.putMany('records',upR); await load();
-  alert(`완료: 시험 기록 ${upR.length}건에 WPS/인증번호/발행일 반영 (새로 등록 ${created}건). WPS 탭에서 확인하세요.`);
+  await DB.putMany('records',upR); await load(); const inh=await inheritWpsApply(true), left=records.filter(r=>!(r.wpsNo||'').trim()).length;
+  alert(`완료: 시험 기록 ${upR.length}건에 WPS/인증번호/발행일 반영 (새로 등록 ${created}건).${inh?`\n같은 조인트의 재시험 기록 ${inh}건에도 같은 WPS를 복사했습니다.`:''}\nWPS가 아직 비어 있는 시험 기록: ${left}건 (해당 인증서가 없는 기록입니다. WPS 탭의 'WPS 미지정 기록에 추천 적용'으로 지정할 수 있습니다)`);
   go('wps');
 }
 // ---------- WPS / WPQR 목록 엑셀 ----------
@@ -1170,6 +1180,7 @@ function vWps(){
     ${WF.view==='wps'?`<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="wused" ${WF.onlyUsed?'checked':''}>사용 기록 있는 것만</label>
     <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="wwarn" ${WF.onlyWarn?'checked':''}>범위 밖 의심만</label>
     <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="wpass" ${WF.onlyPass?'checked':''}>합격 기록만 집계</label>
+    <button class="b sec" onclick="inheritWpsApply()" title="같은 용접사·같은 조인트의 다른 기록에 WPS가 한 종류만 있으면 WPS 미지정 기록(재시험·불합격 등)에 복사">재시험 기록에 같은 WPS 복사</button>
     <button class="b sec" onclick="recommendWps()" title="WPS 마스터의 용접사 시험용 WPS 조건으로 미지정 기록에 WPS를 추천 적용">WPS 미지정 기록에 추천 적용</button>`:''}
     <span style="flex:1"></span><span style="color:var(--mute);font-size:12px" title="머리글 경계(오른쪽 끝 회색 선)를 끌면 열 너비 조절, 더블클릭=자동 맞춤">머리글 경계를 끌어 열 너비 조절 · <a href="#" onclick="resetWidths();return false">너비 초기화</a> | WPS/WPQR 목록 엑셀 가져오기</span><input type="file" accept=".xlsx" multiple onchange="importFiles(this.files);this.value=''" style="max-width:230px"></div>
    <div id="wbulk" style="margin-top:8px"></div><div class="tw" id="wpslist" style="margin-top:4px"></div>${dl('dl-wps2',uniq([...wpsMaster.map(m=>m.wpsNo),...records.map(x=>x.wpsNo)]))}</div>`;
