@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v58 · 스케치 편집기</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v59 · 양식 전체 점검</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -551,15 +551,17 @@ function parseCamRef(ref,ext,ownKey){ const m=String(ref||'').match(/^'?(?:\[(\d
   return {book:m[1]?bookKey(ext[+m[1]]||''):ownKey, bookName:m[1]?(ext[+m[1]]||''):'', sheet:m[2], c0:ci(m[3]), r0:+m[4], c1:ci(m[5]), r1:+m[6], ref:String(ref)}; }
 function lookupLinked(link){ const B=S.xlBooks||{}; if(B[link.book]&&B[link.book][link.sheet]) return {rows:B[link.book][link.sheet],exact:true};
   for(const k of Object.keys(B)) if(B[k][link.sheet]) return {rows:B[k][link.sheet],exact:false}; return null; }
-function rowsToParams(rows,link){ const params=[], notes=[];
-  for(let r=link.r0-1;r<=link.r1-1;r++){ const cells=Array.from({length:link.c1-link.c0+1},(_,i)=>{ const v=(rows[r]||[])[link.c0-1+i]; return v==null?'':String(v).replace(/\s+/g,' ').trim(); }); if(!cells.some(Boolean)) continue;
-    if(/pass|층수/i.test(cells[0])) continue; if(cells.filter(Boolean).length===1&&cells[0].length>8){ notes.push(cells[0]); continue; }
-    params.push(Object.fromEntries(PARAM_COLS.map(([k],i)=>[k,cells[i]||'']))); }
-  return {params,notes}; }
+const pcols=o=>(o&&o.form&&o.form.passCols&&o.form.passCols.length)?o.form.passCols:PARAM_COLS;
+function rowsToParams(rows,link){ const params=[], notes=[], n=link.c1-link.c0+1; let hdr=null, cols=null;
+  for(let r=link.r0-1;r<=link.r1-1;r++){ const cells=Array.from({length:n},(_,i)=>{ const v=(rows[r]||[])[link.c0-1+i]; return v==null?'':String(v).replace(/\s+/g,' ').trim(); }); if(!cells.some(Boolean)) continue;
+    if(/pass|층수/i.test(cells[0])){ if(!hdr&&!(n===10&&/Current|전류/i.test(cells.join(' ')))){ hdr=[]; cells.forEach((c,i)=>{ if(c) hdr.push({label:c,span:1,from:i}); else if(hdr.length) hdr[hdr.length-1].span++; }); cols=cells.map((c,i)=>['c'+i,(hdr.find(h=>h.from===i)||{label:'(단위)'}).label,i?80:50]); } continue; }   // 표준(MAG/TIG) 10열이 아니면 머리글 행을 그대로 열 구성으로 사용(예: 레이저)
+    if(cells.filter(Boolean).length===1&&cells[0].length>8){ notes.push(cells[0]); continue; }
+    params.push(cols?Object.fromEntries(cells.map((v,i)=>['c'+i,v])):Object.fromEntries(PARAM_COLS.map(([k],i)=>[k,cells[i]||'']))); }
+  return {params,notes,cols,hdr:hdr&&hdr.map(({label,span})=>({label,span}))}; }
 // 연결 정보(passLink)가 있는 WPS의 패스별 조건표를 보관된 연결 원본에서 채운다. 정확한 원본 파일이 있으면 그 값으로 갱신, 없으면 비어 있을 때만 같은 이름 시트로 채운다.
 async function relinkPasses(onlyEmpty){ let n=0, up=[]; for(const w of wpsMaster){ const L=w.passLink; if(!L) continue; const f=lookupLinked(L); if(!f) continue;
     if(!f.exact&&(w.params||[]).length&&(onlyEmpty||w.passSrc==='exact')) continue; if(f.exact&&(w.passSrc==='manual')) continue;
-    const {params,notes}=rowsToParams(f.rows,L); if(!params.length) continue; up.push({...w,params,passSrc:f.exact?'exact':'fallback',form:{...(w.form||{}),passNote:notes.join('\n')}}); n++; }
+    const {params,notes,cols,hdr}=rowsToParams(f.rows,L); if(!params.length) continue; up.push({...w,params,passSrc:f.exact?'exact':'fallback',form:{...(w.form||{}),passNote:notes.join('\n'),passCols:cols||undefined,passHdr:hdr||undefined}}); n++; }
   if(up.length) await DB.putMany('wps',up); return n; }
 async function importFiles(list){ for(const f of [...(list||[])]) await importFile(f); }
 async function importFile(file){
@@ -829,7 +831,8 @@ function dmlShape(el,st,k,fl){
       const kx=w/pw, ky=h/ph, ks=1/Math.sqrt(kx*ky); // 경로 좌표계(EMU 단위) 확대에 맞춰 선 굵기/점선도 환산
       sp=sp.replace(/stroke-width="([\d.eE+-]+)"/,(m,v)=>`stroke-width="${v*ks}"`).replace(/stroke-dasharray="([\d.]+) ([\d.]+)"/,(m,a,b)=>`stroke-dasharray="${a*ks} ${b*ks}"`);
       g+=`<path d="${d}" transform="scale(${kx} ${ky})" ${sp}/>`; } }
-  else if(/^(line|straightConnector1|bentConnector\d|curvedConnector\d)$/.test(prst)||el.localName==='cxnSp'&&!prst) g=`<line x1="0" y1="0" x2="${w}" y2="${h}" ${sa}/>`;
+  else if(/^curvedConnector[2-5]$/.test(prst)) g=`<path d="M0 0 C${w/2} 0 ${w/2} ${h} ${w} ${h}" ${sa.replace(/ fill="[^"]*"/,' fill="none"')}/>`;
+  else if(/^(line|straightConnector1|bentConnector\d)$/.test(prst)||el.localName==='cxnSp'&&!prst) g=`<line x1="0" y1="0" x2="${w}" y2="${h}" ${sa}/>`;
   else if(prst==='ellipse'||prst==='flowChartConnector') g=`<ellipse cx="${w/2}" cy="${h/2}" rx="${w/2}" ry="${h/2}" ${sa}/>`;
   else if(prst==='arc'){ const av=Object.fromEntries([...dsc(pg,'gd')].map(x=>[x.getAttribute('name'),+((x.getAttribute('fmla')||'').replace('val ',''))])); const a1=(av.adj1??16200000)/60000, a2=(av.adj2??0)/60000, sweep=((a2-a1)%360+360)%360;
     const pt=a=>[w/2+w/2*Math.cos(a*Math.PI/180),h/2+h/2*Math.sin(a*Math.PI/180)], p1=pt(a1), p2=pt(a2); g=`<path d="M${p1[0]} ${p1[1]} A${w/2} ${h/2} 0 ${sweep>180?1:0} 1 ${p2[0]} ${p2[1]}" ${sa.replace(/ fill="[^"]*"/,' fill="none"')}/>`; }
@@ -858,11 +861,13 @@ function fitSketch(body){ const host=document.createElement('div'); host.style.c
 // 그림(png/jpg) 도형: 지시선·용접기호 이미지 등을 <image>로 넣는다
 async function dmlPic(el,media){ const spPr=DML(el,'spPr'), f=spPr&&dmlXfrm(spPr); if(!f) return ''; const bl=el.getElementsByTagNameNS('*','blip')[0]; if(!bl) return ''; const rid=bl.getAttribute('r:embed')||bl.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','embed'); if(!rid) return ''; const d=await media(rid); if(!d) return '';
   return `<g transform="${dmlPlace(f)}"><image href="${d}" x="0" y="0" width="${f.cx}" height="${f.cy}" preserveAspectRatio="none"/></g>`; }
-async function drawingSketches(xml,th,media){
+async function drawingSketches(xml,th,media,reg){
   const doc=new DOMParser().parseFromString(xml,'application/xml'), res={joint:'',sequence:''}, groups={joint:[],sequence:[]};
   for(const a of [...doc.getElementsByTagName('*')].filter(e=>/^(twoCellAnchor|oneCellAnchor|absoluteAnchor)$/.test(e.localName)&&!(e.parentNode&&e.parentNode.localName==='Fallback'))){
-    const fr=DML(a,'from'); if(!fr) continue; const col=+DML(fr,'col').textContent, row=+DML(fr,'row').textContent+1; if(row<12||row>=22||col<1||col>10) continue;
-    const sh=[...a.children].find(e=>/^(sp|cxnSp|grpSp|pic)$/.test(e.localName)); if(!sh) continue; if(sh.localName==='pic'&&(sh.getElementsByTagNameNS('*','cameraTool').length||!media)) continue; groups[col<=5?'joint':'sequence'].push(sh); }
+    const fr=DML(a,'from'); if(!fr) continue; const col=+DML(fr,'col').textContent, row0=+DML(fr,'row').textContent, to=DML(a,'to'), col1=to?+DML(to,'col').textContent:col; let side;
+    if(reg&&reg.r1>0){ if(row0<reg.r0||row0>=reg.r1||col>10) continue; side=(col+col1)/2<reg.sc?'joint':'sequence'; }   // 시트마다 다른 스케치 영역: '이음부 상세' ~ '용접 상세' 제목 행 사이
+    else { const row=row0+1; if(row<12||row>=22||col<1||col>10) continue; side=col<=5?'joint':'sequence'; }
+    const sh=[...a.children].find(e=>/^(sp|cxnSp|grpSp|pic)$/.test(e.localName)); if(!sh) continue; if(sh.localName==='pic'&&(sh.getElementsByTagNameNS('*','cameraTool').length||!media)) continue; groups[side].push(sh); }
   for(const k of ['joint','sequence']){ if(!groups[k].length) continue;
     const st={th:th||THEME_DEF}; let body=''; for(const e of groups[k]) body+=e.localName==='pic'?await dmlPic(e,media):dmlShape(e,st,1); if(!body) continue;
     const fit=fitSketch(body); if(!fit) continue; const pad=Math.max(fit.w,fit.h)*.04+3, f1=v=>Number(v.toFixed(2));
@@ -872,7 +877,7 @@ const svgUrl=svg=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
 
 // ---------- WPS 양식(시트별 1장) 엑셀 -> WPS 마스터의 '양식 상세' ----------
 const wpsNoOf=n=>{ const m=String(n||'').match(/RM0*(\d+)/i); return m?'WPS-RM'+String(+m[1]).padStart(3,'0'):String(n||'').trim(); };
-const dotDate=t=>{ const m=String(t||'').trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/); if(!m) return ''; let d=+m[1],mo=+m[2]; if(mo>12&&d<=12) [d,mo]=[mo,d]; const dt=new Date(Date.UTC(+m[3],mo-1,d)); return dt.getUTCMonth()===mo-1?dt.toISOString().slice(0,10):''; };
+const dotDate=t=>{ const m=String(t||'').trim().match(/^(\d{1,2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{4})$/); if(!m) return ''; let d=+m[1],mo=+m[2]; if(mo>12&&d<=12) [d,mo]=[mo,d]; const dt=new Date(Date.UTC(+m[3],mo-1,d)); return dt.getUTCMonth()===mo-1?dt.toISOString().slice(0,10):''; };
 function parseWpsForms(sheets){
   const out=[];
   for(const sh of sheets){
@@ -887,11 +892,12 @@ function parseWpsForms(sheets){
     const pw=lines.filter(l=>/^\d\)\s*/.test(l)&&/[:：]/.test(l)).map(l=>l.replace(/\s*[:：]\s*/,': '));
     const dates=strs.map(c=>dotDate(c.v)).filter(Boolean), signer=(strs.find(c=>/Donggeon|Lee\s+D/i.test(c.v))||{v:''}).v.trim(), rev=(strs.find(c=>/^Rev\.?\s*\S+/i.test(c.v.trim()))||{v:''}).v.trim().replace(/^Rev\.?\s*/i,'');
     out.push({sheet:sh.name.trim(),wpsNo:no,bodyNo:wpsNoOf(bodyNo),rev,pqr:val(/WPQR No\.\s*:\s*(\S+)/),
-      form:{codeStd:val(/^관련 코드\s*(.+)$/),manufacturer:val(/manufacturer\s*:\s*(.+)$/),processIso:val(/Weld Type\s*:\s*(.+)$/),jointType:val(/Joint Type\s*:\s*(.+)$/),positionIso:val(/Welding Position\s*:\s*(.+)$/),transfer:val(/Mode of metal transfer\s*:\s*(.+)$/),
-        prep:val(/Method of Preparation and Cleaning\s*:\s*(.+)$/),parentSpec:after(/Parent Material Specification/),thickness:val(/Material Thickness\(mm\)\s*:\s*(.+)$/),weldMetalThk:val(/Weld Metal Thickness\(mm\)\s*:\s*(.+)$/),throatThk:val(/Th[a-z]*oat Thickness\(mm\)\s*:\s*(.+)$/),legZ:val(/※\s*각장\s*:?\s*(.+)$/),pipeDia:val(/Outside Pipe Diameter\(mm\)\s*:\s*(.+)$/),
-        filler:after(/Filler Metal Designation/),gas:val(/Gas\/Flux\s*:\s*(.+)$/),gasFlow:val(/Gas Flow Rate\s*:\s*(.+)$/),tungsten:val(/Tungsten Electrode Type \/ Size\s*:\s*(.+)$/),backingDetail:val(/Details of back gouging\/backing\s*:\s*(.+)$/),preheat:val(/Preheat Temperature\s*:\s*(.+)$/),interpass:val(/Interpass temperature\s*:\s*(.+)$/),
+      form:{codeStd:val(/^관련 코드\s*(.+)$/),manufacturer:val(/manufacturer\s*:\s*(.+)$/),processIso:val(/Weld Type\s*:\s*(.+)$/),jointType:val(/Joint Type\s*:\s*(.+?)(?:\s{2,}|$)/),positionIso:val(/Welding Position\s*:\s*(.+)$/)||val(/용접자세\s*:\s*(.+)$/),transfer:val(/Mode of metal transfer\s*:\s*(.+)$/),
+        prep:val(/Method of Preparation and Cleaning\s*:\s*(.+)$/),parentSpec:val(/Parent Material Specification\s*:\s*(\S.*)$/)||after(/Parent Material Specification/),thickness:val(/Material Thickness\(mm\)\s*:\s*(.+)$/),weldMetalThk:val(/Weld Metal Thickness\(mm\)\s*:\s*(.+)$/),throatThk:val(/Th[a-z]*oat Thickness\(mm\)\s*:\s*(.+)$/),legZ:val(/※\s*각장\s*:?\s*(.+)$/),pipeDia:val(/Outside Pipe Diameter\(mm\)\s*:\s*(.+)$/),
+        filler:after(/Filler Metal Designation/),gas:val(/Gas\/Flux\s*:\s*(.+)$/),gasFlow:val(/Gas Flow Rate\s*:\s*(.+)$/),tungsten:val(/Tungsten Electrode Type \/ Size\s*:\s*(.+)$/),backingDetail:val(/Details of back gouging\/backing\s*:\s*(.+)$/),preheat:val(/Preheat Temperature\s*:\s*(.+?)(?:\s{2,}|$)/),interpass:val(/Interpass temperature\s*:\s*(.+?)(?:\s{2,}|$)/),
         pwht:val(/Post-Weld Heat Treatment\s*:\s*(.*)$/),pwhtDetail:pw.join('\n'),weaving:val(/^Weaving\s*:\s*(.+)$/),oscillation:val(/^Oscillation\s*:\s*(.+)$/),pulse:val(/Pulse welding details\s*:\s*(.+)$/),ctwd:val(/Distance contact tube\/Work piece\s*:\s*(.+)$/),torch:val(/Torch angle\s*:\s*(.+)$/),
-        signer,signDate:dates[0]||'',firstDate:dates[1]||''},
+        signer,signDate:dates[0]||'',firstDate:dates[1]||'',
+        ...(/Equipment identification|Laser Welding/i.test(all)&&!/Weld Type\s*:/.test(all)?{variant:'LBW',equip:val(/Equipment identification\s*:\s*(.+)$/),fillerDesig:val(/명칭 Designation\s*:\s*(.+)$/).replace(/\s{2,}/g,'  '),jigs:after(/Jigs, fixture and Tooling/),backingGas:val(/Backing gas\s*:\s*(.+?)(?:\s{2,}|$)/),backingType:val(/^배킹 Backing\s*:\s*(.+)$/)}:{})},
       rawRev:rev,sh});
   }
   return out;
@@ -903,19 +909,20 @@ async function importWpsForms(forms,ctx){ ctx=ctx||{ext:{},key:''};
   const filled=k=>uniq.filter(f=>f.form[k]).length;
   if(!confirm(`WPS 양식 ${uniq.length}장 인식 (시트 번호를 WPS 번호로 사용)\n\nWPS 마스터와 일치해 양식 내용을 채움: ${match}건\n마스터에 없어 새로 등록: ${fresh}건\n\n항목 인식률: 용접방법 ${filled('processIso')} · 용가재 ${filled('filler')} · 보호가스 ${filled('gas')} · 예열 ${filled('preheat')} · 두께 ${filled('thickness')} / ${uniq.length}\n${conflicts.length?`\n번호 확인 ${conflicts.length}건 (본문 번호가 시트와 다름):\n${conflicts.slice(0,5).join('\n')}${conflicts.length>5?'\n…':''}\n`:''}${dup.length?`\n중복 번호로 건너뜀: ${dup.join(', ')}\n`:''}\n이음부 형상·용접 순서 스케치는 도형을 SVG로 변환해 각 WPS에 넣고 형상 라이브러리에도 저장합니다.\n(용접 조건표는 가져오지 않습니다)\n\n가져올까요?`)) return;
   const sk=new Map(); let nSk=0, th=null; const hasOld=joints.some(j=>j.meta&&j.meta.source==='wps-form');
-  const replace=hasOld&&confirm('이전에 WPS 양식에서 가져온 스케치/형상 라이브러리가 있습니다.\n새로 추출한 것으로 교체할까요? (확인=교체, 취소=기존 유지하고 새 것만 추가)');
-  for(const f of uniq){ if(!f.sh||!f.sh.drawing) continue; try{ if(!th) th=parseTheme(await f.sh.theme()); const r=await drawingSketches(await f.sh.drawing(),th,f.sh.media); sk.set(f.wpsNo,r); nSk+=(r.joint?1:0)+(r.sequence?1:0); }catch(e){} }
+  const replace=hasOld&&confirm('이전에 WPS 양식에서 가져온 스케치/형상 라이브러리가 있습니다.\n새로 변환한 것으로 교체할까요?\n  확인 = 교체 (스케치 편집기로 직접 고친 WPS 스케치는 그대로 유지)\n  취소 = 기존 유지하고 없는 것만 추가');
+  for(const f of uniq){ if(!f.sh||!f.sh.drawing) continue; try{ if(!th) th=parseTheme(await f.sh.theme()); let sk0=-1,de0=-1,sc0=-1; f.sh.rows.forEach((rw,ri)=>rw&&rw.forEach((v,ci)=>{ const t=String(v||''); if(sk0<0&&/Weld Preparation Details/i.test(t)) sk0=ri; if(de0<0&&/Welding Details/i.test(t)&&!/Preparation/i.test(t)) de0=ri; if(sc0<0&&/Welding Sequence/i.test(t)) sc0=ci; }));
+      const reg=sk0>=0&&de0>sk0?{r0:sk0+2,r1:de0,sc:sc0>0?sc0:6}:null; const r=await drawingSketches(await f.sh.drawing(),th,f.sh.media,reg); sk.set(f.wpsNo,r); nSk+=(r.joint?1:0)+(r.sequence?1:0); }catch(e){} }
   if(replace){ for(const j of joints.filter(j=>j.meta&&j.meta.source==='wps-form')) await DB.del('joints',j.id); await load(); }
   const up=[]; let nLink=0; S.skVer=SK_VER; await saveSettings();
   for(const f of uniq){ if(!f.sh||!f.sh.camera) continue; try{ const lab=f.sh.rows.findIndex(r=>r&&r.some(v=>/Welding Details/i.test(String(v||'')))); const cams=(await f.sh.camera()).filter(c=>/details/i.test(c.ref)&&(lab<0||(c.row>=lab&&c.row<=lab+8))); if(cams[0]) f.link=parseCamRef(cams[0].ref,ctx.ext,ctx.key); }catch(e){} }
   for(const f of uniq){ const cur=wpsFind(f.wpsNo);
     const codeOf=t=>(String(t).match(/\b\d{2,3}\b/)||[''])[0];
-    const base=cur||{wpsNo:f.wpsNo,kind:'WPS',rev:f.rawRev,revDate:'',pqrNos:f.pqr?[f.pqr]:[],materialGroup:(f.form.parentSpec.match(/\d+\.\d+(?:~\d+\.\d+)?/)||[''])[0],weldType:/fillet/i.test(f.form.jointType)?'FW':/t-?butt/i.test(f.form.jointType)?'T-BUTT':'BW',process:codeOf(f.form.processIso)?codeOf(f.form.processIso)+({135:'(MAG)',141:'(TIG)'}[codeOf(f.form.processIso)]||''):'',procCodes:[codeOf(f.form.processIso)].filter(Boolean),position:f.form.positionIso.split('[')[0].trim().toUpperCase(),positions:positionsOf(f.form.positionIso),thk:f.form.thickness?f.form.thickness.replace(/\s/g,'').replace(/(\d+(?:\.\d+)?)~(\d+(?:\.\d+)?)/,'$1≤T≤$2'):'',backing:'',pwht:f.form.pwht,part:'',remarks:'',status:'사용'};
+    const base=cur||{wpsNo:f.wpsNo,kind:'WPS',rev:f.rawRev,revDate:'',pqrNos:f.pqr?[f.pqr]:[],materialGroup:(f.form.parentSpec.match(/\d+\.\d+(?:~\d+\.\d+)?/)||[''])[0],weldType:/fillet/i.test(f.form.jointType)?'FW':/t-?butt/i.test(f.form.jointType)?'T-BUTT':'BW',process:codeOf(f.form.processIso)?codeOf(f.form.processIso)+({135:'(MAG)',141:'(TIG)'}[codeOf(f.form.processIso)]||''):(f.form.variant==='LBW'?'521(LBW)':''),procCodes:[codeOf(f.form.processIso)||(f.form.variant==='LBW'?'521':'')].filter(Boolean),position:f.form.positionIso.split('[')[0].trim().toUpperCase(),positions:positionsOf(f.form.positionIso),thk:f.form.thickness?f.form.thickness.replace(/\s/g,'').replace(/(\d+(?:\.\d+)?)~(\d+(?:\.\d+)?)/,'$1≤T≤$2'):'',backing:'',pwht:f.form.pwht,part:'',remarks:'',status:'사용'};
     if(!cur){ const [mn,mx]=thkOf(base.thk); base.thkMin=mn; base.thkMax=mx; }
-    const r=sk.get(f.wpsNo)||{}, cur2={...(base.sketches||{})}; for(const k of ['joint','sequence']) if(r[k]&&(replace||!cur2[k])) cur2[k]=svgUrl(r[k]);
-    let params=base.params||[], passLink=base.passLink, passSrc=base.passSrc, passNote=(base.form||{}).passNote||'';
-    if(f.link){ passLink=f.link; const lk=lookupLinked(f.link); if(lk&&(replace||!params.length||(lk.exact&&passSrc!=='manual'))){ const r=rowsToParams(lk.rows,f.link); if(r.params.length){ params=r.params; passSrc=lk.exact?'exact':'fallback'; passNote=r.notes.join('\n'); nLink++; } } }
-    up.push({...base,form:{...(base.form||{}),...Object.fromEntries(Object.entries(f.form).filter(([,v])=>v!==''))},params,passLink,passSrc,sketches:cur2}); up[up.length-1].form.passNote=passNote; }
+    const r=sk.get(f.wpsNo)||{}, cur2={...(base.sketches||{})}; for(const k of ['joint','sequence']) if(r[k]&&(replace||!cur2[k])&&!(base.sketchEdit&&base.sketchEdit[k])) cur2[k]=svgUrl(r[k]);
+    let params=base.params||[], passLink=base.passLink, passSrc=base.passSrc, passNote=(base.form||{}).passNote||'', passCols=(base.form||{}).passCols, passHdr=(base.form||{}).passHdr;
+    if(f.link){ passLink=f.link; const lk=lookupLinked(f.link); if(lk&&(replace||!params.length||(lk.exact&&passSrc!=='manual'))){ const r=rowsToParams(lk.rows,f.link); if(r.params.length){ params=r.params; passSrc=lk.exact?'exact':'fallback'; passNote=r.notes.join('\n'); passCols=r.cols||undefined; passHdr=r.hdr||undefined; nLink++; } } }
+    up.push({...base,form:{...(base.form||{}),...Object.fromEntries(Object.entries(f.form).filter(([,v])=>v!==''))},params,passLink,passSrc,sketches:cur2}); up[up.length-1].form.passNote=passNote; up[up.length-1].form.passCols=passCols; up[up.length-1].form.passHdr=passHdr; }
   await DB.putMany('wps',up);
   // 형상 라이브러리: 같은 SVG는 하나로, 출처 WPS/형식/공정/백킹 정보를 붙인다
   const lib=new Map(joints.map(j=>[j.kind+'|'+j.svg,j])), add=[];
@@ -1216,17 +1223,17 @@ function collectDoc(){ const f=$('#wdf'); if(!f||!WD) return WD&&WD.obj; const f
   for(const k of ['wpsNo','kind','rev','revDate','materialGroup','weldType','process','position','thk','backing','pwht','part','status','remarks']) if(fd.has('m_'+k)) o[k]=fd.get('m_'+k);
   if(fd.has('m_pqr')) o.pqrNos=fd.get('m_pqr').split(/[\/,]/).map(nz).filter(Boolean);
   for(const [k] of FORM_FIELDS) if(fd.has('f_'+k)) o.form[k]=fd.get('f_'+k); if(fd.has('f_pwhtDetail')) o.form.pwhtDetail=fd.get('f_pwhtDetail');
-  const n=+($('#wdf').dataset.np||0); o.params=[]; for(let i=0;i<n;i++){ if(!fd.has(`p${i}_pass`)&&!fd.has(`p${i}_process`)) continue; const r={}; for(const [k] of PARAM_COLS) r[k]=fd.get(`p${i}_${k}`)||''; o.params.push(r); }
+  const n=+($('#wdf').dataset.np||0); o.params=[]; const pc=pcols(o); for(let i=0;i<n;i++){ if(!fd.has(`p${i}_${pc[0][0]}`)&&!fd.has(`p${i}_${pc[1][0]}`)) continue; const r={}; for(const [k] of pc) r[k]=fd.get(`p${i}_${k}`)||''; o.params.push(r); }
   return o; }
-function paramRows(o){ return o.params.map((r,i)=>`<tr>${PARAM_COLS.map(([k,,w])=>`<td style="padding:2px"><input name="p${i}_${k}" value="${esc(r[k])}" style="width:${w}px"></td>`).join('')}<td class="bx"><button type="button" class="b sm sec" onclick="paramOp('dup',${i})" title="행 복제">⧉</button> <button type="button" class="b sm red" onclick="paramOp('del',${i})">×</button></td></tr>`).join(''); }
-function relinkOne(){ collectDoc(); const o=WD.obj, L=o.passLink, f=L&&lookupLinked(L); if(!f) return toast('연결 원본 시트가 보관돼 있지 않습니다. 원본 엑셀 파일을 함께 가져오세요.',3500); const r=rowsToParams(f.rows,L); if(!r.params.length) return toast('연결 범위에 값이 없습니다.',3000); o.params=r.params; o.passSrc=f.exact?'exact':'fallback'; o.form={...(o.form||{}),passNote:r.notes.join('\n')}; vWpsDoc(); toast('연결 원본에서 패스별 조건표를 다시 불러왔습니다.',3000); }
+function paramRows(o){ return o.params.map((r,i)=>`<tr>${pcols(o).map(([k,,w])=>`<td style="padding:2px"><input name="p${i}_${k}" value="${esc(r[k])}" style="width:${w}px"></td>`).join('')}<td class="bx"><button type="button" class="b sm sec" onclick="paramOp('dup',${i})" title="행 복제">⧉</button> <button type="button" class="b sm red" onclick="paramOp('del',${i})">×</button></td></tr>`).join(''); }
+function relinkOne(){ collectDoc(); const o=WD.obj, L=o.passLink, f=L&&lookupLinked(L); if(!f) return toast('연결 원본 시트가 보관돼 있지 않습니다. 원본 엑셀 파일을 함께 가져오세요.',3500); const r=rowsToParams(f.rows,L); if(!r.params.length) return toast('연결 범위에 값이 없습니다.',3000); o.params=r.params; o.passSrc=f.exact?'exact':'fallback'; o.form={...(o.form||{}),passNote:r.notes.join('\n'),passCols:r.cols||undefined,passHdr:r.hdr||undefined}; vWpsDoc(); toast('연결 원본에서 패스별 조건표를 다시 불러왔습니다.',3000); }
 function paramOp(op,i){ collectDoc(); const a=WD.obj.params;
   if(op==='add') a.push({pass:String(a.length+1),process:a.length?a[a.length-1].process:'',filler:a.length?a[a.length-1].filler:'',current:'',voltage:'',polarity:a.length?a[a.length-1].polarity:'',speed:'',speedUnit:a.length?a[a.length-1].speedUnit:'cm/min',heat:'',heatUnit:a.length?a[a.length-1].heatUnit:'KJ/cm'});
   if(op==='del') a.splice(i,1); if(op==='dup') a.splice(i+1,0,{...a[i],pass:''});
   drawParams(); }
 function drawParams(){ const t=$('#ptbody'); if(!t) return; t.innerHTML=paramRows(WD.obj); $('#wdf').dataset.np=WD.obj.params.length; }
 function pasteParams(){ const ta=$('#ptext'); const rows=ta.value.replace(/\r/g,'').split('\n').map(l=>l.split('\t')).filter(r=>r.some(c=>c.trim())); if(!rows.length) return;
-  collectDoc(); const body=rows.filter(r=>!/층수|Pass/i.test(r[0]||'')); const add=body.map(r=>Object.fromEntries(PARAM_COLS.map(([k],i)=>[k,(r[i]||'').trim()])));
+  collectDoc(); const body=rows.filter(r=>!/층수|Pass/i.test(r[0]||'')); const add=body.map(r=>Object.fromEntries(pcols(WD.obj).map(([k],i)=>[k,(r[i]||'').trim()])));
   WD.obj.params.push(...add); ta.value=''; drawParams(); toast(`${add.length}행을 추가했습니다 (엑셀 A~J열 순서: 층수·공법·용가재·전류·전압·극성·속도·단위·입열량·단위).`,5000); }
 function doCalc(){ const o=collectDoc(), p=pqrFind((o.pqrNos||[])[0]); if(!p) return toast('연결 PQR을 먼저 입력하세요 (PQR 목록에 등록된 번호).',4000);
   const ap=pqrApproval(p); if(ap.tMin==null) return toast(ap.notes.join(' '),4000);
@@ -1270,7 +1277,7 @@ function vWpsDoc(){
      <label style="grid-column:span 2">후열처리 상세 (줄바꿈으로 구분)<textarea name="f_pwhtDetail" rows="3">${esc(F.pwhtDetail||'')}</textarea></label></div></div>
    <div class="card"><h3 style="margin-top:0">③ 용접 상세 Welding Details — 패스별 조건표</h3>
     ${o.passLink?`<div style="font-size:12px;color:var(--mute);margin-bottom:6px">엑셀 연결 그림: <b>${esc(o.passLink.bookName||'같은 파일')}</b> › ${esc(o.passLink.sheet)}!${esc(o.passLink.ref.split('!')[1]||'')} ${o.passSrc==='exact'?'· 원본에서 불러옴':o.passSrc==='fallback'?'· 같은 이름 시트로 임시 채움(원본 파일을 가져오면 갱신)':'· 직접 수정함'} <button type="button" class="b sm sec" onclick="relinkOne()">연결 다시 불러오기</button></div>`:''}
-    <div style="overflow-x:auto"><table class="list nested"><thead><tr>${PARAM_COLS.map(([,l])=>`<th>${l}</th>`).join('')}<th></th></tr></thead><tbody id="ptbody">${paramRows(o)}</tbody></table></div>
+    <div style="overflow-x:auto"><table class="list nested"><thead><tr>${pcols(o).map(([,l])=>`<th>${l}</th>`).join('')}<th></th></tr></thead><tbody id="ptbody">${paramRows(o)}</tbody></table></div>
     <div class="row"><button type="button" class="b sm" onclick="paramOp('add')">+ 행 추가</button>
      <span style="color:var(--mute);font-size:12px">엑셀에서 표를 복사해(층수~단위, A~J열) 아래 칸에 붙여넣고 "표로 변환"을 누르면 행이 추가됩니다.</span></div>
     <div class="row"><textarea id="ptext" rows="2" placeholder="여기에 엑셀 표를 붙여넣기 (Ctrl+V)" style="flex:1;min-width:300px"></textarea><button type="button" class="b sm sec" onclick="pasteParams()">표로 변환</button></div></div>
@@ -1282,7 +1289,7 @@ function vWpsDoc(){
 }
 async function saveWpsDoc(){ const o=collectDoc(); if(!String(o.wpsNo||'').trim()) return alert('WPS 번호를 입력하세요.');
   const f={wpsNo:o.wpsNo,kind:o.kind,rev:o.rev||'',revDate:o.revDate||'',pqr:(o.pqrNos||[]).join(','),materialGroup:o.materialGroup||'',weldType:o.weldType||'BW',process:o.process||'',position:o.position||'',thk:o.thk||'',backing:o.backing||'',pwht:o.pwht||'',part:o.part||'',status:o.status||'사용',remarks:o.remarks||''};
-  const oo=WD.old||{}, old={...oo,form:o.form,params:o.params,sketches:o.sketches,passLink:oo.passLink,passSrc:(o.passSrc!==undefined&&o.passSrc!==oo.passSrc)?o.passSrc:(JSON.stringify(o.params||[])!==JSON.stringify(oo.params||[])?'manual':oo.passSrc)};
+  const oo=WD.old||{}, old={...oo,form:o.form,params:o.params,sketches:o.sketches,sketchEdit:o.sketchEdit||oo.sketchEdit,passLink:oo.passLink,passSrc:(o.passSrc!==undefined&&o.passSrc!==oo.passSrc)?o.passSrc:(JSON.stringify(o.params||[])!==JSON.stringify(oo.params||[])?'manual':oo.passSrc)};
   const ok=await saveMaster('wps',old,f); if(!ok) return; // 번호 중복 등으로 저장 취소
   WF.doc=false; WD=null; render(); toast('WPS를 저장했습니다.',2500); }
 
@@ -1381,7 +1388,7 @@ function skSymbol(p){ const y=SK.sym, kd={V:['V'],bevel:['bevel'],U:['U'],J:['J'
 function skSave(){ const body=SK.body; let bb; try{ bb=body.getBBox(); }catch(e){ bb=null; } if(!bb||!(bb.width>0&&bb.height>0)) return alert('저장할 도형이 없습니다.');
   const pad=Math.max(bb.width,bb.height)*.04+3, f1=v=>Number(v.toFixed(2)), x=bb.x-pad, y=bb.y-pad, w=bb.width+2*pad, h=bb.height+2*pad; const g=body.cloneNode(true); g.removeAttribute('id');
   const svg=`<svg xmlns="${SKNS}" viewBox="${f1(x)} ${f1(y)} ${f1(w)} ${f1(h)}" preserveAspectRatio="xMidYMid meet"><defs>${SK_DEFS}</defs><rect x="${f1(x)}" y="${f1(y)}" width="${f1(w)}" height="${f1(h)}" fill="#fff"/>${new XMLSerializer().serializeToString(g)}</svg>`;
-  WD.obj.sketches=WD.obj.sketches||{}; WD.obj.sketches[SK.slot]=svgUrl(svg); skClose(); vWpsDoc(); toast('스케치를 수정해 적용했습니다. WPS 저장을 눌러 확정하세요.',3500); }
+  WD.obj.sketches=WD.obj.sketches||{}; WD.obj.sketches[SK.slot]=svgUrl(svg); WD.obj.sketchEdit={...(WD.obj.sketchEdit||{}),[SK.slot]:true}; skClose(); vWpsDoc(); toast('스케치를 수정해 적용했습니다. WPS 저장을 눌러 확정하세요.',3500); }
 function bigSketch(id){ const j=joints.find(x=>x.id===id); if(!j) return; let m=$('#bigsk'); if(!m){ m=document.createElement('div'); m.id='bigsk'; m.style.cssText='position:fixed;inset:0;background:rgba(15,25,40,.72);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px'; m.onclick=e=>{ if(e.target===m) m.style.display='none'; }; document.body.appendChild(m); }
   const w=(j.meta.wpsNos||[])[0]; m.innerHTML=`<div style="background:#fff;border-radius:10px;padding:14px;max-width:min(1100px,96vw);max-height:94vh;overflow:auto"><div class="row" style="margin:0 0 8px"><b style="flex:1">${esc(j.name)} <small style="color:var(--mute)">${esc(j.meta.weldType||'')} · ${esc(j.meta.process||'')} · ${esc(j.meta.thk||'')}</small></b>${w&&wpsFind(w)?`<button class="b sm" onclick="document.getElementById('bigsk').style.display='none';tab='wps';render();openWpsDoc(wpsFind('${esc(w)}').id)">이 WPS(${esc(w)}) 열기</button>`:''}<button class="b sm sec" onclick="document.getElementById('bigsk').style.display='none'">닫기</button></div><img src="${svgUrl(j.svg)}" style="width:min(1000px,90vw);background:#fff;border:1px solid var(--line)"></div>`; m.style.display='flex'; }
 let LIBCTX=null; // {kind,pick}
@@ -1747,23 +1754,23 @@ document.addEventListener('change',e=>{ if(e.target.closest&&e.target.closest('#
 
 // ===================== WPS 양식 출력 (A4) =====================
 // 패스별 조건표 행: 아래 칸이 비어 있으면 위 칸과 세로로 병합(원본 엑셀의 병합 셀과 같은 모양)
-function wpsPassRows(par){ const MERGE=new Set(['process','filler','polarity','speedUnit','heatUnit']); const span={}; const keys=PARAM_COLS.map(([k])=>k);
+function wpsPassRows(par,F){ const cs=pcols({form:F||{}}), MERGE=cs===PARAM_COLS?new Set(['process','filler','polarity','speedUnit','heatUnit']):new Set(); const span={}; const keys=cs.map(([k])=>k);
   keys.forEach(k=>{ if(!MERGE.has(k)) return; for(let i=0;i<par.length;i++){ if(!String(par[i][k]||'').trim()) continue; let n=1; while(i+n<par.length&&!String(par[i+n][k]||'').trim()) n++; span[i+'|'+k]=n; for(let t=1;t<n;t++) span[(i+t)+'|'+k]=0; } });
   return par.map((r,i)=>`<tr>${keys.map(k=>{ const sp=span[i+'|'+k]; if(sp===0) return ''; return `<td${sp>1?` rowspan="${sp}"`:''}>${esc(r[k])}</td>`; }).join('')}</tr>`).join(''); }
 function wpsDocHTML(m){
   const F=m.form||{}, L=(a,b)=>`<div class="wl"><b>${a}</b> ${b}</div>`, pw=(F.pwhtDetail||'').split('\n').filter(x=>x.trim()&&!/:\s*$/.test(x.trim()));
-  const par=(m.params||[]).length?m.params:[]; const sk=m.sketches||{};
+  const par=(m.params||[]).length?m.params:[]; const sk=m.sketches||{}, lbw=F.variant==='LBW', sig=`<div class="wsig">${S.stamp?`<img class="stamp" src="${S.stamp}">`:''}${S.signature?`<img class="sign" src="${S.signature}">`:''}<div><b>${esc(F.signer)}</b></div><div>책임 용접 조정자</div><div>Responsible welding coordinator</div><div>날짜 ${esc(F.signDate||'')}${F.firstDate?`<br>${esc(F.firstDate)}`:''}</div></div>`;
   return `<div class="wdoc">
    <table class="wg wh3"><tr><td class="wlg">${S.logo?`<img src="${S.logo}">`:`<b>${esc(S.company)}</b>`}</td><td class="wtt"><b>WPS</b><br><span>(Welding Procdure Specification)</span></td><td class="wrv"><b>${esc(S.company||'')}</b><br>Rev. ${esc(m.rev||'')}</td></tr></table>
-   <table class="wg"><tr><td colspan="2">${L('관련 코드',esc(F.codeStd))}</td></tr><tr><td style="width:50%">${L('WPS No. :',`<span class="val">${esc(m.wpsNo)}</span>`)}${L('WPQR No. :',esc((m.pqrNos||[]).join(', ')))}${L('제조사 manufacturer :',esc(F.manufacturer))}${L('용접 방법 Weld Type :',esc(F.processIso))}${L('이음 형태 Joint Type :',esc(F.jointType))}${L('용접자세 Welding Position :',esc(F.positionIso))}${L('용접 이행 모드 Mode of metal transfer :',esc(F.transfer))}</td>
-    <td>${L('용접준비 및 청결 방법 Method of Preparation and Cleaning :',esc(F.prep))}${L('모재 사양 Parent Material Specification :',esc(F.parentSpec))}${L('모재 두께 Material Thickness(mm) :',esc(F.thickness))}${L('용접 금속 두께 Weld Metal Thickness(mm) :',esc(F.weldMetalThk))}${L('목 두께 Throat Thickness(mm) :',esc(F.throatThk))}${F.legZ?L('※ 각장 :',esc(F.legZ)):''}${L('파이프 직경 Outside Pipe Diameter(mm) :',esc(F.pipeDia))}</td></tr></table>
+   <table class="wg"><tr><td colspan="2">${L('관련 코드',esc(F.codeStd))}</td></tr><tr><td style="width:50%">${lbw?`${L('WPS No. :',`<span class="val">${esc(m.wpsNo)}</span>`)}${L('WPQR No. :',esc((m.pqrNos||[]).join(', ')))}${L('제조사 manufacturer :',esc(F.manufacturer))}${L('장비식별 Equipment identification :',esc(F.equip))}${L('모재 사양 Parent Material Specification :',esc(F.parentSpec))}${L('모재 두께 Material Thickness(mm) :',esc(F.thickness))}${L('용접 금속 두께 Weld Metal Thickness(mm) :',esc(F.weldMetalThk))}${L('용가재 또는 삽입재 Filler or other additional material :',esc(F.fillerDesig))}${L('이음 형태 Joint Type :',esc(F.jointType))}${L('용접자세 Welding Position :',esc(F.positionIso))}`:`${L('WPS No. :',`<span class="val">${esc(m.wpsNo)}</span>`)}${L('WPQR No. :',esc((m.pqrNos||[]).join(', ')))}${L('제조사 manufacturer :',esc(F.manufacturer))}${L('용접 방법 Weld Type :',esc(F.processIso))}${L('이음 형태 Joint Type :',esc(F.jointType))}${L('용접자세 Welding Position :',esc(F.positionIso))}${L('용접 이행 모드 Mode of metal transfer :',esc(F.transfer))}`}</td>
+    <td>${L('용접준비 및 청결 방법 Method of Preparation and Cleaning :',esc(F.prep))}${lbw?'':`${L('모재 사양 Parent Material Specification :',esc(F.parentSpec))}${L('모재 두께 Material Thickness(mm) :',esc(F.thickness))}${L('용접 금속 두께 Weld Metal Thickness(mm) :',esc(F.weldMetalThk))}`}${L('목 두께 Throat Thickness(mm) :',esc(F.throatThk))}${F.legZ?L('※ 각장 :',esc(F.legZ)):''}${L('파이프 직경 Outside Pipe Diameter(mm) :',esc(F.pipeDia))}</td></tr></table>
    <div class="wcap">용접 이음부 상세 Weld Preparation Details (Sketch)</div>
    <table class="wg ws"><tr><th>이음부 형상<br>Joint Design</th><th>용접 순서<br>Welding Sequence</th></tr><tr><td class="sk">${sk.joint?`<img src="${sk.joint}">`:''}</td><td class="sk">${sk.sequence?`<img src="${sk.sequence}">`:''}</td></tr></table>
    <div class="wcap">용접 상세 Welding Details</div>
-   <table class="wg wp"><tr><th>층수<br>Pass</th><th>용접 공법<br>Welding Process</th><th>용가재 크기<br>Size of filler</th><th>용접 전류<br>Current(A)</th><th>용접 전압<br>Voltage(V)</th><th>전류 극성<br>Current/Polarity</th><th colspan="2">용접 속도<br>Welding Speed</th><th colspan="2">입열량<br>Heat input</th></tr>${wpsPassRows(par)||'<tr><td colspan="10" style="height:14mm"></td></tr>'}${F.passNote?`<tr><td colspan="10" style="text-align:left;font-size:10.5px">${esc(F.passNote)}</td></tr>`:''}</table>
-   <table class="wg"><tr><td>${L('용가재 사양 Filler Metal Designation',`<div>${esc(F.filler)}</div>`)}${L('보호가스 Gas/Flux :',esc(F.gas))}${L('가스 유량 Gas Flow Rate :',esc(F.gasFlow))}${L('텅스텐 전극 형태/크기 :',esc(F.tungsten))}${L('가우징/배킹 상세 Details of back gouging/backing :',esc(F.backingDetail))}${L('예열온도 Preheat Temperature :',esc(F.preheat))}${L('층간 온도 Interpass temperature :',esc(F.interpass))}${L('후열처리 Post-Weld Heat Treatment :',esc(F.pwht))}${pw.map(x=>`<div class="wl">${esc(x)}</div>`).join('')}</td>
+   <table class="wg wp"><tr>${F.passHdr?F.passHdr.map(h=>`<th colspan="${h.span}">${esc(h.label)}</th>`).join(''):'<th>층수<br>Pass</th><th>용접 공법<br>Welding Process</th><th>용가재 크기<br>Size of filler</th><th>용접 전류<br>Current(A)</th><th>용접 전압<br>Voltage(V)</th><th>전류 극성<br>Current/Polarity</th><th colspan="2">용접 속도<br>Welding Speed</th><th colspan="2">입열량<br>Heat input</th>'}</tr>${wpsPassRows(par,F)||`<tr><td colspan="${pcols({form:F}).length}" style="height:14mm"></td></tr>`}${F.passNote?`<tr><td colspan="${pcols({form:F}).length}" style="text-align:left;font-size:10.5px">${esc(F.passNote)}</td></tr>`:''}</table>
+   ${lbw?`<table class="wg"><tr><td style="width:62%">${L('지그 사용 Jigs, fixture and Tooling :',esc(F.jigs))}${L('예열온도 Preheat Temperature :',esc(F.preheat))}${L('층간 온도 Interpass temperature :',esc(F.interpass))}${L('후열처리 Post-Weld Heat Treatment :',esc(F.pwht))}${L('배킹가스 Backing gas :',esc(F.backingGas))}${L('배킹 Backing :',esc(F.backingType))}</td><td>${sig}</td></tr></table>`:`<table class="wg"><tr><td>${L('용가재 사양 Filler Metal Designation',`<div>${esc(F.filler)}</div>`)}${L('보호가스 Gas/Flux :',esc(F.gas))}${L('가스 유량 Gas Flow Rate :',esc(F.gasFlow))}${L('텅스텐 전극 형태/크기 :',esc(F.tungsten))}${L('가우징/배킹 상세 Details of back gouging/backing :',esc(F.backingDetail))}${L('예열온도 Preheat Temperature :',esc(F.preheat))}${L('층간 온도 Interpass temperature :',esc(F.interpass))}${L('후열처리 Post-Weld Heat Treatment :',esc(F.pwht))}${pw.map(x=>`<div class="wl">${esc(x)}</div>`).join('')}</td>
     <td>${L('※ 기타 정보 Other information','')}${L('Weaving :',esc(F.weaving))}${L('Oscillation :',esc(F.oscillation))}${L('Pulse welding details :',esc(F.pulse))}${L('Distance contact tube/Work piece :',esc(F.ctwd))}${L('Torch angle :',esc(F.torch))}
-     <div class="wsig">${S.stamp?`<img class="stamp" src="${S.stamp}">`:''}${S.signature?`<img class="sign" src="${S.signature}">`:''}<div><b>${esc(F.signer)}</b></div><div>책임 용접 조정자</div><div>Responsible welding coordinator</div><div>날짜 ${esc(F.signDate||'')}${F.firstDate?`<br>${esc(F.firstDate)}`:''}</div></div></td></tr></table></div>`; }
+     <div class="wsig">${S.stamp?`<img class="stamp" src="${S.stamp}">`:''}${S.signature?`<img class="sign" src="${S.signature}">`:''}<div><b>${esc(F.signer)}</b></div><div>책임 용접 조정자</div><div>Responsible welding coordinator</div><div>날짜 ${esc(F.signDate||'')}${F.firstDate?`<br>${esc(F.firstDate)}`:''}</div></div></td></tr></table>`}</div>`; }
 function previewWps(id){ openCert(wpsDocHTML(wpsMaster.find(x=>x.id===id))); }
 function previewWpsDoc(){ const o=WD.obj; openCert(wpsDocHTML({...o,procCodes:procCodesOf(o.process)})); }
 
