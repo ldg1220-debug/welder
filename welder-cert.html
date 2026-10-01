@@ -887,7 +887,7 @@ async function importWpsForms(forms,ctx){ ctx=ctx||{ext:{},key:''};
   const replace=hasOld&&confirm('이전에 WPS 양식에서 가져온 스케치/형상 라이브러리가 있습니다.\n새로 추출한 것으로 교체할까요? (확인=교체, 취소=기존 유지하고 새 것만 추가)');
   for(const f of uniq){ if(!f.sh||!f.sh.drawing) continue; try{ if(!th) th=parseTheme(await f.sh.theme()); const r=drawingSketches(await f.sh.drawing(),th); sk.set(f.wpsNo,r); nSk+=(r.joint?1:0)+(r.sequence?1:0); }catch(e){} }
   if(replace){ for(const j of joints.filter(j=>j.meta&&j.meta.source==='wps-form')) await DB.del('joints',j.id); await load(); }
-  const up=[]; let nLink=0;
+  const up=[]; let nLink=0; S.skVer=SK_VER; await saveSettings();
   for(const f of uniq){ if(!f.sh||!f.sh.camera) continue; try{ const lab=f.sh.rows.findIndex(r=>r&&r.some(v=>/Welding Details/i.test(String(v||'')))); const cams=(await f.sh.camera()).filter(c=>/details/i.test(c.ref)&&(lab<0||(c.row>=lab&&c.row<=lab+8))); if(cams[0]) f.link=parseCamRef(cams[0].ref,ctx.ext,ctx.key); }catch(e){} }
   for(const f of uniq){ const cur=wpsFind(f.wpsNo);
     const codeOf=t=>(String(t).match(/\b\d{2,3}\b/)||[''])[0];
@@ -1022,9 +1022,11 @@ function suggestWps(r){ // 용접사 시험용(Welder Test) WPS 중 범위에 �
 function wpsCell(r){ const no=(r.wpsNo||'').trim(); if(!no) return ''; const m=wpsFind(no), why=m?wpsCover(m,r):[];
   return esc(no)+(why.length?` <span class="wn" title="${esc('WPS 범위 밖 의심: '+why.join(' / '))}">⚠</span>`:(!m&&wpsMaster.length?` <span class="wn" title="WPS 마스터에 없는 번호">?</span>`:'')); }
 
+const SK_VER=54; // WPS 양식 스케치 변환 버전: 올리면 예전 변환본에 '다시 가져오기' 안내가 뜬다
 function vWps(){
   if(WF.doc) return vWpsDoc();
-  $('#view').innerHTML=`<div class="card"><div class="row" style="margin:0"><h2 id="wtitle2" style="margin:0;flex:1"></h2>
+  const old=wpsMaster.some(w=>w.sketches&&(w.sketches.joint||w.sketches.sequence))&&(S.skVer||0)<SK_VER;
+  $('#view').innerHTML=(old?`<div class="card" style="border-color:var(--warn);background:#fff8e6"><b>⚠ WPS 스케치가 예전 방식으로 변환된 상태입니다.</b> 판재·V홈 선이 빠지거나 패스별 조건표가 비어 있을 수 있습니다. <b>Total_WPS 엑셀을 다시 가져오세요</b>(아래 "WPS/WPQR 목록 엑셀 가져오기"에서 파일 선택 → 스케치 교체에 "확인"). 가져오면 이 안내가 사라집니다.</div>`:'')+`<div class="card"><div class="row" style="margin:0"><h2 id="wtitle2" style="margin:0;flex:1"></h2>
     <button class="b ${WF.view==='wps'?'':'sec'}" onclick="WF.view='wps';WF.edit=null;vWps()">WPS 마스터</button>
     <button class="b ${WF.view==='pqr'?'':'sec'}" onclick="WF.view='pqr';WF.edit=null;vWps()">PQR / WPQR</button>
     <button class="b ${WF.view==='lib'?'':'sec'}" onclick="WF.view='lib';WF.edit=null;vWps()">형상 라이브러리</button>
