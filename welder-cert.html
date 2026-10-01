@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v61 · 다중 선택·미입사</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v62 · 인증서→영문명·출생지</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -494,6 +494,26 @@ function drawWelders(){
    <td class="bx"><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm sec" title="소속·직무·출생지·상태를 복사해 새 용접사 등록" onclick="copyWelder(${w.id})">복사</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>${open&&certs.length?certDetail(w,certs):''}`;}).join('')||'<tr><td colspan="15" style="color:var(--mute)">해당하는 용접사가 없습니다.</td></tr>'}</tbody></table>`;
   rz($('#wlist'),'welders4');
 }
+// 발급한 인증서 엑셀(시트=인증서 1장)에서 영문 성명·출생지만 읽어 용접사 정보를 보충한다 (시험 기록은 만들지 않음)
+async function fillFromCerts(list){ const files=[...(list||[])]; if(!files.length) return; toast('인증서 엑셀을 읽는 중…',60000);
+  const found=new Map(); let nCert=0; const up=t=>String(t||'').replace(/\s+/g,' ').trim().toUpperCase();
+  for(const f of files){ try{ const sh=await readXlsx(await f.arrayBuffer()); for(const c of parseCerts(sh)){ if(c.bad||!c.welderNo) continue; nCert++; (found.get(c.welderNo)||found.set(c.welderNo,[]).get(c.welderNo)).push({ko:c.name||'',en:up(c.nameEn),pl:up(c.birthPlace)}); } }catch(err){ alert(`${f.name}: 읽기 실패 (${err.message||err})`); } }
+  const pick=m=>[...m.entries()].sort((a,b)=>b[1]-a[1])[0]; const byNo=new Map(welders.map(w=>[normNo(w.welderNo),w])), byName={}; welders.forEach(w=>{ (byName[w.name]=byName[w.name]||[]).push(w); });
+  const plan=[], unmatched=[], conflicts=[], mism=[]; let diff=0;
+  for(const [no,list] of found){ const ko0=(list.find(x=>x.ko)||{}).ko||''; let w=byNo.get(no); if(!w&&ko0&&(byName[ko0]||[]).length===1) w=byName[ko0][0]; if(!w){ unmatched.push(`${no} ${ko0}`); continue; }
+    // 인증서의 한글 이름이 용접사 이름과 다르면(번호가 잘못 적힌 인증서) 그 인증서는 쓰지 않는다
+    const ok=list.filter(x=>!x.ko||x.ko===w.name), bad=list.length-ok.length; if(bad) mism.push(`${no} ${w.name} ≠ ${[...new Set(list.filter(x=>x.ko&&x.ko!==w.name).map(x=>x.ko))].join('/')} (${bad}장)`);
+    const en=new Map(), pl=new Map(); ok.forEach(x=>{ if(x.en) en.set(x.en,(en.get(x.en)||0)+1); if(x.pl) pl.set(x.pl,(pl.get(x.pl)||0)+1); });
+    if(en.size>1) conflicts.push(`${w.name}: ${[...en.keys()].join(' / ')}`); if(pl.size>1) conflicts.push(`${w.name}(출생지): ${[...pl.keys()].join(' / ')}`);
+    const e1=pick(en), p1=pick(pl), chg={}; if(e1&&e1[0]!==up(w.nameEn)) chg.nameEn=e1[0]; if(p1&&p1[0]!==up(w.birthPlace)) chg.birthPlace=p1[0]; if(!Object.keys(chg).length) continue;
+    if((chg.nameEn&&String(w.nameEn||'').trim())||(chg.birthPlace&&String(w.birthPlace||'').trim())) diff++; plan.push({w,chg}); }
+  toast('',1); if(!plan.length) return alert(`인증서 ${nCert}장을 읽었지만 새로 채울 영문명·출생지가 없습니다.${unmatched.length?`\n\n일치하는 용접사를 못 찾은 번호 ${unmatched.length}건:\n${unmatched.slice(0,10).join('\n')}`:''}`);
+  const addEn=plan.filter(x=>x.chg.nameEn&&!String(x.w.nameEn||'').trim()).length, addPl=plan.filter(x=>x.chg.birthPlace&&!String(x.w.birthPlace||'').trim()).length;
+  let overwrite=false; if(diff) overwrite=confirm(`인증서 ${nCert}장 · 용접사 ${found.size}명 인식.${mism.length?`\n이름과 번호가 안 맞는 인증서(제외) ${mism.length}건`:''}\n\n빈 칸 채움: 영문명 ${addEn}명, 출생지 ${addPl}명\n이미 값이 있는데 인증서 값과 다른 용접사: ${diff}명\n\n이미 있는 값도 인증서 값으로 덮어쓸까요?\n  확인 = 덮어쓰기 (영문·출생지는 대문자로 통일)\n  취소 = 빈 칸만 채우기`);
+  const out=[]; for(const {w,chg} of plan){ const n={...w}; let ch=false; if(chg.nameEn&&(overwrite||!String(w.nameEn||'').trim())){ n.nameEn=chg.nameEn; ch=true; } if(chg.birthPlace&&(overwrite||!String(w.birthPlace||'').trim())){ n.birthPlace=chg.birthPlace; ch=true; } if(ch) out.push(n); }
+  if(!out.length) return alert('채울 빈 칸이 없습니다.');
+  if(!diff&&!confirm(`인증서 ${nCert}장 · 용접사 ${found.size}명 인식.${mism.length?`\n이름과 번호가 안 맞는 인증서(제외) ${mism.length}건`:''}\n\n영문명 ${addEn}명, 출생지 ${addPl}명의 빈 칸을 채웁니다. (영문·출생지는 대문자로 통일)${unmatched.length?`\n일치하는 용접사를 못 찾은 번호 ${unmatched.length}건은 건너뜁니다.`:''}${conflicts.length?`\n인증서끼리 값이 다른 용접사 ${conflicts.length}건은 가장 많이 나온 값을 씁니다.`:''}\n\n계속할까요?`)) return;
+  await DB.putMany('welders',out); await load(); if($('#wlist')) drawWelders(); alert(`완료: ${out.length}명 갱신 (영문명 ${out.filter(x=>x.nameEn).length}명 · 출생지 ${out.filter(x=>x.birthPlace).length}명)${unmatched.length?`\n\n못 찾은 번호 ${unmatched.length}건: ${unmatched.slice(0,8).join(', ')}${unmatched.length>8?' …':''}`:''}${mism.length?`\n\n※ 인증서의 번호와 이름이 다른 것(제외, 인증서 엑셀 확인 필요):\n${mism.slice(0,10).join('\n')}${mism.length>10?`\n… 외 ${mism.length-10}건`:''}`:''}${conflicts.length?`\n\n인증서끼리 값이 달랐던 항목(다수결 적용):\n${conflicts.slice(0,8).join('\n')}`:''}`); }
 function exportWelders(){ const {rows,cnt,ok,passes,iss}=welderRows(), sel=new Set(msIds('wel')), list=sel.size?rows.filter(w=>sel.has(w.id)):rows; if(!list.length) return toast('내보낼 용접사가 없습니다.',2500);
   const head=['연번','소속','성명','영문 성명','생년월일','출생지','용접사 No','직무','상태','합격 건수','시험 건수','최초 합격일','가장 늦은 만기','비고(미비점)'];
   exportXlsx(`용접사_${today()}.xlsx`,'용접사',head,list.map((w,i)=>{ const ps=(passes[w.id]||[]).map(r=>r.weldingDate).sort(); return [i+1,w.company||'',w.name,w.nameEn||'',w.birthDate||'',w.birthPlace||'',w.welderNo,w.role||'',w.status,ok[w.id]||0,cnt[w.id]||0,ps[0]||'',ps.length?calcExpire(ps[ps.length-1]):'',iss[w.id].map(x=>x.t).join(', ')]; }));
@@ -579,7 +599,7 @@ function vWelders(){
     <input id="wq" placeholder="번호 / 성명 / 소속 검색" style="min-width:220px" value="${esc(window._wq||'')}" oninput="window._wq=this.value;drawWelders()">
     <select onchange="window._wf=this.value;drawWelders()" title="미입사(시험만 보고 채용되지 않은 사람)는 기본으로 숨깁니다">${['표시중','전체','재직','퇴사','미입사','미확인'].map(x=>`<option value="${x}" ${x===(window._wf||'표시중')?'selected':''}>${x==='표시중'?'표시중 (미입사 제외)':x}</option>`).join('')}</select>
     <select onchange="window._wi=this.value;drawWelders()" title="비고(미비점) 기준으로 걸러 보기">${[['','비고: 전체'],['any','미비점 있는 사람만'],['photo','사진 없음'],['nameEn','영문 성명 없음'],['birth','생년월일 없음'],['place','출생지 없음'],['company','소속 없음'],['noNo','번호 미부여'],['noPass','합격 인증서 없음'],['allExp','인증서 전부 만료'],['renew','서명 갱신 필요'],['pending','시험 진행중']].map(([v,t])=>`<option value="${v}" ${v===(window._wi||'')?'selected':''}>${t}</option>`).join('')}</select>
-    <button class="b sm sec" onclick="exportWelders()" title="선택한 용접사(없으면 현재 목록 전체)를 엑셀 파일로 저장">엑셀 내보내기</button><button class="b sm sec" onclick="markNoNoAsNew()" title="번호가 '미부여-'로 시작하는 사람(시험만 보고 채용 안 된 사람)을 일괄 '미입사'로 바꿉니다">번호 미부여 → 미입사</button>
+    <button class="b sm sec" onclick="exportWelders()" title="선택한 용접사(없으면 현재 목록 전체)를 엑셀 파일로 저장">엑셀 내보내기</button><label class="b sm sec" style="cursor:pointer;display:inline-flex;align-items:center" title="발급한 인증서 엑셀(여러 개 선택 가능)에서 용접사별 영문 성명·출생지를 읽어 빈 칸만 채웁니다. 시험 기록은 건드리지 않습니다.">인증서 엑셀로 영문명·출생지 채우기<input type="file" accept=".xlsx" multiple hidden onchange="fillFromCerts(this.files);this.value=''"></label><button class="b sm sec" onclick="markNoNoAsNew()" title="번호가 '미부여-'로 시작하는 사람(시험만 보고 채용 안 된 사람)을 일괄 '미입사'로 바꿉니다">번호 미부여 → 미입사</button>
     <span style="flex:1"></span>
     <span style="color:var(--mute)">엑셀(.xlsx) / CSV 가져오기</span><input type="file" accept=".xlsx,.csv" multiple onchange="importFiles(this.files);this.value=''">
     <button class="b sm red" onclick="cleanupWelders()">깨진 데이터 정리</button></div>
