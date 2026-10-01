@@ -38,7 +38,7 @@ table.list th{position:relative}
 .rh{position:absolute;right:0;top:0;bottom:0;width:7px;cursor:col-resize;user-select:none}.rh:hover,.rh:active{background:var(--accent);opacity:.5}
 .pz{border:2px dashed var(--line);border-radius:6px;min-height:64px;padding:6px;display:flex;align-items:center;gap:8px;color:var(--mute);font-size:12px;cursor:pointer;background:#fafbfc}
 .pz:focus,.pz.over{border-color:var(--accent);outline:0;background:#eef5fd;color:var(--accent)}
-#genj [data-mv],#gens [data-mv]{cursor:move}#genj [data-mv]:hover,#gens [data-mv]:hover{filter:drop-shadow(0 0 2px #1f5fae)}table.mx{border-collapse:collapse;font-size:12px;white-space:nowrap}table.mx th,table.mx td{border:1px solid #c9d1da;padding:2px 5px;text-align:center}table.mx thead th{background:#fdf0cf;position:sticky;top:0;z-index:2}table.mx thead tr.h2 th{top:22px}table.mx thead tr.h3 th{top:44px}table.mx thead tr.h4 th{top:66px;background:#f3f3f3;font-weight:400;font-size:11px}table.mx td.l,table.mx th.l{background:#eef2f7;text-align:left}table.mx td.ok{background:#22e0e8;cursor:pointer}table.mx td.rn{background:#ffe27a;cursor:pointer}table.mx td.ex{background:#f3b6b6;cursor:pointer;color:#7a1f1f}table.mx td.pg{background:#ffd7a8}table.mx td.ft{color:#b33}table.mx tr.sep td{border-top:2px solid #333}table.mx tr.gone td{color:#8a94a0}#genj [data-ax=x]{cursor:ew-resize}#genj [data-ax=y]{cursor:ns-resize}#genj [data-p]:hover rect{fill:#e07b00}
+#genj [data-mv],#gens [data-mv]{cursor:move}#genj [data-mv]:hover,#gens [data-mv]:hover{filter:drop-shadow(0 0 2px #1f5fae)}table.mx{border-collapse:collapse;font-size:12px;white-space:nowrap}table.mx th,table.mx td{border:1px solid #c9d1da;padding:2px 5px;text-align:center}table.mx thead th{background:#fdf0cf;position:sticky;top:0;z-index:2}table.mx thead tr.h2 th{top:22px}table.mx thead tr.h3 th{top:44px}table.mx thead tr.h4 th{top:66px;background:#f3f3f3;font-weight:400;font-size:11px}table.mx td.l,table.mx th.l{background:#eef2f7;text-align:left}table.mx td.ok{background:#22e0e8;cursor:pointer}table.mx td.rn{background:#ffe27a;cursor:pointer}table.mx td.ex{background:#f3b6b6;cursor:pointer;color:#7a1f1f}table.mx td.pg{background:#ffd7a8}table.mx td.ft{color:#b33}table.mx tr.sep td{border-top:2px solid #333}table.mx tr.gone td{color:#8a94a0}#genj [data-ax=x]{cursor:ew-resize}#genj [data-ax=y],#gens [data-ax=y]{cursor:ns-resize}#genj [data-p]:hover rect{fill:#e07b00}
 .lib{display:flex;gap:10px;flex-wrap:wrap}.li{position:relative;border:2px solid var(--line);border-radius:6px;padding:3px;background:repeating-conic-gradient(#eef0f2 0 25%,#fff 0 50%) 50%/12px 12px}
 .li.on{border-color:var(--accent);box-shadow:0 0 0 2px #cfe0f3}.li img{height:52px;max-width:120px;cursor:pointer;display:block}
 .li b{position:absolute;top:-9px;right:-9px;background:var(--bad);color:#fff;border-radius:50%;width:18px;height:18px;text-align:center;line-height:18px;font-size:12px;cursor:pointer}
@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v47 · 백비드·백킹</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v48 · 보강 높이</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -1239,7 +1239,7 @@ function saveSlotToLib(slot){ collectDoc(); const sv=svgFromUrl(WD.obj.sketches[
   saveToLib(slot,sv,`${WD.obj.wpsNo||'새 WPS'} ${KIND_L[slot]}`,{weldType:WD.obj.weldType,process:WD.obj.process,thk:WD.obj.thk,backing:WD.obj.backing}); }
 
 // ---- 형상 생성기 (값 입력 -> SVG)
-const GEN={open:false,type:'vgroove',t:12,t2:12,angle:60,gap:2,face:1.5,r:6,leg:6,backing:'none',layers:'1,2,3',dims:true,weld:true,symbol:true,symSystem:'A',symSide:'arrow',symDim:'z',symS:'',symN:'',symL:'',symE:'',contour:'none',allAround:false,field:false,tailProc:'135',tailLvl:'B',tailLvlPrefix:false,tailPos:'PA',tailFiller:'',tailRef:'',custom:'9,0; 1.5,10.5; 1.5,12',mirror:true,symKind:'V',pos:{},beads:null,beadMode:'auto',beadStyle:'auto',clipBeads:true,sel:-1};
+const GEN={open:false,type:'vgroove',t:12,t2:12,angle:60,gap:2,face:1.5,r:6,leg:6,backing:'none',layers:'1,2,3',dims:true,weld:true,symbol:true,symSystem:'A',symSide:'arrow',symDim:'z',symS:'',symN:'',symL:'',symE:'',contour:'none',allAround:false,field:false,tailProc:'135',tailLvl:'B',tailLvlPrefix:false,tailPos:'PA',tailFiller:'',tailRef:'',custom:'9,0; 1.5,10.5; 1.5,12',mirror:true,symKind:'V',pos:{},beads:null,beadMode:'auto',beadStyle:'auto',clipBeads:true,sel:-1,reinf:0};
 const GEN_TYPES=[['square','I형 맞대기 (Square butt)'],['vgroove','단면 V형 맞대기'],['xgroove','양면 V형(X) 맞대기'],['bevel','단면 베벨 맞대기'],['kgroove','양면 베벨(K형) 맞대기'],['ugroove','U형 맞대기'],['jgroove','단면 J형 맞대기'],['tee','T이음 필릿'],['tbevel','T이음 베벨(개선)'],['lap','겹치기 필릿'],['custom','사용자 정의 (개선면 좌표 입력)']];
 // ---------- 기하 유틸 ----------
 function polyExt(poly,y){ const xs=[]; for(let i=0;i<poly.length;i++){ const a=poly[i], b=poly[(i+1)%poly.length]; if((a[1]<=y&&b[1]>y)||(b[1]<=y&&a[1]>y)) xs.push(a[0]+(y-a[1])*(b[0]-a[0])/(b[1]-a[1])); } return xs.length>=2?[Math.min(...xs),Math.max(...xs)]:null; }
@@ -1303,6 +1303,9 @@ function genJoint(o,seq){
   const T=o.t, sc=Math.min(7,105/Math.max(T,1)), Tp=T*sc, cx=230, y0=78, Wd=175, tanH=Math.tan(o.angle/2*Math.PI/180), tanB=Math.tan(o.angle*Math.PI/180);
   const g=Math.max(o.gap*sc,o.gap>0?2:0), c=Math.min(o.face,T*0.9)*sc, d=Math.max(Tp-c,1), K='#000', type=o.type, xl=cx-g/2, xr=cx+g/2;
   const mv=mvOf(o);
+  const lvl=(String(o.tailLvl||'B').toUpperCase().replace(/[^BCD]/g,'')||'B'), FC=v=>o.reinf>0?o.reinf*sc:v;
+  // 보강(윗면 볼록) 높이: 직접 입력(h) 또는 EN ISO 5817 품질등급별 허용치(B: 1+0.1b, C: 1+0.15b, D: 1+0.25b / 최대 5·7·10mm)의 60%
+  const RH=wpx=>{ if(o.reinf>0) return o.reinf*sc; const w=Math.max(wpx,sc*2)/sc, k=lvl==='D'?.25:lvl==='C'?.15:.1, cap=lvl==='D'?10:lvl==='C'?7:5; return Math.max(2.5,Math.min(.6*(1+k*w),cap)*sc); };
   const hs=[], geo={sc,cx,y0,g,Tp,c,d,Wd,T,xl,xr}, HP=(key,x,y,ax,tip)=>hs.push({key,x,y,ax,tip});
   let plates='', back='', dimsArr=[], polys=[], kinds=[], anc=[cx,y0], ref={x0:cx+58,y:34,len:105}, hatchOn=o.weld&&!seq;
   const P=pts=>pts.map(p=>p.join(',')).join(' ');
@@ -1312,45 +1315,45 @@ function genJoint(o,seq){
   const arrow=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${K}" stroke-width="1" marker-end="url(#ah2)" marker-start="url(#ah2)"/>`;
   const dimV=(x,ya,yb,t)=>`<line x1="${x}" y1="${ya}" x2="${x+6}" y2="${ya}" stroke="${K}" stroke-width=".8"/><line x1="${x}" y1="${yb}" x2="${x+6}" y2="${yb}" stroke="${K}" stroke-width=".8"/>${arrow(x+3,ya,x+3,yb)}${txt(x-6,(ya+yb)/2+4,t,'end')}`;
   let weld='';
-  if(type==='square'){ plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+poly([[xr,y0],[xr+Wd,y0],[xr+Wd,y0+Tp],[xr,y0+Tp]]); const wp=[[xl,y0],[xr,y0],[xr,y0+Tp],[xl,y0+Tp]]; weld=g>0?wfill(wp):''; polys=[{pts:wp,crown:{a:[xl,y0],b:[xr,y0],nx:0,ny:-1,amt:Math.max(4,g*.5)}}]; kinds=['II']; HP('gap',xr,y0+Tp,'x','루트 간격 b'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
+  if(type==='square'){ plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+poly([[xr,y0],[xr+Wd,y0],[xr+Wd,y0+Tp],[xr,y0+Tp]]); const wp=[[xl,y0],[xr,y0],[xr,y0+Tp],[xl,y0+Tp]]; weld=g>0?wfill(wp):''; polys=[{pts:wp,crown:{a:[xl,y0],b:[xr,y0],nx:0,ny:-1,amt:RH(g)}}]; kinds=['II']; HP('gap',xr,y0+Tp,'x','루트 간격 b'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   else if(type==='vgroove'||type==='xgroove'){ const both=type==='xgroove', d1=both?(Tp-c)/2:d, th=g/2+d1*tanH;
     const L=[[xl-Wd,y0],[cx-th,y0],[xl,y0+d1]], R=[[xr+Wd,y0],[cx+th,y0],[xr,y0+d1]];
     if(both){ L.push([xl,y0+d1+c],[cx-th,y0+Tp]); R.push([xr,y0+d1+c],[cx+th,y0+Tp]); } else { L.push([xl,y0+Tp]); R.push([xr,y0+Tp]); }
     L.push([xl-Wd,y0+Tp]); R.push([xr+Wd,y0+Tp]); plates=poly(L)+poly(R);
     const wp=both?[[cx-th,y0],[cx+th,y0],[xr,y0+d1],[xr,y0+d1+c],[cx+th,y0+Tp],[cx-th,y0+Tp],[xl,y0+d1+c],[xl,y0+d1]]:[[cx-th,y0],[cx+th,y0],[xr,y0+d],[xr,y0+Tp],[xl,y0+Tp],[xl,y0+d]];
-    weld=wfill(wp); polys=[{pts:wp,crown:{a:[cx-th,y0],b:[cx+th,y0],nx:0,ny:-1,amt:Math.max(5,th*.28)}}]; kinds=['V']; Object.assign(geo,{d1}); HP('gap',xr,both?y0+Tp/2:y0+Tp,'x','루트 간격 b'); HP('angle',cx+th,y0,'x','개선 각도 α'); HP(both?'faceX':'face',xr,y0+d1,'y','루트 면 c'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t');
-    if(both){ const m=y0+d1+c/2; polys=[{pts:[[cx-th,y0],[cx+th,y0],[xr,y0+d1],[xr,m],[xl,m],[xl,y0+d1]],crown:{a:[cx-th,y0],b:[cx+th,y0],nx:0,ny:-1,amt:Math.max(5,th*.24)}},
-      {pts:[[xl,m],[xr,m],[xr,y0+d1+c],[cx+th,y0+Tp],[cx-th,y0+Tp],[xl,y0+d1+c]],crown:{a:[cx+th,y0+Tp],b:[cx-th,y0+Tp],nx:0,ny:1,amt:Math.max(5,th*.24)},down:true,cont:true}]; } }
+    weld=wfill(wp); polys=[{pts:wp,crown:{a:[cx-th,y0],b:[cx+th,y0],nx:0,ny:-1,amt:RH(2*th)}}]; kinds=['V']; Object.assign(geo,{d1}); HP('gap',xr,both?y0+Tp/2:y0+Tp,'x','루트 간격 b'); HP('angle',cx+th,y0,'x','개선 각도 α'); HP(both?'faceX':'face',xr,y0+d1,'y','루트 면 c'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t');
+    if(both){ const m=y0+d1+c/2; polys=[{pts:[[cx-th,y0],[cx+th,y0],[xr,y0+d1],[xr,m],[xl,m],[xl,y0+d1]],crown:{a:[cx-th,y0],b:[cx+th,y0],nx:0,ny:-1,amt:RH(2*th)}},
+      {pts:[[xl,m],[xr,m],[xr,y0+d1+c],[cx+th,y0+Tp],[cx-th,y0+Tp],[xl,y0+d1+c]],crown:{a:[cx+th,y0+Tp],b:[cx-th,y0+Tp],nx:0,ny:1,amt:RH(2*th)},down:true,cont:true}]; } }
   else if(type==='bevel'){ const th=d*tanB, xb=xr;
     plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+poly([[xb+th,y0],[xb+Wd,y0],[xb+Wd,y0+Tp],[xb,y0+Tp],[xb,y0+d]]);
-    const wp=[[xl,y0],[xb+th,y0],[xb,y0+d],[xb,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp); polys=[{pts:wp,crown:{a:[xl,y0],b:[xb+th,y0],nx:0,ny:-1,amt:Math.max(5,(th+g)*.28)}}]; kinds=['bevel']; anc=[xl+(th+g)/2,y0]; Object.assign(geo,{d1:d,xb}); HP('gap',xb,y0+Tp,'x','루트 간격 b'); HP('angleB',xb+th,y0,'x','개선 각도 α'); HP('face',xb,y0+d,'y','루트 면 c'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
+    const wp=[[xl,y0],[xb+th,y0],[xb,y0+d],[xb,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp); polys=[{pts:wp,crown:{a:[xl,y0],b:[xb+th,y0],nx:0,ny:-1,amt:RH(th+g)}}]; kinds=['bevel']; anc=[xl+(th+g)/2,y0]; Object.assign(geo,{d1:d,xb}); HP('gap',xb,y0+Tp,'x','루트 간격 b'); HP('angleB',xb+th,y0,'x','개선 각도 α'); HP('face',xb,y0+d,'y','루트 면 c'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   else if(type==='ugroove'){ const R=Math.min(o.r*sc,d*0.95), th0=Math.tan(Math.min(o.angle/2,25)*Math.PI/180), pyL=y0+d-R, pxL=xl-R, topx=pxL-(pyL-y0)*th0, pxR=xr+R, topxR=pxR+(pyL-y0)*th0;
     const Lp=`M${xl-Wd},${y0} L${topx},${y0} L${pxL},${pyL} A${R},${R} 0 0 0 ${xl},${y0+d} L${xl},${y0+Tp} L${xl-Wd},${y0+Tp} Z`, Rp=`M${xr+Wd},${y0} L${topxR},${y0} L${pxR},${pyL} A${R},${R} 0 0 1 ${xr},${y0+d} L${xr},${y0+Tp} L${xr+Wd},${y0+Tp} Z`;
     plates=`<path d="${Lp}" fill="#fff" stroke="${K}" stroke-width="1.6"/><path d="${Rp}" fill="#fff" stroke="${K}" stroke-width="1.6"/>`;
     const wp=[[topx,y0],...arcPts(xl,pyL,R,Math.PI,Math.PI/2).slice(0,-1).map((p,k)=>p),[xl,y0+d],[xl,y0+Tp],[xr,y0+Tp],[xr,y0+d],...arcPts(xr,pyL,R,Math.PI/2,0).slice(1),[topxR,y0]];
     // 위 좌표는 왼쪽 위 -> 왼쪽 원호 -> 바닥 -> 오른쪽 원호 -> 오른쪽 위 순서가 되도록 재정렬
     const left=[[topx,y0],[pxL,pyL],...arcPts(xl,pyL,R,Math.PI,Math.PI/2).slice(1)], right=[...arcPts(xr,pyL,R,Math.PI/2,0),[topxR,y0]];
-    const wp2=[...left,[xl,y0+Tp],[xr,y0+Tp],...right]; weld=wfill(wp2); polys=[{pts:wp2,crown:{a:[topx,y0],b:[topxR,y0],nx:0,ny:-1,amt:Math.max(5,(topxR-topx)*.14)}}]; kinds=['U']; Object.assign(geo,{pxR,pyL}); HP('gap',xr,y0+Tp,'x','루트 간격 b'); HP('angleU',topxR,y0,'x','개선 각도 α'); HP('rad',pxR,pyL,'x','반지름 R'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
+    const wp2=[...left,[xl,y0+Tp],[xr,y0+Tp],...right]; weld=wfill(wp2); polys=[{pts:wp2,crown:{a:[topx,y0],b:[topxR,y0],nx:0,ny:-1,amt:RH(topxR-topx)}}]; kinds=['U']; Object.assign(geo,{pxR,pyL}); HP('gap',xr,y0+Tp,'x','루트 간격 b'); HP('angleU',topxR,y0,'x','개선 각도 α'); HP('rad',pxR,pyL,'x','반지름 R'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   else if(type==='jgroove'){ const R=Math.min(o.r*sc,d*0.95), th0=Math.tan(Math.min(o.angle,25)*Math.PI/180), pyL=y0+d-R, pxR=xr+R, topxR=pxR+(pyL-y0)*th0;
     plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+`<path d="M${xr+Wd},${y0} L${topxR},${y0} L${pxR},${pyL} A${R},${R} 0 0 1 ${xr},${y0+d} L${xr},${y0+Tp} L${xr+Wd},${y0+Tp} Z" fill="#fff" stroke="${K}" stroke-width="1.6"/>`;
-    const wp=[[xl,y0],[topxR,y0],[pxR,pyL],...arcPts(xr,pyL,R,0,Math.PI/2).slice(1),[xr,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp); polys=[{pts:wp,crown:{a:[xl,y0],b:[topxR,y0],nx:0,ny:-1,amt:Math.max(5,(topxR-xl)*.16)}}]; kinds=['J']; anc=[(xr+topxR)/2,y0]; Object.assign(geo,{pxR,pyL}); HP('gap',xr,y0+Tp,'x','루트 간격 b'); HP('angleJ',topxR,y0,'x','개선 각도 α'); HP('rad',pxR,pyL,'x','반지름 R'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
+    const wp=[[xl,y0],[topxR,y0],[pxR,pyL],...arcPts(xr,pyL,R,0,Math.PI/2).slice(1),[xr,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp); polys=[{pts:wp,crown:{a:[xl,y0],b:[topxR,y0],nx:0,ny:-1,amt:RH(topxR-xl)}}]; kinds=['J']; anc=[(xr+topxR)/2,y0]; Object.assign(geo,{pxR,pyL}); HP('gap',xr,y0+Tp,'x','루트 간격 b'); HP('angleJ',topxR,y0,'x','개선 각도 α'); HP('rad',pxR,pyL,'x','반지름 R'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   else if(type==='kgroove'){ const d1=(Tp-c)/2, th=d1*tanB, m=y0+d1+c/2, xb=xr;
     plates=poly([[xl-Wd,y0],[xl,y0],[xl,y0+Tp],[xl-Wd,y0+Tp]])+poly([[xb+th,y0],[xb+Wd,y0],[xb+Wd,y0+Tp],[xb+th,y0+Tp],[xb,y0+d1+c],[xb,y0+d1]]);
     const wp=[[xl,y0],[xb+th,y0],[xb,y0+d1],[xb,y0+d1+c],[xb+th,y0+Tp],[xl,y0+Tp]]; weld=wfill(wp);
-    polys=[{pts:[[xl,y0],[xb+th,y0],[xb,y0+d1],[xb,m],[xl,m]],crown:{a:[xl,y0],b:[xb+th,y0],nx:0,ny:-1,amt:Math.max(5,th*.28)}},{pts:[[xl,m],[xb,m],[xb,y0+d1+c],[xb+th,y0+Tp],[xl,y0+Tp]],crown:{a:[xb+th,y0+Tp],b:[xl,y0+Tp],nx:0,ny:1,amt:Math.max(5,th*.28)},down:true,cont:true}]; kinds=['bevel']; anc=[xl+(th+g)/2,y0]; Object.assign(geo,{d1,xb}); HP('gap',xb,m,'x','루트 간격 b'); HP('angleB',xb+th,y0,'x','개선 각도 α'); HP('faceX',xb,y0+d1,'y','루트 면 c'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
+    polys=[{pts:[[xl,y0],[xb+th,y0],[xb,y0+d1],[xb,m],[xl,m]],crown:{a:[xl,y0],b:[xb+th,y0],nx:0,ny:-1,amt:RH(2*th)}},{pts:[[xl,m],[xb,m],[xb,y0+d1+c],[xb+th,y0+Tp],[xl,y0+Tp]],crown:{a:[xb+th,y0+Tp],b:[xl,y0+Tp],nx:0,ny:1,amt:RH(2*th)},down:true,cont:true}]; kinds=['bevel']; anc=[xl+(th+g)/2,y0]; Object.assign(geo,{d1,xb}); HP('gap',xb,m,'x','루트 간격 b'); HP('angleB',xb+th,y0,'x','개선 각도 α'); HP('faceX',xb,y0+d1,'y','루트 면 c'); HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   else if(type==='custom'){ let pr=String(o.custom||'').split(';').map(t=>t.split(',').map(Number)).filter(a=>a.length>=2&&a.every(isFinite)).map(a=>[a[0],Math.min(Math.max(a[1],0),T)]);
     if(pr.length<2) pr=[[8,0],[1,T]]; if(pr[pr.length-1][1]<T) pr.push([pr[pr.length-1][0],T]);
     const R=pr.map(q=>[cx+q[0]*sc,y0+q[1]*sc]), Lp=o.mirror?pr.map(q=>[cx-q[0]*sc,y0+q[1]*sc]):pr.map(q=>[cx-Math.abs(pr[pr.length-1][0])*sc,y0+q[1]*sc]).filter((q,k,a)=>k===0||k===a.length-1);
     const rightPoly=[[R[0][0]+Wd,y0],...R,[R[R.length-1][0]+Wd,y0+Tp]], leftPoly=[[Lp[0][0]-Wd,y0],...Lp,[Lp[Lp.length-1][0]-Wd,y0+Tp]];
     plates=poly(leftPoly)+poly(rightPoly); const wp=[...Lp,...R.slice().reverse()]; weld=wfill(wp);
-    polys=[{pts:wp,crown:{a:Lp[0],b:R[0],nx:0,ny:-1,amt:Math.max(5,Math.abs(R[0][0]-Lp[0][0])*.16)}}]; kinds=[o.symKind==='J'?'J':o.symKind||'V']; anc=[(R[0][0]+Lp[0][0])/2,y0]; HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
+    polys=[{pts:wp,crown:{a:Lp[0],b:R[0],nx:0,ny:-1,amt:RH(Math.abs(R[0][0]-Lp[0][0]))}}]; kinds=[o.symKind==='J'?'J':o.symKind||'V']; anc=[(R[0][0]+Lp[0][0])/2,y0]; HP('t',xl-Wd/2,y0+Tp,'y','판 두께 t'); }
   if(o.backing!=='none'&&['square','vgroove','bevel','ugroove','jgroove','custom'].includes(type)){ const yb=y0+Tp;
     back=o.backing==='ceramic'?`<path d="M${cx-46},${yb} L${cx-46},${yb+16} L${cx+46},${yb+16} L${cx+46},${yb} L${cx+22},${yb} Q${cx},${yb-9} ${cx-22},${yb} Z" fill="#e6d8c3" stroke="${K}" stroke-width="1.2"/>${txt(cx,yb+30,'Ceramic backing')}`:`<rect x="${cx-55}" y="${yb}" width="110" height="9" fill="#cfcfcf" stroke="${K}" stroke-width="1.2"/>${txt(cx,yb+24,'Metal backing')}`; }
   if(type==='tee'||type==='tbevel'||type==='lap'){
     const T2=o.t2*sc, z=o.leg*sc, yb=200-T2;
     if(type==='lap'){ const x0=80,x1=cx+30; plates=poly([[x0,yb-Tp],[x1,yb-Tp],[x1,yb],[x0,yb]])+poly([[cx-90,yb],[cx+140,yb],[cx+140,yb+T2],[cx-90,yb+T2]]);
       const tri=[[x1,yb],[x1+z,yb],[x1,yb-z]]; weld=`<polygon points="${P(tri)}" fill="${hatchOn?'url(#hatch)':seq?'none':'#fff'}" stroke="${seq?'none':K}" stroke-width="1.4"/>`;
-      polys=[{pts:tri,crown:{a:[x1+z,yb],b:[x1,yb-z],nx:Math.SQRT1_2,ny:-Math.SQRT1_2,amt:z*.16},fillet:{C:[x1,yb],u:[1,0],z}}]; kinds=['fillet']; anc=[x1+z*.42,yb-z*.42]; ref={x0:x1+z+42,y:yb-Tp-34,len:80}; Object.assign(geo,{fx:x1,yb}); HP('leg',x1+z,yb,'x','필릿 각장 z'); HP('lapT',x0+25,yb-Tp,'y','윗판 두께 t'); HP('t2b',cx+100,yb,'y','바닥판 t2');
+      polys=[{pts:tri,crown:{a:[x1+z,yb],b:[x1,yb-z],nx:Math.SQRT1_2,ny:-Math.SQRT1_2,amt:FC(z*.16)},fillet:{C:[x1,yb],u:[1,0],z}}]; kinds=['fillet']; anc=[x1+z*.42,yb-z*.42]; ref={x0:x1+z+42,y:yb-Tp-34,len:80}; Object.assign(geo,{fx:x1,yb}); HP('leg',x1+z,yb,'x','필릿 각장 z'); HP('lapT',x0+25,yb-Tp,'y','윗판 두께 t'); HP('t2b',cx+100,yb,'y','바닥판 t2');
       dimsArr.push(mv('dim_t',dimV(60,yb-Tp,yb,`t=${o.t}`)),mv('dim_t2',dimV(cx+156,yb,yb+T2,`t2=${o.t2}`))); }
     else { const bw=170, vx0=cx-Tp/2, vx1=cx+Tp/2, y1=Math.max(yb-150,26), gp=type==='tbevel'?Math.max(o.gap*sc,2):0, yv=yb-gp;
       plates=poly([[cx-bw,yb],[cx+bw,yb],[cx+bw,yb+T2],[cx-bw,yb+T2]]);
@@ -1358,10 +1361,10 @@ function genJoint(o,seq){
       const fill=hatchOn?'url(#hatch)':'#fff';
       if(type==='tee'){ const triR=[[vx1,yb],[vx1+z,yb],[vx1,yb-z]], triL=[[vx0,yb],[vx0-z,yb],[vx0,yb-z]];
         plates+=poly([[vx0,y1],[vx1,y1],[vx1,yb],[vx0,yb]])+`<polygon points="${P(triR)}" fill="${seq?'none':fill}" stroke="${seq?'none':K}" stroke-width="1.4"/><polygon points="${P(triL)}" fill="${seq?'none':fill}" stroke="${seq?'none':K}" stroke-width="1.4"/>`;
-        polys=[{pts:triR,crown:{a:[vx1+z,yb],b:[vx1,yb-z],nx:Math.SQRT1_2,ny:-Math.SQRT1_2,amt:z*.16},fillet:{C:[vx1,yb],u:[1,0],z}},{pts:triL,crown:{a:[vx0,yb-z],b:[vx0-z,yb],nx:-Math.SQRT1_2,ny:-Math.SQRT1_2,amt:z*.16},fillet:{C:[vx0,yb],u:[-1,0],z},cont:true}]; kinds=['fillet']; anc=[vx1+z*.42,yb-z*.42]; ref={x0:vx1+z+50,y:yb-70,len:78}; dimsArr.push(mv('dim_z',txt(vx1+z+8,yb+16,`z=${o.leg}`,'start'))); }
+        polys=[{pts:triR,crown:{a:[vx1+z,yb],b:[vx1,yb-z],nx:Math.SQRT1_2,ny:-Math.SQRT1_2,amt:FC(z*.16)},fillet:{C:[vx1,yb],u:[1,0],z}},{pts:triL,crown:{a:[vx0,yb-z],b:[vx0-z,yb],nx:-Math.SQRT1_2,ny:-Math.SQRT1_2,amt:FC(z*.16)},fillet:{C:[vx0,yb],u:[-1,0],z},cont:true}]; kinds=['fillet']; anc=[vx1+z*.42,yb-z*.42]; ref={x0:vx1+z+50,y:yb-70,len:78}; dimsArr.push(mv('dim_z',txt(vx1+z+8,yb+16,`z=${o.leg}`,'start'))); }
       else { const cc=Math.min(o.face,T*0.9)*sc, run=Tp-cc, rise=run/Math.max(tanB,.05); plates+=poly([[vx0,y1],[vx1,y1],[vx1,yv-rise],[vx0+cc,yv],[vx0,yv]]);
         const wp=[[vx1,yv-rise],[vx0+cc,yv],[vx0+cc,yb],[vx1+z*.6,yb]]; plates+=`<polygon points="${P(wp)}" fill="${seq?'none':fill}" stroke="${seq?'none':K}" stroke-width="1.2"/>`;
-        polys=[{pts:wp,crown:{a:[vx1+z*.6,yb],b:[vx1,yv-rise],nx:Math.SQRT1_2,ny:-Math.SQRT1_2,amt:z*.12},fillet:{C:[vx0+cc,yb],u:[1,0],z:Math.max(20,(vx1+z*.6)-(vx0+cc)),phi:Math.atan2(rise,run)}}]; kinds=['bevel','fillet']; Object.assign(geo,{vx0,vx1,gp,cc,yv});
+        polys=[{pts:wp,crown:{a:[vx1+z*.6,yb],b:[vx1,yv-rise],nx:Math.SQRT1_2,ny:-Math.SQRT1_2,amt:FC(z*.12)},fillet:{C:[vx0+cc,yb],u:[1,0],z:Math.max(20,(vx1+z*.6)-(vx0+cc)),phi:Math.atan2(rise,run)}}]; kinds=['bevel','fillet']; Object.assign(geo,{vx0,vx1,gp,cc,yv});
         if(o.backing!=='none'){ const bt=Math.max(12,4*sc), bh=Math.max(gp+cc+24,36), cer=o.backing==='ceramic'; back=`<rect x="${vx0-bt}" y="${yb-bh}" width="${bt}" height="${bh}" fill="${cer?'#e6d8c3':'#cfcfcf'}" stroke="${K}" stroke-width="1.2"/>`+txt(vx0-bt/2,yb-bh-6,cer?'Ceramic backing':'Backing plate'); }
         anc=[vx1+z*.25,yb-z*.9]; ref={x0:vx1+z+50,y:yb-90,len:78}; dimsArr.push(txt(vx1+z*.6+14,yb+16,`α=${o.angle}°`,'start')); }
       dimsArr.push(mv('dim_t',dimV(vx0-30-(type==='tbevel'&&o.backing!=='none'?Math.max(12,4*sc)+4:0),y1,yb,`t=${o.t}`)),mv('dim_t2',dimV(cx+bw+22,yb,yb+T2,`t2=${o.t2}`))); } }
@@ -1431,15 +1434,17 @@ function seqBandSvg(o,polys){
     const {a,b,amt}=pl.crown, xa=Math.min(a[0],b[0]), xb=Math.max(a[0],b[0]), ys0=a[1], kc=layers[nL-1], step=(xb-xa)/kc, hb=Math.min(Math.max(4,amt*0.9),step*0.3,16);
     let d=`M${xa},${ys0}`; for(let j=0;j<kc;j++) d+=` Q${xa+step*(j+.5)},${ys0+dir*2*hb*(kc>1?0.85:1)} ${xa+step*(j+1)},${ys0}`; out+=line(d,1.7);
     layers.forEach((k,li)=>{ const last=li===nL-1;
-      for(let j=1;j<k;j++){ const t=j/k, p0=pt(li,t); let p1; if(last){ p1=[xa+step*j*(kc/k),ys0]; } else p1=pt(li+1,t); out+=line(`M${p0[0]},${p0[1]} L${p1[0]},${p1[1]}`,1); }
+      for(let j=1;j<k;j++){ const t=j/k, p0=pt(li,t); let p1; if(last){ p1=[xa+step*j*(kc/k),ys0]; } else p1=[p0[0],pt(li+1,t)[1]]; out+=line(`M${p0[0]},${p0[1]} L${p1[0]},${p1[1]}`,1); }
       for(let j=0;j<k;j++){ n++; const t=(j+.5)/k, p0=pt(li,t), p1=last?[xa+(xb-xa)*t,ys0+dir*hb*0.55]:pt(li+1,t); out+=num((p0[0]+p1[0])/2,(p0[1]+p1[1])/2); } }); });
   return out; }
 function genSeq(o){
-  const {svg,polys}=genJoint({...o,dims:false,weld:false,symbol:false,edit:false},true);
+  const {svg,polys,geo}=genJoint({...o,dims:false,weld:false,symbol:false,edit:false},true);
   if(!polys.length||o.type==='square') return svg.replace('</svg>',`<text x="260" y="150" font-size="13" text-anchor="middle" font-family="Malgun Gothic,Arial" fill="#666">이 형상은 용접 순서 도면을 지원하지 않습니다</text></svg>`);
   const manual=o.beadMode==='manual'&&Array.isArray(o.beads)&&o.beads.length, fil=polys.some(p=>p.fillet), style=(!o.beadStyle||o.beadStyle==='auto')?(fil?'beads':'band'):o.beadStyle;
   const body=(manual||style==='beads')?beadsSvg(o,polys,manual?o.beads:beadAuto(o,polys)):seqBandSvg(o,polys);
-  return svg.replace('</svg>',body+'</svg>'); }
+  const hh=!o.edit?'':polys.filter(pl=>pl.crown&&pl.crown.nx===0).map(pl=>{ const {a,amt,ny}=pl.crown, mx=(pl.crown.a[0]+pl.crown.b[0])/2, my=a[1]+ny*amt, k=JSON.stringify({sc:geo.sc,ya:a[1],sg:ny});
+    return `<g data-p="reinf" data-ax="y" data-k='${k}'><title>보강 높이 h — 끌어서 조절</title><circle cx="${mx}" cy="${my}" r="7" fill="transparent"/><rect x="${mx-5}" y="${my-5}" width="10" height="10" rx="2" fill="#ff9f1c" stroke="#fff" stroke-width="1.5"/></g>`; }).join('');
+  return svg.replace('</svg>',body+hh+'</svg>'); }
 // ---- 마우스 편집 (미리보기에서 요소 끌기 / 비드 선택 후 핸들로 크기·회전)
 let DRAG=null, NUMMODE=false, NUMNEXT=1, LASTDN=null;
 function svgPt(box,e){ const sv=box.querySelector('svg'), pt=sv.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; const m=sv.getScreenCTM(); const q=m?pt.matrixTransform(m.inverse()):{x:0,y:0}; return {x:q.x,y:q.y}; }
@@ -1461,10 +1466,11 @@ const PARAM={
  angleJ:(P,k)=>['angle',clp(Math.round(dg(Math.atan2(Math.max(P.x-k.pxR,.5),k.pyL-k.y0))),5,25)],
  face:(P,k)=>['face',clp(rdn((k.y0+k.Tp-P.y)/k.sc,.5),0,k.T*.9)],
  faceX:(P,k)=>['face',clp(rdn((k.Tp-2*(P.y-k.y0))/k.sc,.5),0,k.T*.9)],
+ reinf:(P,k)=>['reinf',clp(rdn(k.sg*(P.y-k.ya)/k.sc,.1),0.2,8)],
  rad:(P,k)=>['r',clp(rdn((P.x-k.xr)/k.sc,.5),1,Math.max(1,k.T*.9))] };
 function setGenField(k,v){ GEN[k]=v; const el=document.querySelector(`#genbox [data-g="${k}"]`); if(el) el.value=v; }
 document.addEventListener('pointerdown',e=>{ if(e.button) return; const now=Date.now(), dbl=LASTDN&&now-LASTDN.t<400&&Math.hypot(e.clientX-LASTDN.x,e.clientY-LASTDN.y)<6; LASTDN={t:now,x:e.clientX,y:e.clientY};
-  const t=e.target.closest&&e.target.closest('#genj [data-mv],#gens [data-mv],#gens [data-h],#genj [data-p]'), seqBox=e.target.closest&&e.target.closest('#gens');
+  const t=e.target.closest&&e.target.closest('#genj [data-mv],#gens [data-mv],#gens [data-h],#genj [data-p],#gens [data-p]'), seqBox=e.target.closest&&e.target.closest('#gens');
   if(!t){ if(seqBox&&seqBox.querySelector('svg')){ e.preventDefault(); const P=svgPt(seqBox,e); if(dbl){ beadAddAt(P.x,P.y); return; } if(GEN.sel>=0){ GEN.sel=-1; genDraw(); } } return; }
   const box=t.closest('#genj,#gens'), P=svgPt(box,e); e.preventDefault();
   if(t.dataset.p){ DRAG={k:'param',key:t.dataset.p,geo:JSON.parse(t.dataset.k),box}; return; }
@@ -1529,8 +1535,9 @@ const SYM_GUIDE=`<details style="margin-top:8px"><summary style="cursor:pointer;
  <p style="color:var(--mute);margin:6px 0 0">출처: 사내 교육자료 「AWS D1.1 & ISO 용접기호」(2025.01.07) 및 EN ISO 2553 공개 해설. 최종 적용 전 규격서 원문을 확인하세요.</p></div></details>`;
 function genPanelHTML(mode){ const G=GEN, tab=mode==='tab', num=(k,l)=>`<label>${l}<input type="number" step="any" data-g="${k}" value="${G[k]}"></label>`, chk=(k,l)=>`<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" data-g="${k}" ${G[k]?'checked':''}>${l}</label>`, sel=(k,l,opts)=>`<label>${l}<select data-g="${k}">${opts.map(([v,t])=>`<option value="${v}" ${G[k]===v?'selected':''}>${t}</option>`).join('')}</select></label>`, txt=(k,l,ph)=>`<label>${l}<input data-g="${k}" value="${esc(G[k])}" placeholder="${ph||''}"></label>`;
   return `<div class="card" id="genbox" style="border-color:var(--accent);margin-bottom:0"><div class="row" style="margin:0"><h3 style="margin:0;flex:1">${tab?'형상 생성 (값 입력 → 도면)':'형상 생성 (값 입력 → 도면)'}</h3>${tab?'':'<button type="button" class="b sec" onclick="GEN.open=false;vWpsDoc()">닫기</button>'}</div>
-   <h3>① 형상</h3><div class="grid">${sel('type','형상 종류',GEN_TYPES)}${num('t','판 두께 t (mm)')}${num('t2','바닥판 t2 (T·겹치기)')}${num('angle','개선 각도 α (°)')}${num('gap','루트 간격 b (mm)')}${num('face','루트 면 c (mm)')}${num('r','U·J 반지름 R (mm)')}${num('leg','필릿 각장 z (mm)')}
+   <h3>① 형상</h3><div class="grid">${sel('type','형상 종류',GEN_TYPES)}${num('t','판 두께 t (mm)')}${num('t2','바닥판 t2 (T·겹치기)')}${num('angle','개선 각도 α (°)')}${num('gap','루트 간격 b (mm)')}${num('face','루트 면 c (mm)')}${num('r','U·J 반지름 R (mm)')}${num('leg','필릿 각장 z (mm)')}${num('reinf','보강 높이 h (mm, 0=ISO 5817 자동)')}
     ${sel('backing','백킹',[['none','없음'],['ceramic','세라믹(제거형 MR)'],['metal','금속(영구 M)']])}${txt('layers','층별 비드 수 (용접 순서)','1,2,3,3')}${chk('dims','치수 표시')}${chk('weld','용접부 채움(빗금)')}</div>
+   <div style="font-size:12px;color:var(--mute);margin:4px 0">보강 높이 자동값 = 꼬리의 <b>품질등급(B/C/D)</b>별 EN ISO 5817 허용치(맞대기 h ≤ 1+0.1b / 1+0.15b / 1+0.25b, b=용접폭)의 60%. 순서 도면의 <span style="color:#e07b00">주황 네모</span>를 위아래로 끌어도 조절됩니다.</div>
    <div class="grid" style="margin-top:6px;grid-template-columns:2fr 1fr 1fr"><label>사용자 정의: 개선면 좌표 "x,깊이; x,깊이; …" (mm, 중심선 기준 오른쪽 판, 위→아래)<textarea data-g="custom" rows="2">${esc(G.custom)}</textarea></label>${chk('mirror','왼쪽 판 대칭')}${sel('symKind','사용자 정의의 기호',[['V','V'],['bevel','베벨 ⊢'],['U','U'],['J','J'],['II','I ║']])}</div>
    <h3>② 용접 기호 (EN ISO 2553)</h3><div class="grid">${chk('symbol','용접 기호(지시선) 표시')}${sel('symSystem','규격/기준선',[['A','ISO(EN) · 실선+점선 (사내 기준)'],['AWS','AWS A2.4 · 단일 실선'],['B','ISO 단일 기준선(B체계)']])}${sel('symSide','기호 위치',[['arrow','화살표 쪽 (Arrow side)'],['other','반대쪽 (Other side)'],['both','양쪽']])}
     ${sel('symDim','필릿 치수 (ISO)',[['z','각장 z'],['a','각목 a'],['both','a, z 모두']])}${num('symN','단속: 개수 n')}${num('symL','단속: 길이 L')}${num('symE','단속: 간격 E(끝단~끝단)')}${txt('symS','홈 용접 s 치수(선택)','예: 12')}${sel('contour','표면 형상 기호',[['none','없음'],['flush','평탄(—)'],['convex','볼록'],['concave','오목']])}${chk('allAround','전둘레 ○')}${chk('field','현장 용접 ▶')}</div>
