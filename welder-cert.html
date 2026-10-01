@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v49 · 비드 셀 배치</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v50 · 현황표 옵션·비드 수정</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -439,13 +439,15 @@ function drawWelders(){
 }
 const wsub=()=>`<div class="row" style="margin:0 0 8px"><button class="b ${window._wview==='status'?'sec':''}" onclick="window._wview='list';vWelders()">명단 · 등록</button><button class="b ${window._wview==='status'?'':'sec'}" onclick="window._wview='status';vWelders()">현황표 (자격 매트릭스)</button></div>`;
 // ---- 용접사 현황표: 용접사 × (공정 · 이음 · 두께 · 자세) 합격 매트릭스 + 소속별 집계
-const WS={st:'재직',co:'전체',exp:true,q:''};
+const WS={st:'재직',co:'전체',exp:true,q:'',rn:false,fail:true};
 function vWStatus(){ const cos=['전체',...uniq(welders.map(w=>w.company).filter(Boolean))];
   $('#view').innerHTML=wsub()+`<div class="card"><h2 id="wstt">용접사 현황표</h2><div class="row" style="margin:0 0 8px">
    <select onchange="WS.st=this.value;drawWStatus()">${['재직','전체','퇴사'].map(x=>`<option ${x===WS.st?'selected':''}>${x}</option>`).join('')}</select>
    <select onchange="WS.co=this.value;drawWStatus()">${cos.map(x=>`<option ${x===WS.co?'selected':''}>${esc(x)}</option>`).join('')}</select>
    <input placeholder="성명 / 번호 검색" value="${esc(WS.q)}" oninput="WS.q=this.value;drawWStatus()">
    <label style="flex-direction:row;align-items:center;gap:5px"><input type="checkbox" ${WS.exp?'checked':''} onchange="WS.exp=this.checked;drawWStatus()">만료된 합격도 표시</label>
+   <label style="flex-direction:row;align-items:center;gap:5px"><input type="checkbox" ${WS.rn?'checked':''} onchange="WS.rn=this.checked;drawWStatus()">6개월 서명 갱신 필요 색상(노랑) 표시</label>
+   <label style="flex-direction:row;align-items:center;gap:5px"><input type="checkbox" ${WS.fail?'checked':''} onchange="WS.fail=this.checked;drawWStatus()">불합격(✕)·진행 표시</label><button class="b sm sec" id="wsrest" onclick="restoreWsHide()"></button>
    <span style="flex:1"></span><button class="b sm sec" onclick="exportWStatus()">엑셀(CSV)로 저장</button></div>
    <div style="font-size:12px;color:var(--mute);margin-bottom:6px"><span style="background:#22e0e8;padding:1px 8px">합격(유효)</span> <span style="background:#ffe27a;padding:1px 8px">6개월 서명 갱신 필요</span> <span style="background:#f3b6b6;padding:1px 8px">만료</span> <span style="background:#ffd7a8;padding:1px 8px">시험 진행중</span> <span style="color:#b33;padding:1px 8px">불합격만 있음(✕)</span> · 칸을 누르면 인증서를 봅니다. 재시험으로 합격한 조인트는 합격으로 표시됩니다.</div>
    <div class="tw" id="wstbl" style="max-height:70vh;overflow:auto"></div></div><div class="card"><h2>소속별 집계</h2><div class="tw" id="wssum"></div></div>`;
@@ -455,14 +457,16 @@ function wsData(){ const t=today(), wm=new Map(welders.map(w=>[w.id,w])), q=WS.q
     .sort((a,b)=>String(a.company||'').localeCompare(b.company||'','ko')||a.welderNo.localeCompare(b.welderNo,undefined,{numeric:true}));
   const ids=new Set(ws.map(w=>w.id)), cell={}, cols=new Map(), prog={};
   for(const r of records){ if(!ids.has(r.welderId)) continue; const st=recStatus(r), k=[r.process,r.joint,+r.thickness,r.position].join('|');
-    if(st==='pass'){ const exp=calcExpire(r.weldingDate), al=certAlert(r.weldingDate,exp,(r.renewals||[]).length,t), kind=exp<t?'ex':al==='renewal'?'rn':'ok';
+    if(st==='pass'){ const exp=calcExpire(r.weldingDate), al=certAlert(r.weldingDate,exp,(r.renewals||[]).length,t), kind=exp<t?'ex':(al==='renewal'&&WS.rn)?'rn':'ok';
       if(kind==='ex'&&!WS.exp) continue; const c=cell[r.welderId+'|'+k];
       if(!c||c.kind==='pg'||c.kind==='ft'||(c.kind==='ex'&&kind!=='ex')||(kind===c.kind&&r.weldingDate>c.r.weldingDate)) cell[r.welderId+'|'+k]={kind,r,exp}; cols.set(k,[r.process,r.joint,+r.thickness,r.position]); }
-    else { if(st==='pending') prog[r.welderId]=(prog[r.welderId]||0)+1; const c=cell[r.welderId+'|'+k]; if(!c){ cell[r.welderId+'|'+k]={kind:st==='pending'?'pg':'ft',r}; cols.set(k,[r.process,r.joint,+r.thickness,r.position]); } } }
+    else { if(st==='pending') prog[r.welderId]=(prog[r.welderId]||0)+1; const c=cell[r.welderId+'|'+k]; if(!c&&WS.fail&&!(S.wsHide||[]).includes(r.welderId+'|'+k)){ cell[r.welderId+'|'+k]={kind:st==='pending'?'pg':'ft',r}; cols.set(k,[r.process,r.joint,+r.thickness,r.position]); } } }
   const pn=x=>parseInt(x)||999, C=[...cols.entries()].sort((a,b)=>{ const A=a[1],B=b[1]; return pn(A[0])-pn(B[0])||(A[1]==='BW'?0:1)-(B[1]==='BW'?0:1)||B[2]-A[2]||String(A[3]).localeCompare(B[3]); });
   // 실제 합격 칸이 하나도 없는 열(진행/불합격만 있는 열)은 그대로 두되 순서만 유지
   return {ws,cell,C,prog,t}; }
-function drawWStatus(){ const {ws,cell,C,prog,t}=wsData(); $('#wstt').textContent=`용접사 현황표 (${ws.length}명 · 조건 ${C.length}열)`;
+async function hideWsCell(k){ if(!confirm('이 불합격/진행 표시를 현황표에서 숨길까요?\n(시험 기록 자체는 삭제되지 않으며, "숨긴 표시 복원"으로 되돌릴 수 있습니다.)')) return; S.wsHide=[...(S.wsHide||[]),k]; await saveSettings(); drawWStatus(); }
+async function restoreWsHide(){ S.wsHide=[]; await saveSettings(); drawWStatus(); }
+function drawWStatus(){ const rb=$('#wsrest'); if(rb){ const n=(S.wsHide||[]).length; rb.style.display=n?'':'none'; rb.textContent=`숨긴 표시 ${n}개 복원`; } const {ws,cell,C,prog,t}=wsData(); $('#wstt').textContent=`용접사 현황표 (${ws.length}명 · 조건 ${C.length}열)`;
   const pl=x=>String(x).replace(/^\d+\s*/,''), grp=(arr,f)=>{ const o=[]; arr.forEach(c=>{ const k=f(c[1]), l=o[o.length-1]; if(l&&l.k===k) l.n++; else o.push({k,n:1}); }); return o; };
   const h1=grp(C,a=>a[0]).map(g=>`<th colspan="${g.n}">${esc(pl(g.k))}</th>`).join('');
   const h2=grp(C,a=>a[0]+'|'+a[1]).map(g=>`<th colspan="${g.n}">${g.k.endsWith('BW')?'맞대기':'필릿'}</th>`).join('');
@@ -470,7 +474,7 @@ function drawWStatus(){ const {ws,cell,C,prog,t}=wsData(); $('#wstt').textConten
   const h4=C.map(c=>`<th>${esc(c[1][3])}</th>`).join('');
   let prev=null, body='';
   ws.forEach((w,n)=>{ const first=prev!==null&&prev!==w.company; prev=w.company; let fin=0;
-    const tds=C.map(([k])=>{ const c=cell[w.id+'|'+k]; if(!c) return '<td></td>'; if(c.kind==='pg') return '<td class="pg" title="시험 진행중">진행</td>'; if(c.kind==='ft') return '<td class="ft" title="불합격 기록만 있음">✕</td>';
+    const tds=C.map(([k])=>{ const c=cell[w.id+'|'+k]; if(!c) return '<td></td>'; if(c.kind==='pg') return `<td class="pg" data-k="${esc(w.id+'|'+k)}" onclick="hideWsCell(this.dataset.k)" style="cursor:pointer" title="시험 진행중 · 클릭하면 이 표시를 숨깁니다">진행</td>`; if(c.kind==='ft') return `<td class="ft" data-k="${esc(w.id+'|'+k)}" onclick="hideWsCell(this.dataset.k)" style="cursor:pointer" title="불합격 기록만 있음 · 클릭하면 이 표시를 숨깁니다 (기록은 삭제되지 않음)">✕</td>`;
       if(c.kind==='ok'||c.kind==='rn') fin++; return `<td class="${c.kind}" onclick="showCert(${c.r.id})" title="${c.r.weldingDate} 용접 · 만료 ${c.exp}${c.kind==='rn'?' · 6개월 서명 갱신 필요':''}">${c.kind==='ex'?'만료':'합격'}</td>`; }).join('');
     body+=`<tr class="${first?'sep':''} ${w.status==='퇴사'?'gone':''}"><td class="l">${esc(w.company)}</td><td>${n+1}</td><td class="l"><b>${esc(w.name)}</b></td><td>${w.birthDate?w.birthDate.replace(/-/g,'').slice(2):''}</td><td class="l">${esc(w.welderNo)}</td><td>${esc(w.role)}</td><td>${w.status}</td>${tds}<td><b>${fin}</b></td><td>${prog[w.id]||''}</td></tr>`; });
   $('#wstbl').innerHTML=`<table class="mx"><thead><tr><th rowspan="4" class="l">업체</th><th rowspan="4">순</th><th rowspan="4" class="l">성명</th><th rowspan="4">생년월일</th><th rowspan="4" class="l">용접사번호</th><th rowspan="4">구분</th><th rowspan="4">상태</th>${h1}<th rowspan="4">유효<br>합격</th><th rowspan="4">진행<br>시험</th></tr><tr class="h2">${h2}</tr><tr class="h3">${h3}</tr><tr class="h4">${h4}</tr></thead><tbody>${body||'<tr><td colspan="9" style="color:var(--mute)">표시할 용접사가 없습니다.</td></tr>'}</tbody></table>`;
@@ -1247,7 +1251,7 @@ const arcPts=(cx,cy,R,a1,a2,n=10)=>Array.from({length:n+1},(_,k)=>{ const a=a1+(
 // 용접 비드: 위로 볼록한 렌즈형(바닥은 이전 층/개선면에 융합되도록 넓게)
 const beadPath=(x,y,rx,ry)=>`M${x-rx},${y+ry*.6} C${x-rx},${y-ry*.35} ${x-rx*.55},${y-ry} ${x},${y-ry} C${x+rx*.55},${y-ry} ${x+rx},${y-ry*.35} ${x+rx},${y+ry*.6} C${x+rx*.5},${y+ry*.95} ${x-rx*.5},${y+ry*.95} ${x-rx},${y+ry*.6} Z`;
 // 이동 가능한 요소: 편집 미리보기에서는 data-mv 를 붙여 마우스로 끌 수 있고, 저장본에는 위치(translate)만 남는다
-const mvOf=o=>(id,c)=>{ if(!c) return ''; const q=(o.pos&&o.pos[id])||{dx:0,dy:0}; return `<g ${o.edit?`data-mv="${id}" `:''}transform="translate(${q.dx||0} ${q.dy||0})">${c}</g>`; };
+const mvOf=o=>(id0,c)=>{ if(!c) return ''; const id=id0+(o.seqView?'_s':''), q=(o.pos&&o.pos[id])||{dx:0,dy:0}; return `<g ${o.edit?`data-mv="${id}" `:''}transform="translate(${q.dx||0} ${q.dy||0})">${c}</g>`; };
 // ---------- ISO 2553 용접 기호 ----------
 function symGlyph(kind,sx,sy,s){ const h=12*s, st=`fill="none" stroke="#000" stroke-width="1.5" stroke-linejoin="round"`;
   if(kind==='II') return `<line x1="${sx-3}" y1="${sy}" x2="${sx-3}" y2="${sy+h}" ${st}/><line x1="${sx+3}" y1="${sy}" x2="${sx+3}" y2="${sy+h}" ${st}/>`;
@@ -1275,7 +1279,7 @@ function weldSymbol(o,kinds,anc,ref,bent){
   // 기호 기준선 y 와 방향 s (s=-1: 선 위쪽으로, +1: 아래쪽으로)
   let bases=[]; if(!single){ if(side==='arrow') bases=[[y,-1]]; else if(side==='other') bases=[[y+3.6,1]]; else bases=[[y,-1],[y+3.6,1]]; }
   else { if(side==='arrow') bases=[[y,1]]; else if(side==='other') bases=[[y,-1]]; else bases=[[y,-1],[y,1]]; }
-  bases.forEach(([by,s],bi)=>{ let gl=''; for(const k of kinds) gl+=symGlyph(k,sx,by,s);
+  bases.forEach(([by,s],bi)=>{ let gl=''; kinds.forEach((k,ki)=>{ gl+=symGlyph(k,sx+(kinds.length>1?(ki?-13:13):0),by,s); });
     const top=by+s*12;
     if(o.contour==='flush') gl+=`<line x1="${sx-8}" y1="${top+s*4}" x2="${sx+8}" y2="${top+s*4}" stroke="${K}" stroke-width="1.4"/>`;
     else if(o.contour==='convex') gl+=`<path d="M${sx-8},${top+s*3} Q${sx},${top+s*11} ${sx+8},${top+s*3}" fill="none" stroke="${K}" stroke-width="1.4"/>`;
@@ -1284,10 +1288,10 @@ function weldSymbol(o,kinds,anc,ref,bent){
     const my=s<0?by-4:by+14; // 글자가 기준선과 겹치지 않도록 여백
     let left=''; if(kinds.includes('fillet')){ const a=r2(o.leg/Math.SQRT2);
       left=aws?`${o.leg}`:o.symDim==='a'?`a${a}`:o.symDim==='both'?`a${a} z${o.leg}`:`z${o.leg}`; } else if(o.symS) left=aws?`${o.symS}`:`s${o.symS}`;
-    if(left) out+=mv('sym_left'+(bi?'2':''),`<text x="${sx-14}" y="${my}" font-size="11" text-anchor="end" font-family="Arial" fill="${K}" stroke="#fff" stroke-width="3" paint-order="stroke">${dmlEsc(left)}</text>`);
+    if(left) out+=mv('sym_left'+(bi?'2':''),`<text x="${sx-14-(kinds.length>1?13:0)}" y="${my}" font-size="11" text-anchor="end" font-family="Arial" fill="${K}" stroke="#fff" stroke-width="3" paint-order="stroke">${dmlEsc(left)}</text>`);
     // 단속 용접: ISO  n x L(E) (E=끝단~끝단) / AWS  L-P (P=중심~중심)
     let right=''; const L=+o.symL, E=+o.symE, n=+o.symN; if(L>0){ right=aws?`${L}-${L+(E||0)}`:`${n>1?n+' x ':''}${L}${E>0?`(${E})`:''}`; }
-    if(right) out+=mv('sym_right'+(bi?'2':''),`<text x="${sx+14}" y="${my}" font-size="11" text-anchor="start" font-family="Arial" fill="${K}" stroke="#fff" stroke-width="3" paint-order="stroke">${dmlEsc(right)}</text>`);
+    if(right) out+=mv('sym_right'+(bi?'2':''),`<text x="${sx+14+(kinds.length>1?13:0)}" y="${my}" font-size="11" text-anchor="start" font-family="Arial" fill="${K}" stroke="#fff" stroke-width="3" paint-order="stroke">${dmlEsc(right)}</text>`);
     // 백킹 M / MR: 용접 기호 반대편 (ISO: 실선 아래로 점선을 가로지름)
     if(bi===0&&o.backing!=='none'&&['II','V','bevel','U','J'].includes(kind)){ const t=o.backing==='ceramic'?'MR':'M', bw=t.length*9+8, up=s>0; const ry=up?y-13:(single?y+0:y+0.5);
       out+=mv('sym_backing',`<rect x="${sx-bw/2}" y="${ry}" width="${bw}" height="13" fill="#fff" stroke="${K}" stroke-width="1.1"/><text x="${sx}" y="${ry+10.5}" font-size="10.5" text-anchor="middle" font-family="Arial" fill="${K}">${t}</text>`); }
@@ -1395,9 +1399,10 @@ function genJoint(o,seq){
 const BEAD_FILL='#e6e6e6';
 // ---- 개별 비드(렌즈형): 자동 배치 -> 필요하면 수동 편집 목록(GEN.beads)으로 전환
 // ---- 층별 비드 셀 배치: 용접 표면이 위를 향하도록 좌표를 회전해(홈=그대로, 아래쪽 홈=180°, 필릿=45°) 같은 알고리즘으로 층을 쌓는다
+const crownN=pl=>{ const {a,b}=pl.crown, d=[b[0]-a[0],b[1]-a[1]], L=Math.hypot(d[0],d[1])||1; let n=[d[1]/L,-d[0]/L]; const c=pl.pts.reduce((q,p)=>[q[0]+p[0],q[1]+p[1]],[0,0]).map(v=>v/pl.pts.length); if((c[0]-a[0])*n[0]+(c[1]-a[1])*n[1]>0) n=[-n[0],-n[1]]; return n; };
 function cellLayout(o,polys){
   const layers=String(o.layers||'1').split(/[,\s]+/).map(x=>Math.max(1,parseInt(x)||1)).slice(0,8), nL=layers.length; let n=0; const out=[];
-  polys.forEach(pl=>{ const {a,nx,ny,amt}=pl.crown, al=-Math.PI/2-Math.atan2(ny,nx), ca=Math.cos(al), sa=Math.sin(al);
+  polys.forEach(pl=>{ const {a,amt}=pl.crown, [nx,ny]=crownN(pl), al=-Math.PI/2-Math.atan2(ny,nx), ca=Math.cos(al), sa=Math.sin(al);
     const fw=p=>[a[0]+(p[0]-a[0])*ca-(p[1]-a[1])*sa,a[1]+(p[0]-a[0])*sa+(p[1]-a[1])*ca], bk=p=>[a[0]+(p[0]-a[0])*ca+(p[1]-a[1])*sa,a[1]-(p[0]-a[0])*sa+(p[1]-a[1])*ca];
     const P=pl.pts.map(fw), ySurf=fw(a)[1], yRoot=Math.max(...P.map(p=>p[1])), hL=(yRoot-ySurf)/nL; if(!(hL>1)) return;
     const cells=[];
@@ -1411,7 +1416,7 @@ function beadAuto(o,polys){ const out=[]; cellLayout(o,polys).forEach(q=>q.cells
   out.push({x:m[0],y:m[1],rx:Math.max(5,(c.xb-c.xa)/2*1.1),ry:Math.max(4.5,(c.yB-c.yT)/2*1.05),rot:Math.round(-q.al*180/Math.PI),flip:false,lab:String(c.n)}); })); return out; }
 const strHash=t=>{ let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))|0; return Math.abs(h).toString(36); };
 function beadCells(o,polys){ let defs='', body='', nums='';
-  cellLayout(o,polys).forEach((q,qi)=>{ const {pl,al,a,cells,bk}=q, {b,nx,ny,amt}=pl.crown, CID='wk'+strHash(JSON.stringify(pl.pts))+qi, cap=[a,b,[b[0]+nx*(amt+8),b[1]+ny*(amt+8)],[a[0]+nx*(amt+8),a[1]+ny*(amt+8)]], pts=x=>x.map(p=>p.join(',')).join(' ');
+  cellLayout(o,polys).forEach((q,qi)=>{ const {pl,al,a,cells,bk}=q, {b,amt}=pl.crown, [nx,ny]=crownN(pl), CID='wk'+strHash(JSON.stringify(pl.pts))+qi, cap=[a,b,[b[0]+nx*(amt+8),b[1]+ny*(amt+8)],[a[0]+nx*(amt+8),a[1]+ny*(amt+8)]], pts=x=>x.map(p=>p.join(',')).join(' ');
     defs+=`<clipPath id="${CID}"><polygon points="${pts(pl.pts)}"/><polygon points="${pts(cap)}"/></clipPath>`; let g='';
     cells.slice().sort((u,v)=>v.li-u.li||u.j-v.j).forEach(c=>{ const yF=q.yRoot+40, xm=(c.X0+c.X1)/2;
       g+=`<path d="M${c.X0},${yF} L${c.X0},${c.yT} Q${xm},${c.yT-2*c.hb} ${c.X1},${c.yT} L${c.X1},${yF} Z" fill="${BEAD_FILL}" stroke="#000" stroke-width="1.1" stroke-linejoin="round"/>`; });
@@ -1425,8 +1430,8 @@ function backBeadSvg(o,geo){ if(!o.backBead||o.backing!=='none'||!geo) return ''
   if(ty==='tbevel'&&geo.cc!=null){ const gp=Math.max(o.gap*geo.sc,2), rx=Math.max(8,gp/2+6); return bead(geo.vx0+geo.cc*.3,geo.yb-rx,rx,ry,-90,false); }
   return ''; }
 function beadsSvg(o,polys,list){
-  const CID='wc'+strHash(JSON.stringify(polys.map(p=>p.pts))), clip=`<clipPath id="${CID}">${polys.map(pl=>{ const {a,b,nx,ny,amt}=pl.crown, mx=(a[0]+b[0])/2+nx*amt*2, my=(a[1]+b[1])/2+ny*amt*2; return `<polygon points="${pl.pts.map(p=>p.join(',')).join(' ')}"/><path d="M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]} Z"/>`; }).join('')}</clipPath>`;
-  let g='', nums='', crowns=polys.map(pl=>{ const {a,b,nx,ny,amt}=pl.crown, mx=(a[0]+b[0])/2+nx*amt*2, my=(a[1]+b[1])/2+ny*amt*2; return `<path d="M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]}" fill="none" stroke="#000" stroke-width="1.6"/>`; }).join('');
+  const CID='wc'+strHash(JSON.stringify(polys.map(p=>p.pts))), clip=`<clipPath id="${CID}">${polys.map(pl=>{ const {a,b,amt}=pl.crown, [nx,ny]=crownN(pl), mx=(a[0]+b[0])/2+nx*amt*2, my=(a[1]+b[1])/2+ny*amt*2; return `<polygon points="${pl.pts.map(p=>p.join(',')).join(' ')}"/><path d="M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]} Z"/>`; }).join('')}</clipPath>`;
+  let g='', nums='', crowns=polys.map(pl=>{ const {a,b,amt}=pl.crown, [nx,ny]=crownN(pl), mx=(a[0]+b[0])/2+nx*amt*2, my=(a[1]+b[1])/2+ny*amt*2; return `<path d="M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]}" fill="none" stroke="#000" stroke-width="1.6"/>`; }).join('');
   let gf='', gh=''; list.forEach((b,i)=>{ const tf=`translate(${b.x} ${b.y}) rotate(${b.rot||0})${b.flip?' scale(1 -1)':''}`, sh=`<path d="${beadPath(0,0,b.rx,b.ry)}" fill="${BEAD_FILL}" stroke="#000" stroke-width="1.1"/>`, gg=`<g ${o.edit?`data-mv="bead:${i}" `:''}transform="${tf}">${sh}</g>`;
     if(b.free) gf+=gg; else g+=gg; if(o.edit&&o.sel===i&&!b.free) gh+=`<g transform="${tf}" opacity=".3" pointer-events="none">${sh}</g>`;
     nums+=`<text x="${b.x}" y="${b.y+3.5}" font-size="10" text-anchor="middle" font-family="Arial" fill="#000" pointer-events="none">${dmlEsc(b.lab)}</text>`; });
@@ -1458,7 +1463,7 @@ function seqBandSvg(o,polys){
       for(let j=0;j<k;j++){ n++; const t=(j+.5)/k, p0=pt(li,t), p1=last?[xa+(xb-xa)*t,ys0+dir*hb*0.55]:pt(li+1,t); out+=num((p0[0]+p1[0])/2,(p0[1]+p1[1])/2); } }); });
   return out; }
 function genSeq(o){
-  const {svg,polys,geo}=genJoint({...o,dims:false,weld:false,symbol:false,edit:false},true);
+  const {svg,polys,geo}=genJoint({...o,dims:false,weld:false,symbol:false,edit:!!o.edit,seqView:true},true);
   if(!polys.length||o.type==='square') return svg.replace('</svg>',`<text x="260" y="150" font-size="13" text-anchor="middle" font-family="Malgun Gothic,Arial" fill="#666">이 형상은 용접 순서 도면을 지원하지 않습니다</text></svg>`);
   const manual=o.beadMode==='manual'&&Array.isArray(o.beads)&&o.beads.length, style=o.beadStyle||'auto';
   const body=manual?beadsSvg(o,polys,o.beads):style==='beads'?beadsSvg(o,polys,beadAuto(o,polys)):style==='band'?seqBandSvg(o,polys):beadCells(o,polys), bb=manual?'':backBeadSvg(o,geo);
@@ -1496,7 +1501,7 @@ document.addEventListener('pointerdown',e=>{ if(e.button) return; const now=Date
   if(t.dataset.p){ DRAG={k:'param',key:t.dataset.p,geo:JSON.parse(t.dataset.k),box}; return; }
   if(t.dataset.h){ const b=GEN.beads[GEN.sel]; if(!b) return; DRAG={k:'h',h:t.dataset.h,i:GEN.sel,box,b0:{...b},d0:Math.hypot(P.x-b.x,P.y-b.y)||1}; return; }
   const id=t.dataset.mv;
-  if(DIM_KEY[id]&&dbl){ const k=DIM_KEY[id], n=prompt(`${GEN_PLABEL[k]} 값 입력`,GEN[k]); if(n!==null&&isFinite(parseFloat(n))){ setGenField(k,parseFloat(n)); genDraw(); } return; }
+  if(DIM_KEY[id.replace(/_s$/,'')]&&dbl){ const k=DIM_KEY[id.replace(/_s$/,'')], n=prompt(`${GEN_PLABEL[k]} 값 입력`,GEN[k]); if(n!==null&&isFinite(parseFloat(n))){ setGenField(k,parseFloat(n)); genDraw(); } return; }
   if(id.startsWith('bead:')){ beadEnsureManual(); const i=+id.slice(5);
     if(NUMMODE){ GEN.beads[i].lab=String(NUMNEXT++); if(NUMNEXT>GEN.beads.length){ NUMMODE=false; numBtn(); toast('번호 입력을 마쳤습니다.',2000); } genDraw(); return; }
     if(dbl){ const n=prompt('비드 번호(표시 글자)',GEN.beads[i].lab); if(n!==null){ GEN.beads[i].lab=n; genDraw(); } return; }
