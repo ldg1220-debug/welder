@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v63 · 인증서 WPS 연결 개선</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v64 · LBW 공정 52</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -722,7 +722,7 @@ function xDate(v){ if(typeof v==='number'&&v>20000&&v<70000) return serialISO(v)
 function xBirth(v){ const d=String(v??'').replace(/\D/g,''); if(d.length!==6) return '';
   const y=+d.slice(0,2), yy=y>30?1900+y:2000+y, dt=new Date(Date.UTC(yy,+d.slice(2,4)-1,+d.slice(4))); return dt.getUTCMonth()===+d.slice(2,4)-1?dt.toISOString().slice(0,10):''; }
 function xRes(v){ const t=String(v??'').trim(); if(t==='●') return 'pass'; if(/^(fail|x)$/i.test(t)) return 'fail'; return 'na'; }
-function xProc(v){ const k=String(v??'').trim().toUpperCase().split(/[\s()]+/)[0]; return {GMAW:'135 MAG',MAG:'135 MAG',GTAW:'141 TIG',TIG:'141 TIG',LBW:'521 LBW'}[k]||''; }
+function xProc(v){ const k=String(v??'').trim().toUpperCase().split(/[\s()]+/)[0]; return {GMAW:'135 MAG',MAG:'135 MAG',GTAW:'141 TIG',TIG:'141 TIG',LBW:'52 LBW'}[k]||''; }
 function xBack(v,joint){ if(joint!=='BW') return 'N/A'; const t=String(v??'').trim().toUpperCase(); return t==='NB'?'ss nb':(t==='MB'||t==='CERAMIC')?'ss mb':'N/A'; }
 function findCols(rows,labels){ // 상단 8행에서 라벨 위치 찾기 (위→아래, 왼쪽→오른쪽 첫 일치)
   const c={}; let hdr=-1;
@@ -763,7 +763,7 @@ function mapWorkbook(sheets){
   return {W,R,info};
 }
 // ---------- 발행된 인증서 엑셀(시트 1장 = 인증서 1장) -> WPS 번호 등을 시험 기록에 연결 ----------
-const PROC_BY_CODE={'135':'135 MAG','136':'136 FCAW','141':'141 TIG','111':'111 MMA','121':'121 SAW','521':'521 LBW','52':'521 LBW'};
+const PROC_BY_CODE={'135':'135 MAG','136':'136 FCAW','141':'141 TIG','111':'111 MMA','121':'121 SAW','521':'52 LBW','52':'52 LBW'};
 function parseCerts(sheets){
   const out=[];
   for(const sh of sheets){
@@ -1021,7 +1021,7 @@ async function importWpsForms(forms,ctx){ ctx=ctx||{ext:{},key:''};
   for(const f of uniq){ if(!f.sh||!f.sh.camera) continue; try{ const lab=f.sh.rows.findIndex(r=>r&&r.some(v=>/Welding Details/i.test(String(v||'')))); const cams=(await f.sh.camera()).filter(c=>/details/i.test(c.ref)&&(lab<0||(c.row>=lab&&c.row<=lab+8))); if(cams[0]) f.link=parseCamRef(cams[0].ref,ctx.ext,ctx.key); }catch(e){} }
   for(const f of uniq){ const cur=wpsFind(f.wpsNo);
     const codeOf=t=>(String(t).match(/\b\d{2,3}\b/)||[''])[0];
-    const base=cur||{wpsNo:f.wpsNo,kind:'WPS',rev:f.rawRev,revDate:'',pqrNos:f.pqr?[f.pqr]:[],materialGroup:(f.form.parentSpec.match(/\d+\.\d+(?:~\d+\.\d+)?/)||[''])[0],weldType:/fillet/i.test(f.form.jointType)?'FW':/t-?butt/i.test(f.form.jointType)?'T-BUTT':'BW',process:codeOf(f.form.processIso)?codeOf(f.form.processIso)+({135:'(MAG)',141:'(TIG)'}[codeOf(f.form.processIso)]||''):(f.form.variant==='LBW'?'521(LBW)':''),procCodes:[codeOf(f.form.processIso)||(f.form.variant==='LBW'?'521':'')].filter(Boolean),position:f.form.positionIso.split('[')[0].trim().toUpperCase(),positions:positionsOf(f.form.positionIso),thk:f.form.thickness?f.form.thickness.replace(/\s/g,'').replace(/(\d+(?:\.\d+)?)~(\d+(?:\.\d+)?)/,'$1≤T≤$2'):'',backing:'',pwht:f.form.pwht,part:'',remarks:'',status:'사용'};
+    const base=cur||{wpsNo:f.wpsNo,kind:'WPS',rev:f.rawRev,revDate:'',pqrNos:f.pqr?[f.pqr]:[],materialGroup:(f.form.parentSpec.match(/\d+\.\d+(?:~\d+\.\d+)?/)||[''])[0],weldType:/fillet/i.test(f.form.jointType)?'FW':/t-?butt/i.test(f.form.jointType)?'T-BUTT':'BW',process:codeOf(f.form.processIso)?codeOf(f.form.processIso)+({135:'(MAG)',141:'(TIG)'}[codeOf(f.form.processIso)]||''):(f.form.variant==='LBW'?'52(LBW)':''),procCodes:[codeOf(f.form.processIso)||(f.form.variant==='LBW'?'52':'')].filter(Boolean),position:f.form.positionIso.split('[')[0].trim().toUpperCase(),positions:positionsOf(f.form.positionIso),thk:f.form.thickness?f.form.thickness.replace(/\s/g,'').replace(/(\d+(?:\.\d+)?)~(\d+(?:\.\d+)?)/,'$1≤T≤$2'):'',backing:'',pwht:f.form.pwht,part:'',remarks:'',status:'사용'};
     if(!cur){ const [mn,mx]=thkOf(base.thk); base.thkMin=mn; base.thkMax=mx; }
     const r=sk.get(f.wpsNo)||{}, cur2={...(base.sketches||{})}; for(const k of ['joint','sequence']) if(r[k]&&(replace||!cur2[k])&&!(base.sketchEdit&&base.sketchEdit[k])) cur2[k]=svgUrl(r[k]);
     let params=base.params||[], passLink=base.passLink, passSrc=base.passSrc, passNote=(base.form||{}).passNote||'', passCols=(base.form||{}).passCols, passHdr=(base.form||{}).passHdr;
@@ -1953,7 +1953,7 @@ function vRecForm(){
    <label>시험재 용접일자*<input type="date" name="weldingDate" value="${r.weldingDate}" required></label>
    <label>프로젝트/제작품목<input name="project" value="${esc(r.project)}" list="dl-project"></label>
    <label>WPS No. <span id="wpsHint" style="font-size:11px"></span><input name="wpsNo" value="${esc(r.wpsNo)}" placeholder="WPS-RM013" list="dl-wps"></label>
-   <label>용접방법<select name="process">${['135 MAG','136 FCAW','141 TIG','111 MMA','121 SAW','521 LBW'].map(x=>`<option ${x===r.process?'selected':''}>${x}</option>`).join('')}</select></label>
+   <label>용접방법<select name="process">${['135 MAG','136 FCAW','141 TIG','111 MMA','121 SAW','52 LBW'].map(x=>`<option ${x===r.process?'selected':''}>${x}</option>`).join('')}</select></label>
    <label>판재/파이프${sel('productType',[['P','P (판재)'],['T','T (파이프)']],r.productType)}</label>
    <label>파이프 외경 D(mm)<input type="number" step="any" name="pipeDiameter" value="${r.pipeDiameter}"></label>
    <label>용접 유형${sel('joint',['BW','FW'],r.joint)}</label>
@@ -2022,6 +2022,12 @@ function checkDupRefs(){ // 서로 다른 용접사가 같은 Reference No. 를 
   const m=new Map(); for(const r of records){ if(recStatus(r)!=='pass') continue; const k=r.refNo||autoRef(r); if(!m.has(k)) m.set(k,new Set()); m.get(k).add(r.welderId); }
   const dup=[...m].filter(([,v])=>v.size>1);
   alert(dup.length?`서로 다른 용접사가 같은 Reference No.를 쓰는 경우 ${dup.length}건:\n\n${dup.slice(0,12).map(([k,v])=>`${k}  (${[...v].map(id=>(welders.find(w=>w.id===id)||{}).welderNo).join(', ')})`).join('\n')}${dup.length>12?'\n…':''}\n\n용접사 번호 끝 3자리가 겹치는 경우입니다(예: 24001, 27001 → 둘 다 1). 번호 체계를 바꾸거나 설정에서 "끝 숫자 전체"를 쓰세요.`:'중복된 Reference No.가 없습니다.'); }
+// 레이저 용접 공정 코드는 52(ISO 4063): 예전에 521 로 저장된 값을 정리
+async function autoFixProc(){ const fx=x=>String(x||'').replace(/^521\b/,'52'); let n=0;
+  const rec=records.filter(r=>/^521\b/.test(r.process||'')); if(rec.length){ await DB.putMany('records',rec.map(r=>({...r,process:fx(r.process)}))); n+=rec.length; }
+  const w=wpsMaster.filter(m=>/^521\b/.test(m.process||'')||(m.procCodes||[]).includes('521')); if(w.length){ await DB.putMany('wps',w.map(m=>({...m,process:fx(m.process),procCodes:(m.procCodes||[]).map(fx)}))); n+=w.length; }
+  const q=pqrMaster.filter(m=>/^521\b/.test(m.process||'')); if(q.length){ await DB.putMany('pqr',q.map(m=>({...m,process:fx(m.process)}))); n+=q.length; }
+  if(n){ await load(); toast(`레이저 용접 공정 코드 521 → 52 로 ${n}건 정리했습니다.`,6000); } }
 async function autoFixRef(){ // 예전에 저장된 자동 생성 번호(용접사별 기록 순번 방식)를 정리 -> 이후 규칙으로 항상 계산
   const t=records.filter(r=>r.refNo&&isAutoRef(r.refNo)); if(!t.length) return;
   const changed=t.filter(r=>autoRef({...r,refNo:''})!==r.refNo).length;
@@ -2140,7 +2146,7 @@ async function autoFixVT(){ // 앱을 열 때 1회: VT 미기록인데 다음 �
   if(!S.impliedVT) return; const t=records.filter(r=>applyImpliedVT(r.tests||{})!==(r.tests||{})); if(!t.length) return;
   await DB.putMany('records',t.map(r=>({...r,tests:applyImpliedVT(r.tests||{})}))); await load();
   toast(`VT 미기록 ${t.length}건을 자동으로 통과 처리했습니다 (RT/UT·굽힘·단면 결과가 있는 기록). 설정에서 끌 수 있습니다.`,9000); }
-DB.open().then(load).then(autoFixNo).then(autoFixRef).then(autoFixVT).then(render).catch(e=>{document.body.insertAdjacentHTML('beforeend','<div class="msg err">저장소를 열 수 없습니다: '+esc(e)+'</div>');});
+DB.open().then(load).then(autoFixNo).then(autoFixRef).then(autoFixProc).then(autoFixVT).then(render).catch(e=>{document.body.insertAdjacentHTML('beforeend','<div class="msg err">저장소를 열 수 없습니다: '+esc(e)+'</div>');});
 </script>
 </body>
 </html>
