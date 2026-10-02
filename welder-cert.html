@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v71 · 인증서 출생지 인식</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v72 · 이음 불일치 안내</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -1200,7 +1200,8 @@ function drawRecs(){
   window._recRows=groups.flatMap(g=>[g.main,...g.kids]);   // 내보내기용(필터 적용된 전체)
   ms('rec').order=window._recRows.map(x=>x.r.id); const nsel=msIds('rec').length;
   const hideN=(RF.hideGone?records.filter(r=>(wm.get(r.welderId)||{}).status==='퇴사').length:0)+(RF.hideNew?records.filter(r=>(wm.get(r.welderId)||{}).status==='미입사').length:0);
-  $('#rbar').innerHTML=cfBar('rec')+(nsel?`<div class="row" style="margin:0;padding:6px 10px;background:#eef5ff;border:1px solid #c4d8f2;border-radius:6px;align-items:center"><b>${nsel}건 선택됨</b><button class="b sm" onclick="exportRecs()">엑셀 내보내기</button><button class="b sm red" onclick="bulkDelRecs()">선택 삭제</button><button class="b sm sec" onclick="msClear('rec')">선택 해제</button><small style="color:var(--mute)">Shift+클릭 = 범위 선택, Ctrl+클릭 = 하나씩 추가/해제</small></div>`:'');
+  const jm=jointMismatchPlan(), jmN=jm.del.length+jm.fix.length;
+  $('#rbar').innerHTML=(jmN?`<div class="row" style="margin:0 0 6px;padding:6px 10px;background:#fff3f0;border:1px solid #f0c4b8;border-radius:6px;align-items:center"><b>⚠ 이음(BW/FW)과 시험 항목이 안 맞는 기록 ${jmN}건</b><span style="color:var(--mute);font-size:12px">예: BW로 저장됐는데 매크로 시험만 있어 '진행중'으로 남은 기록 (인증서 설계명 오타) — 중복 ${jm.del.length}건 삭제 · ${jm.fix.length}건 이음 수정</span><button class="b sm" onclick="jointMismatchApply()">일괄 정리</button></div>`:'')+cfBar('rec')+(nsel?`<div class="row" style="margin:0;padding:6px 10px;background:#eef5ff;border:1px solid #c4d8f2;border-radius:6px;align-items:center"><b>${nsel}건 선택됨</b><button class="b sm" onclick="exportRecs()">엑셀 내보내기</button><button class="b sm red" onclick="bulkDelRecs()">선택 삭제</button><button class="b sm sec" onclick="msClear('rec')">선택 해제</button><small style="color:var(--mute)">Shift+클릭 = 범위 선택, Ctrl+클릭 = 하나씩 추가/해제</small></div>`:'');
   const hidden=groups.reduce((a,g)=>a+g.kids.length,0), multi=groups.filter(g=>g.kids.length).length;
   $('#rtitle').textContent=`시험 기록 (조인트 ${groups.length}개 · 전체 ${records.length}건${hideN?` · 숨김 ${hideN}건`:''})`;
   const rowHTML=({r,w,st},kid,g)=>{const T=r.tests||{}, open=RF.all||RF.open.has(g.main.r.id);
