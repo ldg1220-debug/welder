@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v70 · 불러오기 후 화면 유지</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v71 · 인증서 출생지 인식</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -548,24 +548,26 @@ function drawWelders(){
   rz($('#wlist'),'welders4');
 }
 // 발급한 인증서 엑셀(시트=인증서 1장)에서 영문 성명·출생지만 읽어 용접사 정보를 보충한다 (시험 기록은 만들지 않음)
+// 출생지 표기 흔들림 정리: CHANGWON / CHWANG WON(오타) → CHANG WON
+const normPlace=t=>/^CH(?:WA|A)NG ?WON$/.test(t)?'CHANG WON':t;
 async function fillFromCerts(list){ const files=[...(list||[])]; if(!files.length) return; toast('인증서 엑셀을 읽는 중…',60000);
   const found=new Map(); let nCert=0; const up=t=>String(t||'').replace(/\s+/g,' ').trim().toUpperCase();
-  for(const f of files){ try{ const sh=await readXlsx(await f.arrayBuffer()); for(const c of parseCerts(sh)){ if(c.bad||!c.welderNo) continue; nCert++; (found.get(c.welderNo)||found.set(c.welderNo,[]).get(c.welderNo)).push({ko:c.name||'',en:up(c.nameEn),pl:up(c.birthPlace)}); } }catch(err){ alert(`${f.name}: 읽기 실패 (${err.message||err})`); } }
+  for(const f of files){ try{ const sh=await readXlsx(await f.arrayBuffer()); for(const c of parseCerts(sh)){ if(c.bad||!c.welderNo) continue; nCert++; (found.get(c.welderNo)||found.set(c.welderNo,[]).get(c.welderNo)).push({ko:c.name||'',en:up(c.nameEn),pl:normPlace(up(c.birthPlace)),bd:c.birthDate||''}); } }catch(err){ alert(`${f.name}: 읽기 실패 (${err.message||err})`); } }
   const pick=m=>[...m.entries()].sort((a,b)=>b[1]-a[1])[0]; const byNo=new Map(welders.map(w=>[normNo(w.welderNo),w])), byName={}; welders.forEach(w=>{ (byName[w.name]=byName[w.name]||[]).push(w); });
   const plan=[], unmatched=[], conflicts=[], mism=[]; let diff=0;
   for(const [no,list] of found){ const ko0=(list.find(x=>x.ko)||{}).ko||''; let w=byNo.get(no); if(!w&&ko0&&(byName[ko0]||[]).length===1) w=byName[ko0][0]; if(!w){ unmatched.push(`${no} ${ko0}`); continue; }
     // 인증서의 한글 이름이 용접사 이름과 다르면(번호가 잘못 적힌 인증서) 그 인증서는 쓰지 않는다
-    const ok=list.filter(x=>!x.ko||x.ko===w.name), bad=list.length-ok.length; if(bad) mism.push(`${no} ${w.name} ≠ ${[...new Set(list.filter(x=>x.ko&&x.ko!==w.name).map(x=>x.ko))].join('/')} (${bad}장)`);
+    const ok=list.filter(x=>(!x.ko||x.ko===w.name)&&(!x.bd||!w.birthDate||x.bd===w.birthDate)), bad=list.length-ok.length; if(bad) mism.push(`${no} ${w.name} ≠ ${[...new Set(list.filter(x=>!ok.includes(x)).map(x=>x.ko&&x.ko!==w.name?x.ko:'생년월일 '+x.bd))].join('/')} (${bad}장)`);
     const en=new Map(), pl=new Map(); ok.forEach(x=>{ if(x.en) en.set(x.en,(en.get(x.en)||0)+1); if(x.pl) pl.set(x.pl,(pl.get(x.pl)||0)+1); });
     if(en.size>1) conflicts.push(`${w.name}: ${[...en.keys()].join(' / ')}`); if(pl.size>1) conflicts.push(`${w.name}(출생지): ${[...pl.keys()].join(' / ')}`);
     const e1=pick(en), p1=pick(pl), chg={}; if(e1&&e1[0]!==up(w.nameEn)) chg.nameEn=e1[0]; if(p1&&p1[0]!==up(w.birthPlace)) chg.birthPlace=p1[0]; if(!Object.keys(chg).length) continue;
     if((chg.nameEn&&String(w.nameEn||'').trim())||(chg.birthPlace&&String(w.birthPlace||'').trim())) diff++; plan.push({w,chg}); }
   toast('',1); if(!plan.length) return alert(`인증서 ${nCert}장을 읽었지만 새로 채울 영문명·출생지가 없습니다.${unmatched.length?`\n\n일치하는 용접사를 못 찾은 번호 ${unmatched.length}건:\n${unmatched.slice(0,10).join('\n')}`:''}`);
   const addEn=plan.filter(x=>x.chg.nameEn&&!String(x.w.nameEn||'').trim()).length, addPl=plan.filter(x=>x.chg.birthPlace&&!String(x.w.birthPlace||'').trim()).length;
-  let overwrite=false; if(diff) overwrite=confirm(`인증서 ${nCert}장 · 용접사 ${found.size}명 인식.${mism.length?`\n이름과 번호가 안 맞는 인증서(제외) ${mism.length}건`:''}\n\n빈 칸 채움: 영문명 ${addEn}명, 출생지 ${addPl}명\n이미 값이 있는데 인증서 값과 다른 용접사: ${diff}명\n\n이미 있는 값도 인증서 값으로 덮어쓸까요?\n  확인 = 덮어쓰기 (영문·출생지는 대문자로 통일)\n  취소 = 빈 칸만 채우기`);
+  let overwrite=false; if(diff) overwrite=confirm(`인증서 ${nCert}장 · 용접사 ${found.size}명 인식.${mism.length?`\n이름과 번호가 안 맞는 인증서(제외) ${mism.length}건`:''}\n\n빈 칸 채움: 영문명 ${addEn}명, 출생지 ${addPl}명\n이미 값이 있는데 인증서 값과 다른 용접사: ${diff}명\n\n이미 있는 값도 인증서 값으로 덮어쓸까요?\n  확인 = 덮어쓰기 (영문·출생지는 대문자로 통일, CHANGWON/CHWANG WON은 CHANG WON으로 정리)\n  취소 = 빈 칸만 채우기`);
   const out=[]; for(const {w,chg} of plan){ const n={...w}; let ch=false; if(chg.nameEn&&(overwrite||!String(w.nameEn||'').trim())){ n.nameEn=chg.nameEn; ch=true; } if(chg.birthPlace&&(overwrite||!String(w.birthPlace||'').trim())){ n.birthPlace=chg.birthPlace; ch=true; } if(ch) out.push(n); }
   if(!out.length) return alert('채울 빈 칸이 없습니다.');
-  if(!diff&&!confirm(`인증서 ${nCert}장 · 용접사 ${found.size}명 인식.${mism.length?`\n이름과 번호가 안 맞는 인증서(제외) ${mism.length}건`:''}\n\n영문명 ${addEn}명, 출생지 ${addPl}명의 빈 칸을 채웁니다. (영문·출생지는 대문자로 통일)${unmatched.length?`\n일치하는 용접사를 못 찾은 번호 ${unmatched.length}건은 건너뜁니다.`:''}${conflicts.length?`\n인증서끼리 값이 다른 용접사 ${conflicts.length}건은 가장 많이 나온 값을 씁니다.`:''}\n\n계속할까요?`)) return;
+  if(!diff&&!confirm(`인증서 ${nCert}장 · 용접사 ${found.size}명 인식.${mism.length?`\n이름과 번호가 안 맞는 인증서(제외) ${mism.length}건`:''}\n\n영문명 ${addEn}명, 출생지 ${addPl}명의 빈 칸을 채웁니다. (영문·출생지는 대문자로 통일, CHANGWON/CHWANG WON은 CHANG WON으로 정리)${unmatched.length?`\n일치하는 용접사를 못 찾은 번호 ${unmatched.length}건은 건너뜁니다.`:''}${conflicts.length?`\n인증서끼리 값이 다른 용접사 ${conflicts.length}건은 가장 많이 나온 값을 씁니다.`:''}\n\n계속할까요?`)) return;
   await DB.putMany('welders',out); await load(); if($('#wlist')) drawWelders(); alert(`완료: ${out.length}명 갱신 (영문명 ${out.filter(x=>x.nameEn).length}명 · 출생지 ${out.filter(x=>x.birthPlace).length}명)${unmatched.length?`\n\n못 찾은 번호 ${unmatched.length}건: ${unmatched.slice(0,8).join(', ')}${unmatched.length>8?' …':''}`:''}${mism.length?`\n\n※ 인증서의 번호와 이름이 다른 것(제외, 인증서 엑셀 확인 필요):\n${mism.slice(0,10).join('\n')}${mism.length>10?`\n… 외 ${mism.length-10}건`:''}`:''}${conflicts.length?`\n\n인증서끼리 값이 달랐던 항목(다수결 적용):\n${conflicts.slice(0,8).join('\n')}`:''}`); }
 function exportWelders(){ const {rows,cnt,ok,passes,iss}=welderRows(), sel=new Set(msIds('wel')), list=sel.size?rows.filter(w=>sel.has(w.id)):rows; if(!list.length) return toast('내보낼 용접사가 없습니다.',2500);
   const head=['연번','소속','성명','영문 성명','생년월일','출생지','용접사 No','직무','상태','합격 건수','시험 건수','최초 합격일','가장 늦은 만기','비고(미비점)'];
@@ -833,7 +835,7 @@ function parseCerts(sheets){
     if(!idm||!dm) continue;                                    // 인증서 시트가 아님(양식 등)
     const d=dm[1].match(/(?:9606-1|14732)\s+(\d+)\s+(P|T)\s+(BW|FW)\s+(FM\s?\d)\s+(\w)\s+t([\d.]+)\s+(\w+)(?:\s+(.*))?/i);
     if(!d){ out.push({sheet:sh.name,bad:'Designation 형식 인식 불가: '+dm[1]}); continue; }
-    const wps=find(/WPS No\s*:\s*(.*)/), ref=find(/Reference No\.?\s*:\s*(.+)/), nm=find(/Welder'?s Name\s*:\s*(.+)/), bp=find(/생년월일\s*:\s*(.+?),\s*(\d{4})\.(\d{2})\.(\d{2})/), emp=find(/Employer\s*:\s*(.+)/);
+    const wps=find(/WPS No\s*:\s*(.*)/), ref=find(/Reference No\.?\s*:\s*(.+)/), nm=find(/Welder'?s Name\s*:\s*(.+)/), bp=find(/(?:생년월일|place of birth)[^:\n]*:\s*(.+?)\s*,\s*(\d{4})\s*[.\-\/]\s*(\d{1,2})\s*[.\-\/]\s*(\d{1,2})/i), emp=find(/Employer\s*:\s*(.+)/);
     const rowOf=re=>{const c=strs.find(x=>re.test(x.v)); return c?cells.filter(x=>x.ri===c.ri&&x.ci>c.ci):[];};
     const dateAfter=re=>{ const c=strs.find(x=>re.test(x.v)); if(!c) return ''; const inl=c.v.match(/(\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2})/); if(inl) return xDate(inl[1]);
       for(const x of cells.filter(x=>x.ri===c.ri&&x.ci>c.ci)){ const v=xDate(x.v); if(v) return v; } return ''; };
@@ -845,7 +847,7 @@ function parseCerts(sheets){
     const tstMarks={rtut:mark(/X-ray|UT testing|MT testing/),macro:mark(/Macroscopic/),bend:mark(/Bend Test/)}, jointMarks=tstMarks.macro==='pass'&&tstMarks.bend!=='pass'&&tstMarks.rtut!=='pass'?'FW':((tstMarks.bend==='pass'||tstMarks.rtut==='pass')&&tstMarks.macro!=='pass'?'BW':'');
     // 설계명의 BW/FW가 시트 이름·시험 항목(굽힘/RT=BW, 매크로=FW)과 다르면 시트 이름 → 시험 항목 순으로 따른다 (시트 복사 때 설계명을 안 고친 경우)
     const jointDesig=d[3].toUpperCase(), jointRes=jointSheet||jointMarks||jointDesig;
-    out.push({sheet:sh.name,posSheet,jointDesig,jointConflict:jointRes!==jointDesig,welderNo:normNo(idm[1]),name:han||rawName,nameEn:(en?en.v.trim():'')||enFromName,wDates:[...wInl,wCell].filter(Boolean),birthPlace:bp?bp[1].trim():'',birthDate:bp?`${bp[2]}-${bp[3]}-${bp[4]}`:'',employer:emp?emp[1].trim():'',
+    out.push({sheet:sh.name,posSheet,jointDesig,jointConflict:jointRes!==jointDesig,welderNo:normNo(idm[1]),name:han||rawName,nameEn:(en?en.v.trim():'')||enFromName,wDates:[...wInl,wCell].filter(Boolean),birthPlace:bp?bp[1].trim():'',birthDate:bp?`${bp[2]}-${bp[3].padStart(2,'0')}-${bp[4].padStart(2,'0')}`:'',employer:emp?emp[1].trim():'',
       refNo:ref?ref[1].trim():'',wpsNo:wps?wps[1].trim():'',code:d[1],productType:d[2].toUpperCase(),joint:jointRes,fillerGroup:d[4].replace(/\s/,' ').toUpperCase().replace(/^FM(\d)/,'FM $1'),fillerType:d[5].toUpperCase(),
       thickness:+d[6],position:d[7].toUpperCase(),backing:d[8]?String(d[8]).trim():'',weldingDate:wInl[0]||wCell||dateAfter(/Date of Welding/),issueDate:iInl[0]||iCell||dateAfter(/Date of issue/),dateConflict:!!(wInl[0]&&wCell&&wInl[0]!==wCell),
       tests:{vt:mark(/Visual Testing/),rtut:mark(/X-ray|UT testing|MT testing/),macro:mark(/Macroscopic/),fracture:mark(/Fracture/),bend:mark(/Bend Test/),additional:mark(/Additional Test/)}});
