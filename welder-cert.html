@@ -25,7 +25,7 @@ table.list th,table.list td{padding:6px 8px;border-bottom:1px solid var(--line);
 .tw{overflow-x:auto;max-height:70vh;overflow-y:auto;border:1px solid var(--line);border-radius:6px}
 .tw table.list th{position:sticky;top:0;z-index:1}
 table.list tbody tr:hover{background:#f5f8fb}
-table.list tr.gone td{background:#fdeeee}table.list tr.sel td{background:#e3eefb!important}
+.cfb{cursor:pointer;margin-left:4px;font-size:10px;color:#8a94a0;border:1px solid transparent;border-radius:3px;padding:0 3px;user-select:none}.cfb:hover{background:#dde6f0}.cfb.on{color:#fff;background:var(--accent)}.cfp{position:fixed;z-index:99998;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:10px;width:250px;font-size:13px}.cfp .cfs{width:100%;box-sizing:border-box}.cfp .cfl{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:4px}.cfp .cfl label{display:flex;gap:6px;align-items:center;padding:2px 4px;flex-direction:row;color:var(--ink);white-space:nowrap}.cfp .cfl label small{margin-left:auto;color:var(--mute)}table.list tr.gone td{background:#fdeeee}table.list tr.sel td{background:#e3eefb!important}
 .wn{color:#b7791f;font-weight:700}
 table.list tr.kid td{background:#f7f9fb;color:#5a6672;font-size:13px}table.list tr.kid td:first-child{border-left:3px solid #c9d3de}
 .m{display:inline-block;width:20px;text-align:center;font-weight:700}.m.p{color:var(--ok)}.m.f{color:var(--bad)}.m.n{color:#b5bcc5}
@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v66 · 시험기록 재직 표시</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v67 · 열 필터</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -410,6 +410,29 @@ function exportXlsx(filename,sheet,header,rows){ const enc=new TextEncoder(), X=
     ['xl/styles.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="맑은 고딕"/></font><font><b/><sz val="11"/><name val="맑은 고딕"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEEF2F6"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
     ['xl/worksheets/sheet1.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w.toFixed(1)}" customWidth="1"/>`).join('')}</cols><sheetData>${sd}</sheetData></worksheet>`]].map(([name,t])=>({name,data:enc.encode(t)}));
   const a=document.createElement('a'); a.href=URL.createObjectURL(zipStore(files)); a.download=filename; a.click(); }
+// ============ 표 열 필터 (엑셀의 자동 필터처럼 머리글 ▾ 에서 값 목록으로 골라 보기) ============
+const CF={}, CFREG={};
+const cfCnt=t=>Object.keys(CF[t]||{}).length;
+function cfDef(t,cols,rowsFn,redraw,box){ CFREG[t]={cols:Object.fromEntries(cols.map(c=>[c.k,c])),rowsFn,redraw,box}; }
+const cfVals=(c,row)=>{ const v=c.get(row); return (Array.isArray(v)?v:[v]).map(x=>String(x==null||x===''?'(빈 값)':x)); };
+function cfFilter(t,rows,except){ const f=CF[t]; if(!f) return rows; const R=CFREG[t]; return rows.filter(row=>Object.entries(f).every(([k,set])=>k===except||!R.cols[k]||cfVals(R.cols[k],row).some(v=>set.has(v)))); }
+function cfTh(t,k){ const on=CF[t]&&CF[t][k]; return `<span class="cfb${on?' on':''}" title="${on?'필터 적용 중 — 클릭하여 변경':'이 열의 값으로 걸러 보기'}" onclick="cfOpen(event,'${t}','${k}')">▾</span>`; }
+const cfSort=(a,b)=>{ const na=parseFloat(a), nb=parseFloat(b); if(!isNaN(na)&&!isNaN(nb)&&/^[\d.\-]+$/.test(a)&&/^[\d.\-]+$/.test(b)) return na-nb; return String(a).localeCompare(String(b),'ko',{numeric:true}); };
+function cfClose(){ const p=document.getElementById('cfp'); if(p) p.remove(); }
+function cfOpen(e,t,k){ e.stopPropagation(); e.preventDefault(); cfClose(); const R=CFREG[t], c=R.cols[k], rows=R.rowsFn(k), cnt=new Map();
+  rows.forEach(r=>new Set(cfVals(c,r)).forEach(v=>cnt.set(v,(cnt.get(v)||0)+1)));
+  const vals=[...cnt.keys()].sort(cfSort), cur=CF[t]&&CF[t][k], sel=new Set(cur?[...cur]:vals);
+  const p=document.createElement('div'); p.id='cfp'; p.className='cfp'; p.onclick=ev=>ev.stopPropagation();
+  p.innerHTML=`<div style="font-weight:700;margin-bottom:4px">${esc(c.label)}</div><input class="cfs" placeholder="값 검색" oninput="cfSearch(this.value)"><div class="row" style="margin:4px 0;gap:4px"><button type="button" class="b sm sec" onclick="cfAll(true)">모두 선택</button><button type="button" class="b sm sec" onclick="cfAll(false)">모두 해제</button></div><div class="cfl">${vals.map(v=>`<label><input type="checkbox" value="${esc(v)}" ${sel.has(v)?'checked':''}> <span>${esc(v)}</span> <small>${cnt.get(v)}</small></label>`).join('')||'<div style="color:var(--mute)">값이 없습니다</div>'}</div><div class="row" style="margin:6px 0 0;gap:4px"><button type="button" class="b sm" onclick="cfOk('${t}','${k}')">확인</button><button type="button" class="b sm sec" onclick="cfReset('${t}','${k}')">이 열 해제</button><button type="button" class="b sm sec" onclick="cfClose()">닫기</button></div>`;
+  document.body.appendChild(p); const r=e.target.getBoundingClientRect(); p.style.left=Math.max(6,Math.min(innerWidth-264,r.left))+'px'; p.style.top=Math.max(8,Math.min(r.bottom+4,innerHeight-p.offsetHeight-8))+'px'; p.querySelector('.cfs').focus(); }
+function cfSearch(q){ q=q.trim().toLowerCase(); document.querySelectorAll('#cfp .cfl label').forEach(l=>{ l.style.display=!q||l.textContent.toLowerCase().includes(q)?'':'none'; }); }
+function cfAll(on){ document.querySelectorAll('#cfp .cfl label').forEach(l=>{ if(l.style.display!=='none') l.querySelector('input').checked=on; }); }
+function cfRedraw(t){ const R=CFREG[t], y=window.scrollY, e=document.querySelector(R.box), top=e?e.scrollTop:0; R.redraw(); window.scrollTo(0,y); const e2=document.querySelector(R.box); if(e2) e2.scrollTop=top; }
+function cfOk(t,k){ const all=[...document.querySelectorAll('#cfp .cfl input')], on=all.filter(i=>i.checked).map(i=>i.value); CF[t]=CF[t]||{}; if(on.length===all.length) delete CF[t][k]; else CF[t][k]=new Set(on); if(!Object.keys(CF[t]).length) delete CF[t]; cfClose(); cfRedraw(t); }
+function cfReset(t,k){ if(CF[t]){ delete CF[t][k]; if(!Object.keys(CF[t]).length) delete CF[t]; } cfClose(); cfRedraw(t); }
+function cfClearAll(t){ delete CF[t]; cfRedraw(t); }
+function cfBar(t){ const f=CF[t]; if(!f) return ''; const R=CFREG[t]; return `<div class="row" style="margin:0 0 6px;padding:5px 10px;background:#fff8e6;border:1px solid #f0dca4;border-radius:6px;align-items:center;font-size:13px"><b>열 필터 적용 중</b>${Object.entries(f).map(([k,s])=>`<span class="pill" style="background:var(--accent)" title="${esc([...s].join(', '))}">${esc(R.cols[k]?R.cols[k].label:k)} ${s.size}개</span>`).join('')}<button class="b sm sec" onclick="cfClearAll('${t}')">모두 해제 (전체 보기)</button></div>`; }
+document.addEventListener('click',e=>{ if(!e.target.closest||!e.target.closest('#cfp')) cfClose(); }); document.addEventListener('keydown',e=>{ if(e.key==='Escape') cfClose(); });
 const TABS=[['dash','대시보드'],['welders','용접사'],['records','시험기록(WQT)'],['wps','WPS'],['shape','형상 도구'],['settings','설정 · 백업']];
 let tab='dash', editRec=null;
 function nav(){ $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="go('${k}')">${l}</button>`).join(''); }
@@ -467,7 +490,8 @@ function welderIssues(w,pass){ const L=[], t=today(); if(w.status==='미입사')
   const pg=records.filter(r=>r.welderId===w.id&&recStatus(r)==='pending').length; if(pg) L.push({k:'pending',t:`시험 진행중 ${pg}건`,sev:0});
   return L; }
 const issuePill=i=>`<span class="pill" style="background:${i.sev>=2?'var(--bad)':i.sev===1?'var(--warn)':'#8a94a0'};margin:1px 2px 1px 0;font-size:11px">${esc(i.t)}</span>`;
-function welderRows(){ // 현재 필터가 적용된 용접사 목록 + 집계
+let WCTX={};
+function welderRows(except){ // 현재 필터가 적용된 용접사 목록 + 집계
   const f=window._wf||'표시중', q=(window._wq||'').trim().toLowerCase(), fi=window._wi||'';
   const cnt={}, ok={}, prj={}, passes={};
   for(const r of records){ cnt[r.welderId]=(cnt[r.welderId]||0)+1; const pr=(r.project||'').trim(); if(pr){(prj[r.welderId]=prj[r.welderId]||{})[pr]=((prj[r.welderId]||{})[pr]||0)+1;}
@@ -475,14 +499,14 @@ function welderRows(){ // 현재 필터가 적용된 용접사 목록 + 집계
   const iss={}; welders.forEach(w=>iss[w.id]=welderIssues(w,passes[w.id]));
   const rows=welders.filter(w=>(f==='전체'||(f==='표시중'?w.status!=='미입사':w.status===f))&&(!q||[w.welderNo,w.name,w.company,Object.keys(prj[w.id]||{}).join(' ')].join(' ').toLowerCase().includes(q))&&(!fi||(fi==='any'?iss[w.id].length>0:iss[w.id].some(i=>i.k===fi))))
     .sort((a,b)=>(/^미부여/.test(a.welderNo)-/^미부여/.test(b.welderNo))||a.welderNo.localeCompare(b.welderNo,undefined,{numeric:true}));
-  return {rows,cnt,ok,prj,passes,iss}; }
+  WCTX={cnt,ok,prj,passes,iss}; return {rows:cfFilter('wel',rows,except),cnt,ok,prj,passes,iss}; }
 function drawWelders(){
   const {rows,cnt,ok,prj,passes,iss}=welderRows(), hiddenNew=(window._wf||'표시중')==='표시중'?welders.filter(w=>w.status==='미입사').length:0;
   const m=ms('wel'); m.order=rows.map(w=>w.id); const nsel=msIds('wel').length;
   $('#wtitle').textContent=`용접사 목록 (${rows.length} / 전체 ${welders.length}${hiddenNew?` · 미입사 ${hiddenNew}명 숨김`:''})`;
-  $('#wbar2').innerHTML=nsel?`<div class="row" style="margin:0 0 6px;padding:6px 10px;background:#eef5ff;border:1px solid #c4d8f2;border-radius:6px;align-items:center"><b>${nsel}명 선택됨</b><button class="b sm" onclick="exportWelders()">엑셀 내보내기</button><select id="wbst"><option value="">상태 변경…</option>${['재직','퇴사','미입사','미확인'].map(x=>`<option>${x}</option>`).join('')}</select><button class="b sm sec" onclick="bulkWelderStatus()">적용</button><button class="b sm red" onclick="bulkDelWelders()">선택 삭제</button><button class="b sm sec" onclick="msClear('wel')">선택 해제</button><small style="color:var(--mute)">Shift+클릭 = 범위 선택, Ctrl+클릭 = 하나씩 추가/해제</small></div>`:'';
+  $('#wbar2').innerHTML=cfBar('wel')+(nsel?`<div class="row" style="margin:0 0 6px;padding:6px 10px;background:#eef5ff;border:1px solid #c4d8f2;border-radius:6px;align-items:center"><b>${nsel}명 선택됨</b><button class="b sm" onclick="exportWelders()">엑셀 내보내기</button><select id="wbst"><option value="">상태 변경…</option>${['재직','퇴사','미입사','미확인'].map(x=>`<option>${x}</option>`).join('')}</select><button class="b sm sec" onclick="bulkWelderStatus()">적용</button><button class="b sm red" onclick="bulkDelWelders()">선택 삭제</button><button class="b sm sec" onclick="msClear('wel')">선택 해제</button><small style="color:var(--mute)">Shift+클릭 = 범위 선택, Ctrl+클릭 = 하나씩 추가/해제</small></div>`:'');
   // 합격날짜 = 최초 합격 용접일, 만기 = 합격 인증서 중 가장 늦은 만료일 (용접일+3년-1일)
-  $('#wlist').innerHTML=`<table class="list"><thead><tr>${msTh('wel')}<th class="num" title="이 용접사에게 발행된 인증서 (▸ 를 누르면 전체 목록)">인증서</th><th class="num">연번</th><th>프로젝트 및 제작품목</th><th>소속</th><th>성명</th><th>생년월일</th><th>용접사 No</th><th title="최초 합격 용접일">합격날짜</th><th title="합격 인증서 중 가장 늦은 만료일">만기</th><th>직무</th><th class="num">상태</th><th class="num">합격 / 시험</th><th title="사진·영문명·생년월일·합격 인증서 등 빠진 정보">비고(미비점)</th><th></th></tr></thead><tbody>${rows.map((w,n)=>{
+  $('#wlist').innerHTML=`<table class="list"><thead><tr>${msTh('wel')}<th class="num" title="이 용접사에게 발행된 인증서 (▸ 를 누르면 전체 목록)">인증서</th><th class="num">연번</th><th>프로젝트 및 제작품목${cfTh('wel','proj')}</th><th>소속${cfTh('wel','company')}</th><th>성명${cfTh('wel','name')}</th><th>생년월일${cfTh('wel','birth')}</th><th>용접사 No${cfTh('wel','no')}</th><th title="최초 합격 용접일">합격날짜${cfTh('wel','first')}</th><th title="합격 인증서 중 가장 늦은 만료일">만기${cfTh('wel','last')}</th><th>직무${cfTh('wel','role')}</th><th class="num">상태${cfTh('wel','status')}</th><th class="num">합격 / 시험${cfTh('wel','okc')}</th><th title="사진·영문명·생년월일·합격 인증서 등 빠진 정보">비고(미비점)${cfTh('wel','iss')}</th><th></th></tr></thead><tbody>${rows.map((w,n)=>{
    const ps=(passes[w.id]||[]).map(r=>r.weldingDate).sort(), first=ps[0]||'', last=ps.length?calcExpire(ps[ps.length-1]):'';
    const pj=Object.entries(prj[w.id]||{}).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
    const certs=(passes[w.id]||[]).slice().sort((a,b)=>b.weldingDate.localeCompare(a.weldingDate)||b.id-a.id), open=WL.open.has(w.id), is=iss[w.id];
@@ -542,11 +566,12 @@ function vWStatus(){ const cos=['전체',...uniq(welders.map(w=>w.company).filte
    <label style="flex-direction:row;align-items:center;gap:5px"><input type="checkbox" ${WS.fail?'checked':''} onchange="WS.fail=this.checked;drawWStatus()">불합격(✕)·진행 표시</label><button class="b sm sec" id="wsrest" onclick="restoreWsHide()"></button>
    <span style="flex:1"></span><button class="b sm sec" onclick="exportWStatus()">엑셀(CSV)로 저장</button></div>
    <div style="font-size:12px;color:var(--mute);margin-bottom:6px"><span style="background:#22e0e8;padding:1px 8px">합격(유효)</span> <span style="background:#ffe27a;padding:1px 8px">6개월 서명 갱신 필요</span> <span style="background:#f3b6b6;padding:1px 8px">만료</span> <span style="background:#ffd7a8;padding:1px 8px">시험 진행중</span> <span style="color:#b33;padding:1px 8px">불합격만 있음(✕)</span> · 칸을 누르면 인증서를 봅니다. 재시험으로 합격한 조인트는 합격으로 표시됩니다.</div>
-   <div class="tw" id="wstbl" style="max-height:70vh;overflow:auto"></div></div><div class="card"><h2>소속별 집계</h2><div class="tw" id="wssum"></div></div>`;
+   <div id="wsbar"></div><div class="tw" id="wstbl" style="max-height:70vh;overflow:auto"></div></div><div class="card"><h2>소속별 집계</h2><div class="tw" id="wssum"></div></div>`;
   drawWStatus(); }
-function wsData(){ const t=today(), wm=new Map(welders.map(w=>[w.id,w])), q=WS.q.trim().toLowerCase();
-  const ws=welders.filter(w=>(WS.st==='전체'?w.status!=='미입사':w.status===WS.st)&&(WS.co==='전체'||w.company===WS.co)&&(!q||[w.name,w.welderNo].join(' ').toLowerCase().includes(q)))
+function wsData(except){ const t=today(), wm=new Map(welders.map(w=>[w.id,w])), q=WS.q.trim().toLowerCase();
+  let ws=welders.filter(w=>(WS.st==='전체'?w.status!=='미입사':w.status===WS.st)&&(WS.co==='전체'||w.company===WS.co)&&(!q||[w.name,w.welderNo].join(' ').toLowerCase().includes(q)))
     .sort((a,b)=>String(a.company||'').localeCompare(b.company||'','ko')||a.welderNo.localeCompare(b.welderNo,undefined,{numeric:true}));
+  ws=cfFilter('wsm',ws,except);
   const ids=new Set(ws.map(w=>w.id)), cell={}, cols=new Map(), prog={};
   for(const r of records){ if(!ids.has(r.welderId)) continue; const st=recStatus(r), k=[r.process,r.joint,+r.thickness,r.position].join('|');
     if(st==='pass'){ const exp=calcExpire(r.weldingDate), al=certAlert(r.weldingDate,exp,(r.renewals||[]).length,t), kind=exp<t?'ex':(al==='renewal'&&WS.rn)?'rn':'ok';
@@ -558,7 +583,7 @@ function wsData(){ const t=today(), wm=new Map(welders.map(w=>[w.id,w])), q=WS.q
   return {ws,cell,C,prog,t}; }
 async function hideWsCell(k){ if(!confirm('이 불합격/진행 표시를 현황표에서 숨길까요?\n(시험 기록 자체는 삭제되지 않으며, "숨긴 표시 복원"으로 되돌릴 수 있습니다.)')) return; S.wsHide=[...(S.wsHide||[]),k]; await saveSettings(); drawWStatus(); }
 async function restoreWsHide(){ S.wsHide=[]; await saveSettings(); drawWStatus(); }
-function drawWStatus(){ const rb=$('#wsrest'); if(rb){ const n=(S.wsHide||[]).length; rb.style.display=n?'':'none'; rb.textContent=`숨긴 표시 ${n}개 복원`; } const {ws,cell,C,prog,t}=wsData(); $('#wstt').textContent=`용접사 현황표 (${ws.length}명 · 조건 ${C.length}열)`;
+function drawWStatus(){ cfDef('wsm',[{k:'co',label:'업체',get:w=>w.company},{k:'name',label:'성명',get:w=>w.name},{k:'no',label:'용접사번호',get:w=>w.welderNo},{k:'role',label:'구분',get:w=>w.role},{k:'st',label:'상태',get:w=>w.status}],ex=>wsData(ex).ws,drawWStatus,'#wstbl'); const rb=$('#wsrest'); if(rb){ const n=(S.wsHide||[]).length; rb.style.display=n?'':'none'; rb.textContent=`숨긴 표시 ${n}개 복원`; } const {ws,cell,C,prog,t}=wsData(); $('#wstt').textContent=`용접사 현황표 (${ws.length}명 · 조건 ${C.length}열)`;
   const pl=x=>String(x).replace(/^\d+\s*/,''), grp=(arr,f)=>{ const o=[]; arr.forEach(c=>{ const k=f(c[1]), l=o[o.length-1]; if(l&&l.k===k) l.n++; else o.push({k,n:1}); }); return o; };
   const h1=grp(C,a=>a[0]).map(g=>`<th colspan="${g.n}">${esc(pl(g.k))}</th>`).join('');
   const h2=grp(C,a=>a[0]+'|'+a[1]).map(g=>`<th colspan="${g.n}">${g.k.endsWith('BW')?'맞대기':'필릿'}</th>`).join('');
@@ -569,7 +594,7 @@ function drawWStatus(){ const rb=$('#wsrest'); if(rb){ const n=(S.wsHide||[]).le
     const tds=C.map(([k])=>{ const c=cell[w.id+'|'+k]; if(!c) return '<td></td>'; if(c.kind==='pg') return `<td class="pg" data-k="${esc(w.id+'|'+k)}" onclick="hideWsCell(this.dataset.k)" style="cursor:pointer" title="시험 진행중 · 클릭하면 이 표시를 숨깁니다">진행</td>`; if(c.kind==='ft') return `<td class="ft" data-k="${esc(w.id+'|'+k)}" onclick="hideWsCell(this.dataset.k)" style="cursor:pointer" title="불합격 기록만 있음 · 클릭하면 이 표시를 숨깁니다 (기록은 삭제되지 않음)">✕</td>`;
       if(c.kind==='ok'||c.kind==='rn') fin++; return `<td class="${c.kind}" onclick="showCert(${c.r.id})" title="${c.r.weldingDate} 용접 · 만료 ${c.exp}${c.kind==='rn'?' · 6개월 서명 갱신 필요':''}">${c.kind==='ex'?'만료':'합격'}</td>`; }).join('');
     body+=`<tr class="${first?'sep':''} ${w.status==='퇴사'?'gone':''}"><td class="l">${esc(w.company)}</td><td>${n+1}</td><td class="l"><b>${esc(w.name)}</b></td><td>${w.birthDate?w.birthDate.replace(/-/g,'').slice(2):''}</td><td class="l">${esc(w.welderNo)}</td><td>${esc(w.role)}</td><td>${w.status}</td>${tds}<td><b>${fin}</b></td><td>${prog[w.id]||''}</td></tr>`; });
-  $('#wstbl').innerHTML=`<table class="mx"><thead><tr><th rowspan="4" class="l">업체</th><th rowspan="4">순</th><th rowspan="4" class="l">성명</th><th rowspan="4">생년월일</th><th rowspan="4" class="l">용접사번호</th><th rowspan="4">구분</th><th rowspan="4">상태</th>${h1}<th rowspan="4">유효<br>합격</th><th rowspan="4">진행<br>시험</th></tr><tr class="h2">${h2}</tr><tr class="h3">${h3}</tr><tr class="h4">${h4}</tr></thead><tbody>${body||'<tr><td colspan="9" style="color:var(--mute)">표시할 용접사가 없습니다.</td></tr>'}</tbody></table>`;
+  $('#wsbar').innerHTML=cfBar('wsm'); $('#wstbl').innerHTML=`<table class="mx"><thead><tr><th rowspan="4" class="l">업체${cfTh('wsm','co')}</th><th rowspan="4">순</th><th rowspan="4" class="l">성명${cfTh('wsm','name')}</th><th rowspan="4">생년월일</th><th rowspan="4" class="l">용접사번호${cfTh('wsm','no')}</th><th rowspan="4">구분${cfTh('wsm','role')}</th><th rowspan="4">상태${cfTh('wsm','st')}</th>${h1}<th rowspan="4">유효<br>합격</th><th rowspan="4">진행<br>시험</th></tr><tr class="h2">${h2}</tr><tr class="h3">${h3}</tr><tr class="h4">${h4}</tr></thead><tbody>${body||'<tr><td colspan="9" style="color:var(--mute)">표시할 용접사가 없습니다.</td></tr>'}</tbody></table>`;
   // 소속별 집계
   const cos=uniq(ws.map(w=>w.company)), roles=uniq(ws.map(w=>w.role)), row=(co,rl)=>{ const L=ws.filter(w=>w.company===co&&(!rl||w.role===rl)); let v=0,rn=0,ex=0,pg=0; L.forEach(w=>{ let hv=false,hr=false,he=false; C.forEach(([k])=>{ const c=cell[w.id+'|'+k]; if(!c) return; if(c.kind==='ok') hv=true; if(c.kind==='rn') hr=true; if(c.kind==='ex') he=true; }); if(hv||hr) v++; if(hr) rn++; if(!hv&&!hr&&he) ex++; if(prog[w.id]) pg++; }); return [L.length,v,rn,ex,pg]; };
   let tot=[0,0,0,0,0], sb=''; cos.forEach(co=>roles.forEach(rl=>{ const r=row(co,rl); if(!r[0]) return; r.forEach((x,i)=>tot[i]+=x); sb+=`<tr><td class="l">${esc(co)}</td><td>${esc(rl)}</td>${r.map(x=>`<td>${x}</td>`).join('')}</tr>`; }));
@@ -605,7 +630,10 @@ function vWelders(){
     <button class="b sm red" onclick="cleanupWelders()">깨진 데이터 정리</button></div>
    <div style="color:var(--mute);font-size:12px;margin-bottom:6px">엑셀: '1.Welder list'(명단)와 '2.자격 시험 기록서'(시험 기록)를 자동 인식합니다. CSV: 번호,성명,생년월일,소속,직무,상태</div>
    <div id="wbar2"></div><div class="tw" id="wlist"></div></div>`;
-  msReg('wel',drawWelders,'#wlist'); drawWelders();
+  msReg('wel',drawWelders,'#wlist');
+  cfDef('wel',[{k:'proj',label:'프로젝트',get:w=>Object.entries(WCTX.prj[w.id]||{}).sort((a,b)=>b[1]-a[1]).map(x=>x[0])},{k:'company',label:'소속',get:w=>w.company},{k:'name',label:'성명',get:w=>w.name},{k:'birth',label:'생년월일',get:w=>w.birthDate},{k:'no',label:'용접사 No',get:w=>w.welderNo},
+    {k:'first',label:'합격날짜',get:w=>((WCTX.passes[w.id]||[]).map(r=>r.weldingDate).sort()[0])||''},{k:'last',label:'만기',get:w=>{ const ps=(WCTX.passes[w.id]||[]).map(r=>r.weldingDate).sort(); return ps.length?calcExpire(ps[ps.length-1]):''; }},{k:'role',label:'직무',get:w=>w.role},{k:'status',label:'상태',get:w=>w.status},{k:'okc',label:'합격 / 시험',get:w=>`${WCTX.ok[w.id]||0} / ${WCTX.cnt[w.id]||0}`},{k:'iss',label:'비고(미비점)',get:w=>{ const i=WCTX.iss[w.id]||[]; return i.length?i.map(x=>x.t.replace(/ \d+건$/,'')):'✔ 이상 없음'; }}],ex=>welderRows(ex).rows,drawWelders,'#wlist');
+  drawWelders();
   $('#wf').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target),o=Object.fromEntries(fd);
     const id=o.id?+o.id:undefined; const old=id?welders.find(w=>w.id===id):{};
     if(welders.some(w=>w.welderNo===o.welderNo.trim()&&w.id!==id)) return alert('이미 등록된 용접사 번호입니다.');
@@ -1089,7 +1117,7 @@ function vRecords(){
    <div style="color:var(--mute);font-size:12px;margin-top:8px">같은 용접사·같은 조인트(유형·공정·두께·자세)는 합격 기록(없으면 최근 기록) 한 줄로 묶이고, <b>▸ 숫자</b>를 누르면 이전 시도(불합격 등)가 펼쳐집니다.<br>검사 결과: <span class="m p">●</span> Pass <span class="m f">✕</span> Fail <span class="m n">–</span> 미실시. 판정은 검사 결과로 자동 계산됩니다(설정의 판정 기준 적용).</div></div>`;
   $('#rall').onchange=e=>{RF.all=e.target.checked;drawRecs();};
   $('#rgone').onchange=e=>{RF.hideGone=e.target.checked;RF.page=0;drawRecs();}; $('#rnew').onchange=e=>{RF.hideNew=e.target.checked;RF.page=0;drawRecs();};
-  msReg('rec',drawRecs,'#rlist');
+  msReg('rec',drawRecs,'#rlist'); cfDef('rec',RCOLS.map(([k,label,get])=>({k,label,get})),ex=>recGroups(ex),drawRecs,'#rlist');
   $('#rq').oninput=e=>{RF.q=e.target.value;RF.page=0;drawRecs();};
   for(const [n,k] of [['rst','st'],['rjoint','joint'],['rproc','proc']]) $(`[name=${n}]`).onchange=e=>{RF[k]=e.target.value;RF.page=0;drawRecs();};
   drawRecs();
@@ -1117,18 +1145,23 @@ function groupRecs(rows){
     const main=list.find(x=>x.st==='pass')||list[0]; return {main,kids:list.filter(x=>x!==main)}; });
 }
 function toggleGrp(id){ RF.open.has(id)?RF.open.delete(id):RF.open.add(id); drawRecs(); }
-function drawRecs(){
+function recGroups(except){ // 기본 필터 + 열 필터가 적용된 조인트 묶음 목록 (except: 값 목록을 만들 때 그 열 필터는 제외)
   const wm=new Map(welders.map(w=>[w.id,w])), q=RF.q.trim().toLowerCase();
   const rows=records.map(r=>({r,w:wm.get(r.welderId)||{},st:recStatus(r)})).filter(x=>
     !(RF.hideGone&&x.w.status==='퇴사')&&!(RF.hideNew&&x.w.status==='미입사')&&(RF.joint==='전체'||x.r.joint===RF.joint)&&(RF.proc==='전체'||x.r.process===RF.proc)&&
     (!q||[x.w.name,x.w.welderNo,x.w.company,x.w.status,x.r.project].join(' ').toLowerCase().includes(q)));
   const groups=groupRecs(rows).filter(g=>RF.st==='전체'||JLBL[g.main.st]===RF.st) // 상태 필터는 대표 기록의 판정 기준
     .sort((a,b)=>b.main.r.weldingDate.localeCompare(a.main.r.weldingDate)||b.main.r.id-a.main.r.id);
+  return cfFilter('rec',groups,except); }
+const RCOLS=[['date','용접일',g=>g.main.r.weldingDate],['name','용접사',g=>g.main.w.name],['company','소속',g=>g.main.w.company],['emp','재직',g=>g.main.w.status],['joint','유형',g=>g.main.r.joint],['proc','공정',g=>g.main.r.process],['thk','두께',g=>fmtN(g.main.r.thickness)],['pos','자세',g=>g.main.r.position],['fm','용가재',g=>g.main.r.fillerGroup],['wps','WPS',g=>(g.main.r.wpsNo||'').trim()||'(미지정)'],
+  ['vt','VT',g=>({pass:'Pass',fail:'Fail'}[(g.main.r.tests||{}).vt]||'-')],['rt','RT/UT',g=>({pass:'Pass',fail:'Fail'}[(g.main.r.tests||{}).rtut]||'-')],['bd','Bend/Macro',g=>({pass:'Pass',fail:'Fail'}[(g.main.r.joint==='BW'?(g.main.r.tests||{}).bend:(g.main.r.tests||{}).macro)]||'-')],['st','판정',g=>JLBL[g.main.st]],['exp','만료일',g=>calcExpire(g.main.r.weldingDate)],['rn','서명',g=>`${(g.main.r.renewals||[]).length}/5`]];
+function drawRecs(){
+  const wm=new Map(welders.map(w=>[w.id,w])), groups=recGroups();
   const pages=Math.max(1,Math.ceil(groups.length/PAGE)); RF.page=Math.min(RF.page,pages-1);
   window._recRows=groups.flatMap(g=>[g.main,...g.kids]);   // 내보내기용(필터 적용된 전체)
   ms('rec').order=window._recRows.map(x=>x.r.id); const nsel=msIds('rec').length;
   const hideN=(RF.hideGone?records.filter(r=>(wm.get(r.welderId)||{}).status==='퇴사').length:0)+(RF.hideNew?records.filter(r=>(wm.get(r.welderId)||{}).status==='미입사').length:0);
-  $('#rbar').innerHTML=nsel?`<div class="row" style="margin:0;padding:6px 10px;background:#eef5ff;border:1px solid #c4d8f2;border-radius:6px;align-items:center"><b>${nsel}건 선택됨</b><button class="b sm" onclick="exportRecs()">엑셀 내보내기</button><button class="b sm red" onclick="bulkDelRecs()">선택 삭제</button><button class="b sm sec" onclick="msClear('rec')">선택 해제</button><small style="color:var(--mute)">Shift+클릭 = 범위 선택, Ctrl+클릭 = 하나씩 추가/해제</small></div>`:'';
+  $('#rbar').innerHTML=cfBar('rec')+(nsel?`<div class="row" style="margin:0;padding:6px 10px;background:#eef5ff;border:1px solid #c4d8f2;border-radius:6px;align-items:center"><b>${nsel}건 선택됨</b><button class="b sm" onclick="exportRecs()">엑셀 내보내기</button><button class="b sm red" onclick="bulkDelRecs()">선택 삭제</button><button class="b sm sec" onclick="msClear('rec')">선택 해제</button><small style="color:var(--mute)">Shift+클릭 = 범위 선택, Ctrl+클릭 = 하나씩 추가/해제</small></div>`:'');
   const hidden=groups.reduce((a,g)=>a+g.kids.length,0), multi=groups.filter(g=>g.kids.length).length;
   $('#rtitle').textContent=`시험 기록 (조인트 ${groups.length}개 · 전체 ${records.length}건${hideN?` · 숨김 ${hideN}건`:''})`;
   const rowHTML=({r,w,st},kid,g)=>{const T=r.tests||{}, open=RF.all||RF.open.has(g.main.r.id);
@@ -1139,8 +1172,8 @@ function drawRecs(){
    ${st==='pass'?`<button class="b sm" onclick="showCert(${r.id})">인증서</button> <button class="b sm sec" onclick="addRenewal(${r.id})">6개월 서명</button>`:''}
    <button class="b sm red" onclick="delRec(${r.id})">삭제</button></td></tr>`;};
   const page=groups.slice(RF.page*PAGE,RF.page*PAGE+PAGE);
-  $('#rlist').innerHTML=`<table class="list"><thead><tr>${msTh('rec')}<th class="num" title="같은 조인트의 재시험 이전 시도 수">시도</th><th>용접일</th><th>용접사</th><th>소속</th><th class="num" title="용접사의 현재 재직 상태">재직</th><th class="num">유형</th><th>공정</th><th class="num">두께</th><th class="num">자세</th><th>용가재</th><th>WPS</th>
-   <th class="num">VT</th><th class="num">RT/UT</th><th class="num">Bend/Macro</th><th class="num">판정</th><th>만료일</th><th class="num">서명</th><th></th></tr></thead><tbody>${page.map(g=>{
+  $('#rlist').innerHTML=`<table class="list"><thead><tr>${msTh('rec')}<th class="num" title="같은 조인트의 재시험 이전 시도 수">시도</th><th>용접일${cfTh('rec','date')}</th><th>용접사${cfTh('rec','name')}</th><th>소속${cfTh('rec','company')}</th><th class="num" title="용접사의 현재 재직 상태">재직${cfTh('rec','emp')}</th><th class="num">유형${cfTh('rec','joint')}</th><th>공정${cfTh('rec','proc')}</th><th class="num">두께${cfTh('rec','thk')}</th><th class="num">자세${cfTh('rec','pos')}</th><th>용가재${cfTh('rec','fm')}</th><th>WPS${cfTh('rec','wps')}</th>
+   <th class="num">VT${cfTh('rec','vt')}</th><th class="num">RT/UT${cfTh('rec','rt')}</th><th class="num">Bend/Macro${cfTh('rec','bd')}</th><th class="num">판정${cfTh('rec','st')}</th><th>만료일${cfTh('rec','exp')}</th><th class="num">서명${cfTh('rec','rn')}</th><th></th></tr></thead><tbody>${page.map(g=>{
     const open=RF.all||RF.open.has(g.main.r.id); return rowHTML(g.main,false,g)+(open?g.kids.map(k=>rowHTML(k,true,g)).join(''):'');}).join('')||'<tr><td colspan="19" style="color:var(--mute)">조건에 맞는 기록이 없습니다.</td></tr>'}</tbody></table>`;
   rz($('#rlist'),'records6');
   $('#rinfo').textContent=`같은 조인트에 시험이 여러 번인 묶음 ${multi}개 (접힌 이전 시도 ${hidden}건)`;
@@ -1188,7 +1221,7 @@ function vWps(){
   for(const [id,k] of [['wused','onlyUsed'],['wwarn','onlyWarn'],['wpass','onlyPass']]){ const el=$('#'+id); if(el) el.onchange=e=>{WF[k]=e.target.checked;drawWps();}; }
   drawWps();
 }
-function drawWps(){ if(WF.doc||!$('#wtitle2')) return; if(WF.view==='lib'){ if($('#wbulk')) $('#wbulk').innerHTML=''; $('#wtitle2').textContent=`형상 라이브러리 (${joints.length}개)`; LIBCTX={kind:null,pick:null}; $('#wpslist').innerHTML=`<div id="libbody" style="padding:8px">${libGridHTML(null,null)}</div>`; $('#wform').innerHTML=''; return; } WF.view==='pqr'?drawPqr():drawWpsMaster(); drawWform(); }
+function drawWps(){ if(WF.doc||!$('#wtitle2')) return; cfDef('wps',WCOLS.map(([k,label,get])=>({k,label,get})),ex=>wpsRows(ex).rows,drawWps,'#wpslist'); cfDef('pqr',PCOLS.map(([k,label,get])=>({k,label,get})),ex=>pqrRows(ex).rows,drawWps,'#wpslist'); if(WF.view==='lib'){ if($('#wbulk')) $('#wbulk').innerHTML=''; $('#wtitle2').textContent=`형상 라이브러리 (${joints.length}개)`; LIBCTX={kind:null,pick:null}; $('#wpslist').innerHTML=`<div id="libbody" style="padding:8px">${libGridHTML(null,null)}</div>`; $('#wform').innerHTML=''; return; } WF.view==='pqr'?drawPqr():drawWpsMaster(); drawWform(); }
 function usageMap(){ // WPS 번호(대문자) -> 사용 기록
   const wm=new Map(welders.map(w=>[w.id,w])), g=new Map();
   for(const r of records){ const st=recStatus(r); if(WF.onlyPass&&st!=='pass') continue; const k=(r.wpsNo||'').trim().toUpperCase(), m=wpsFind(r.wpsNo), why=m?wpsCover(m,r):[];
@@ -1197,7 +1230,7 @@ function usageMap(){ // WPS 번호(대문자) -> 사용 기록
 function toggleWps(k){ WF.open.has(k)?WF.open.delete(k):WF.open.add(k); drawWps(); }
 function uj(a,max){ const u=[...new Set(a.filter(x=>x!==''&&x!=null))]; return u.length>max?u.slice(0,max).join(', ')+` 외 ${u.length-max}`:u.join(', '); }
 const stPill=(t,c)=>`<span class="pill" style="background:${c}">${t}</span>`;
-function drawWpsMaster(){
+function wpsRows(except){
   const use=usageMap(), q=WF.q.trim().toLowerCase(); let rows=[];
   for(const m of wpsMaster) rows.push({key:m.wpsNo.toUpperCase(),m,list:use.get(m.wpsNo.toUpperCase())||[]});
   for(const [k,list] of use) if(k&&!wpsFind(k)) rows.push({key:k,m:null,name:list[0].r.wpsNo.trim(),list});
@@ -1205,6 +1238,10 @@ function drawWpsMaster(){
   const rank=x=>x.key===''?3:(x.m?(x.m.kind==='pWPS'?1:0):2);
   rows.sort((a,b)=>rank(a)-rank(b)||(a.m?a.m.wpsNo:a.name).localeCompare(b.m?b.m.wpsNo:b.name,undefined,{numeric:true}));
   rows=rows.filter(x=>(!WF.onlyUsed||x.list.length)&&(!WF.onlyWarn||x.list.some(y=>y.why.length))&&(!q||([x.key,x.m?[x.m.process,x.m.position,x.m.part,x.m.weldType,x.m.pqrNos.join(' ')].join(' '):'',...x.list.map(y=>[y.r.project,y.w.name,y.w.welderNo].join(' '))].join(' ').toLowerCase().includes(q))));
+  return {rows:cfFilter('wps',rows,except),use}; }
+const WCOLS=[['no','WPS No.',x=>x.m?x.m.wpsNo:(x.key===''?'(WPS 미지정)':x.name)],['kind','구분',x=>x.m?x.m.kind:'마스터 미등록'],['rev','Rev',x=>x.m?x.m.rev:''],['pqr','PQR',x=>x.m?x.m.pqrNos:''],['mat','모재',x=>x.m?x.m.materialGroup:''],['wt','형식',x=>x.m?x.m.weldType:uj(x.list.map(y=>y.r.joint),3)],['proc','공정',x=>x.m?x.m.process:uj(x.list.map(y=>y.r.process),3)],['pos','자세',x=>x.m?x.m.position:uj(x.list.map(y=>y.r.position),3)],['thk','두께범위',x=>x.m?x.m.thk:uj(x.list.map(y=>fmtN(y.r.thickness)),4)],['bk','백킹',x=>x.m?x.m.backing:''],['part','용도',x=>x.m?x.m.part:''],['status','상태',x=>x.m?x.m.status:''],['nrec','기록',x=>String(x.list.length)],['npass','합격',x=>String(x.list.filter(y=>y.st==='pass').length)],['nw','용접사',x=>String(new Set(x.list.map(y=>y.r.welderId)).size)],['warn','⚠',x=>x.list.some(y=>y.why.length)?'범위 밖 있음':'']];
+function drawWpsMaster(){
+  const {rows,use}=wpsRows();
   const nW=wpsMaster.filter(m=>m.kind==='WPS').length, nP=wpsMaster.length-nW, warn=[...use.values()].flat().filter(y=>y.why.length).length;
   $('#wtitle2').textContent=`WPS 마스터 (WPS ${nW} · pWPS ${nP} · 기록 ${records.filter(r=>(r.wpsNo||'').trim()).length}건 사용 · 미지정 ${records.filter(r=>!(r.wpsNo||'').trim()).length}건${warn?` · 범위 밖 의심 ${warn}건`:''})`;
   const usageTbl=(x)=>{ const list=x.list.slice().sort((a,b)=>b.r.weldingDate.localeCompare(a.r.weldingDate)||b.r.id-a.r.id);
@@ -1216,7 +1253,7 @@ function drawWpsMaster(){
       <div class="row" style="margin-top:6px"><button class="b sm" onclick="assignWps()">선택한 기록에 WPS 번호 지정/변경</button><small style="color:var(--mute)">체크한 기록(${WF.sel.size}건)의 WPS 번호를 한꺼번에 바꿉니다</small></div>`; };
   const pqrMini=(m)=>{ const ps=m.pqrNos.map(n=>({n,p:pqrFind(n)})); return ps.length?`<table class="list nested" style="font-size:13px"><thead><tr><th>PQR</th><th>형식</th><th>공정</th><th>자세</th><th>시험 두께</th><th>시험일</th><th>인증기관</th><th>승인범위</th></tr></thead><tbody>${ps.map(({n,p})=>p?`<tr class="kid"><td>${esc(n)}</td><td>${esc(p.weldType)}</td><td>${esc(p.process)}</td><td>${esc(p.position)}</td><td>${esc(p.thickness)}</td><td>${p.weldDate||''}</td><td>${esc(p.certBody)}</td><td>${esc(p.approval)}</td></tr>`:`<tr class="kid"><td>${esc(n)}</td><td colspan="7" style="color:var(--bad)">PQR 목록에 없음</td></tr>`).join('')}</tbody></table>`:'<small style="color:var(--mute)">연결된 PQR 없음</small>'; };
   WF.visW=rows.filter(x=>x.m).map(x=>x.m.id);
-  $('#wbulk').innerHTML=bulkBar('wps'); $('#wpslist').innerHTML=`<table class="list"><thead><tr><th class="num"><input type="checkbox" title="현재 목록 전체 선택" ${WF.visW.length&&WF.visW.every(i=>WF.msel.has(i))?'checked':''} onchange="selAllMaster('wps',this.checked)"></th><th>WPS No.</th><th>구분</th><th class="num">Rev</th><th>PQR</th><th>모재</th><th class="num">형식</th><th>공정</th><th>자세</th><th>두께범위</th><th>백킹</th><th>용도</th><th class="num">상태</th><th class="num">기록</th><th class="num">합격</th><th class="num">용접사</th><th class="num">⚠</th><th></th></tr></thead><tbody>${rows.map(x=>{
+  $('#wbulk').innerHTML=cfBar('wps')+bulkBar('wps'); $('#wpslist').innerHTML=`<table class="list"><thead><tr><th class="num"><input type="checkbox" title="현재 목록 전체 선택" ${WF.visW.length&&WF.visW.every(i=>WF.msel.has(i))?'checked':''} onchange="selAllMaster('wps',this.checked)"></th><th>WPS No.${cfTh('wps','no')}</th><th>구분${cfTh('wps','kind')}</th><th class="num">Rev${cfTh('wps','rev')}</th><th>PQR${cfTh('wps','pqr')}</th><th>모재${cfTh('wps','mat')}</th><th class="num">형식${cfTh('wps','wt')}</th><th>공정${cfTh('wps','proc')}</th><th>자세${cfTh('wps','pos')}</th><th>두께범위${cfTh('wps','thk')}</th><th>백킹${cfTh('wps','bk')}</th><th>용도${cfTh('wps','part')}</th><th class="num">상태${cfTh('wps','status')}</th><th class="num">기록${cfTh('wps','nrec')}</th><th class="num">합격${cfTh('wps','npass')}</th><th class="num">용접사${cfTh('wps','nw')}</th><th class="num">⚠${cfTh('wps','warn')}</th><th></th></tr></thead><tbody>${rows.map(x=>{
     const open=WF.open.has(x.key), m=x.m, l=x.list, pass=l.filter(y=>y.st==='pass').length, warn=l.filter(y=>y.why.length).length, k=esc(x.key);
     const name=m?m.wpsNo:(x.key===''?'(WPS 미지정)':x.name);
     const head=`<tr class="${x.key===''?'gone':''}"><td class="num" style="white-space:nowrap">${m?`<input type="checkbox" ${WF.msel.has(m.id)?'checked':''} onchange="selMaster('wps',${m.id},this.checked)"> `:''}<button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(name)}</b>${m&&wpsPqrCheck(m).length?` <span class="wn" title="${esc('PQR/양식 점검: '+wpsPqrCheck(m).join(' / '))}">◆</span>`:''}</td>
@@ -1229,15 +1266,20 @@ function drawWpsMaster(){
     return head+detail;}).join('')||'<tr><td colspan="18" style="color:var(--mute)">표시할 WPS가 없습니다. 오른쪽 위 "WPS/WPQR 목록 엑셀 가져오기"로 WPS 목록을 올리거나 "+ WPS 추가"로 직접 등록하세요.</td></tr>'}</tbody></table>`;
   rz($('#wpslist'),'wps1',2);
 }
-function drawPqr(){
+const PQLINK=key=>wpsMaster.filter(m=>m.pqrNos.some(n=>n.toUpperCase()===key));
+function pqrRows(except){
   const use=usageMap(), q=WF.q.trim().toLowerCase(); let rows=pqrMaster.map(p=>({key:p.pqrNo.toUpperCase(),p}));
   for(const m of wpsMaster) for(const n of m.pqrNos) if(!pqrFind(n)&&!rows.some(x=>x.key===n.toUpperCase())) rows.push({key:n.toUpperCase(),p:null,name:n});
   rows.sort((a,b)=>(a.p?0:1)-(b.p?0:1)||(a.p?a.p.pqrNo:a.name).localeCompare(b.p?b.p.pqrNo:b.name,undefined,{numeric:true}));
   const linked=(key)=>wpsMaster.filter(m=>m.pqrNos.some(n=>n.toUpperCase()===key));
   if(q) rows=rows.filter(x=>[x.key,x.p?[x.p.process,x.p.position,x.p.weldType,x.p.certBody,x.p.remarks].join(' '):'',linked(x.key).map(m=>m.wpsNo).join(' ')].join(' ').toLowerCase().includes(q));
+  return {rows:cfFilter('pqr',rows,except),use,linked}; }
+const PCOLS=[['no','PQR No.',x=>x.p?x.p.pqrNo:x.name],['mat','모재',x=>x.p?x.p.materialGroup:''],['wt','형식',x=>x.p?x.p.weldType:''],['proc','공정',x=>x.p?x.p.process:''],['pos','자세',x=>x.p?x.p.position:''],['thk','시험 두께',x=>x.p?x.p.thickness:''],['date','시험일',x=>x.p?x.p.weldDate:''],['cb','인증기관',x=>x.p?x.p.certBody:''],['ap','승인범위',x=>x.p?x.p.approval:''],['lk','연결 WPS',x=>PQLINK(x.key).map(m=>m.wpsNo)],['nw','WPS 수',x=>String(PQLINK(x.key).length)],['rm','비고',x=>x.p?x.p.remarks:'']];
+function drawPqr(){
+  const {rows,use,linked}=pqrRows();
   $('#wtitle2').textContent=`PQR / WPQR (${pqrMaster.length}건${rows.length>pqrMaster.length?` · 목록에 없는 참조 ${rows.length-pqrMaster.length}건`:''})`;
   WF.visP=rows.filter(x=>x.p).map(x=>x.p.id);
-  $('#wbulk').innerHTML=bulkBar('pqr'); $('#wpslist').innerHTML=`<table class="list"><thead><tr><th class="num"><input type="checkbox" title="현재 목록 전체 선택" ${WF.visP.length&&WF.visP.every(i=>WF.psel.has(i))?'checked':''} onchange="selAllMaster('pqr',this.checked)"></th><th>PQR No.</th><th>모재</th><th class="num">형식</th><th>공정</th><th>자세</th><th>시험 두께</th><th>시험일</th><th>인증기관</th><th>승인범위</th><th>연결 WPS</th><th class="num">WPS 수</th><th class="num">사용 기록</th><th>비고</th><th></th></tr></thead><tbody>${rows.map(x=>{
+  $('#wbulk').innerHTML=cfBar('pqr')+bulkBar('pqr'); $('#wpslist').innerHTML=`<table class="list"><thead><tr><th class="num"><input type="checkbox" title="현재 목록 전체 선택" ${WF.visP.length&&WF.visP.every(i=>WF.psel.has(i))?'checked':''} onchange="selAllMaster('pqr',this.checked)"></th><th>PQR No.${cfTh('pqr','no')}</th><th>모재${cfTh('pqr','mat')}</th><th class="num">형식${cfTh('pqr','wt')}</th><th>공정${cfTh('pqr','proc')}</th><th>자세${cfTh('pqr','pos')}</th><th>시험 두께${cfTh('pqr','thk')}</th><th>시험일${cfTh('pqr','date')}</th><th>인증기관${cfTh('pqr','cb')}</th><th>승인범위${cfTh('pqr','ap')}</th><th>연결 WPS${cfTh('pqr','lk')}</th><th class="num">WPS 수${cfTh('pqr','nw')}</th><th class="num">사용 기록</th><th>비고${cfTh('pqr','rm')}</th><th></th></tr></thead><tbody>${rows.map(x=>{
     const p=x.p, ls=linked(x.key), open=WF.open.has('pqr:'+x.key), used=ls.reduce((a,m)=>a+(use.get(m.wpsNo.toUpperCase())||[]).length,0), k=esc('pqr:'+x.key);
     const head=`<tr><td class="num" style="white-space:nowrap">${p?`<input type="checkbox" ${WF.psel.has(p.id)?'checked':''} onchange="selMaster('pqr',${p.id},this.checked)"> `:''}<button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(p?p.pqrNo:x.name)}</b>${p?'':' <span class="wn">목록 미등록</span>'}</td><td>${p?esc(p.materialGroup):''}</td><td class="num">${p?esc(p.weldType):''}</td><td>${p?esc(p.process):''}</td><td>${p?esc(p.position):''}</td><td>${p?esc(p.thickness):''}</td><td>${p?p.weldDate||'':''}</td><td>${p?esc(p.certBody):''}</td><td>${p?esc(p.approval):''}</td>
       <td title="${esc(ls.map(m=>m.wpsNo).join(', '))}">${esc(uj(ls.map(m=>m.wpsNo),3))}</td><td class="num">${ls.length}</td><td class="num">${used}</td><td>${p?esc(p.remarks):''}</td><td class="bx">${p?`<button class="b sm sec" onclick="editMaster('pqr',${p.id})">수정</button> <button class="b sm red" onclick="delMaster('pqr',${p.id})">삭제</button>`:''}</td></tr>`;
