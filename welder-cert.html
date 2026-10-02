@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v69 · 이음 불일치 정리</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v70 · 불러오기 후 화면 유지</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -714,6 +714,8 @@ async function relinkPasses(onlyEmpty){ let n=0, up=[]; for(const w of wpsMaster
     if(!f.exact&&(w.params||[]).length&&(onlyEmpty||w.passSrc==='exact')) continue; if(f.exact&&(w.passSrc==='manual')) continue;
     const {params,notes,cols,hdr}=rowsToParams(f.rows,L); if(!params.length) continue; up.push({...w,params,passSrc:f.exact?'exact':'fallback',form:{...(w.form||{}),passNote:notes.join('\n'),passCols:cols||undefined,passHdr:hdr||undefined}}); n++; }
   if(up.length) await DB.putMany('wps',up); return n; }
+// 파일 불러오기가 끝나면 보던 탭과 스크롤 위치를 그대로 유지하고 표만 새로 그린다
+function stayRender(){ const y=window.scrollY; render(); window.scrollTo(0,y); }
 async function importFiles(list){ for(const f of [...(list||[])]) await importFile(f); }
 async function importFile(file){
   if(!file) return;
@@ -902,7 +904,7 @@ async function importCerts(certs){
   if(upW.size) await DB.putMany('welders',[...upW.values()]);
   await DB.putMany('records',upR); await load(); const inh=await inheritWpsApply(true), left=records.filter(r=>!(r.wpsNo||'').trim()).length;
   alert(`완료: 시험 기록 ${upR.length}건에 WPS/인증번호/발행일 반영 (새로 등록 ${created}건).${inh?`\n같은 조인트의 재시험 기록 ${inh}건에도 같은 WPS를 복사했습니다.`:''}\nWPS가 아직 비어 있는 시험 기록: ${left}건 (해당 인증서가 없는 기록입니다. WPS 탭의 'WPS 미지정 기록에 추천 적용'으로 지정할 수 있습니다)`);
-  go('wps');
+  stayRender();
 }
 // ---------- WPS / WPQR 목록 엑셀 ----------
 const nz=v=>String(v??'').replace(/\s+/g,' ').trim();
@@ -942,7 +944,7 @@ async function importWpsLists(wl){
   if(!confirm(`WPS 목록: ${wl.wps.filter(m=>m.kind==='WPS').length}건 + pWPS ${wl.wps.filter(m=>m.kind==='pWPS').length}건 (신규 ${newW} / 갱신 ${wl.wps.length-newW})\nWPQR/PQR 목록: ${wl.pqr.length}건 (신규 ${newP} / 갱신 ${wl.pqr.length-newP})${unlinked?`\n\nPQR 목록에 없는 PQR을 참조하는 WPS ${unlinked}건 (연결은 번호로만 유지됩니다)`:''}\n\n같은 번호는 목록 내용으로 덮어씁니다. 가져올까요?`)) return;
   if(wl.wps.length) await DB.putMany('wps',wl.wps.map(m=>({...(byW.get(m.wpsNo.toUpperCase())||{}),...m})));
   if(wl.pqr.length) await DB.putMany('pqr',wl.pqr.map(m=>({...(byP.get(m.pqrNo.toUpperCase())||{}),...m})));
-  await load(); WF.view=wl.wps.length?'wps':'pqr'; alert(`완료: WPS/pWPS ${wl.wps.length}건, PQR ${wl.pqr.length}건 반영`); go('wps');
+  await load(); WF.view=wl.wps.length?'wps':'pqr'; alert(`완료: WPS/pWPS ${wl.wps.length}건, PQR ${wl.pqr.length}건 반영`); stayRender();
 }
 // ---------- DrawingML(엑셀 도형) -> SVG 변환: WPS 양식의 '이음부 형상 / 용접 순서' 스케치 추출 ----------
 const SVGNS='http://www.w3.org/2000/svg', DML=(el,n)=>[...el.children].find(c=>c.localName===n), DMLall=(el,n)=>[...el.children].filter(c=>c.localName===n);
@@ -1097,7 +1099,7 @@ async function importWpsForms(forms,ctx){ ctx=ctx||{ext:{},key:''};
     let it=lib.get(key); if(!it){ it={kind:k,name:`${f.wpsNo} ${k==='joint'?'이음부 형상':'용접 순서'}`,svg:r[k],fav:false,meta:{wpsNos:[],weldType:m.weldType,process:m.process,backing:m.backing||f.form.backingDetail||'',thk:m.thk,source:'wps-form'},created:Date.now()}; lib.set(key,it); add.push(it); }
     if(!it.meta.wpsNos.includes(f.wpsNo)) it.meta.wpsNos.push(f.wpsNo); } }
   await DB.putMany('joints',[...lib.values()]); await load();
-  const lk=uniq.filter(f=>f.link).length; alert(`완료: WPS 양식 ${up.length}건 반영 (신규 ${fresh}건)\n스케치 ${nSk}개를 WPS에 넣고, 형상 라이브러리에 ${add.length}종을 저장했습니다.\n패스별 조건표(엑셀 연결 그림): 연결 ${lk}건 인식 · 표 채움 ${nLink}건${lk>nLink?`\n(연결 원본 시트를 못 찾은 ${lk-nLink}건은 해당 원본 엑셀 파일을 함께 가져오면 채워집니다)`:''}`); go('wps');
+  const lk=uniq.filter(f=>f.link).length; alert(`완료: WPS 양식 ${up.length}건 반영 (신규 ${fresh}건)\n스케치 ${nSk}개를 WPS에 넣고, 형상 라이브러리에 ${add.length}종을 저장했습니다.\n패스별 조건표(엑셀 연결 그림): 연결 ${lk}건 인식 · 표 채움 ${nLink}건${lk>nLink?`\n(연결 원본 시트를 못 찾은 ${lk-nLink}건은 해당 원본 엑셀 파일을 함께 가져오면 채워집니다)`:''}`); stayRender();
 }
 async function importXlsx(buf,fname){
   const sheets=await readXlsx(buf), certs=parseCerts(sheets); const cached=await cacheBook(sheets,fname||''); if(cached){ await load(); }
