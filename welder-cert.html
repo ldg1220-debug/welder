@@ -103,7 +103,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v67 · 열 필터</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v68 · 인증서 이음/시험 정리</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -458,9 +458,27 @@ function vDash(){
     <div class="stat"><b style="color:var(--bad)">${[...allIds].filter(i=>!validIds.has(i)).length}</b>자격 만료 인원</div>
     <div class="stat"><b>${records.length}</b>시험 기록</div></div>
     <div style="color:var(--mute);margin-top:8px;font-size:12px">재직자의 합격 인증서 기준. 유효 = 만료되지 않은 합격 인증서 1건 이상.</div></div>
-    ${list('expired','🔴 만료')}${list('renewal','🟡 6개월 서명 갱신 필요')}`;
+    ${auditCard()}${list('expired','🔴 만료')}${list('renewal','🟡 6개월 서명 갱신 필요')}`;
 }
 
+// ---- 데이터 점검: 시험 기록의 이상한 점을 한눈에 (진행중으로 남은 기록, 중복, WPS 누락·범위 밖 등)
+function dataAudit(){ const wm=new Map(welders.map(w=>[w.id,w])), nm=r=>{ const w=wm.get(r.welderId)||{}; return `${w.name||'?'} ${r.weldingDate} ${r.process} ${r.joint} t${fmtN(r.thickness)} ${r.position}`; }, out=[], R=records.filter(r=>{ const w=wm.get(r.welderId); return !(w&&w.status==='미입사'); });
+  const miss=r=>{ const T=r.tests||{}, L=[]; if(T.vt!=='pass') L.push('VT'); if(r.joint==='BW'){ if(T.rtut!=='pass'&&T.fracture!=='pass') L.push('RT/UT'); if(T.bend!=='pass'&&T.fracture!=='pass') L.push('Bend'); } else if(T.macro!=='pass'&&T.fracture!=='pass') L.push('Macro'); return L.join('·')+' 결과 없음'; };
+  const pend=R.filter(r=>recStatus(r)==='pending'); out.push({k:'pend',sev:1,t:'시험이 끝나지 않은(진행중) 기록',hint:'결과가 모두 합격인데도 진행중이면 빠진 시험 결과(VT, RT/UT, Bend/Macro)를 입력하세요.',items:pend.map(r=>({id:r.id,t:nm(r)+' — '+miss(r)}))});
+  const g=new Map(); R.forEach(r=>{ const k=[r.welderId,r.weldingDate,r.process,r.joint,r.thickness,r.position].join('|'); (g.get(k)||g.set(k,[]).get(k)).push(r); });
+  out.push({k:'dup',sev:2,t:'같은 날 같은 조건의 합격 기록이 2건 이상 (중복 등록 의심)',hint:'엑셀 시험 기록과 인증서 불러오기에서 같은 시험이 두 번 들어갔을 수 있습니다. 한 건만 남기고 삭제하세요. (같은 날 불합격 후 합격한 재시험은 정상이라 표시하지 않습니다)',items:[...g.values()].filter(l=>l.filter(r=>recStatus(r)==='pass').length>1).flatMap(l=>l.filter(r=>recStatus(r)==='pass').map(r=>({id:r.id,t:nm(r)+` (${(r.wpsNo||'WPS 없음')}, 결과 ${['vt','rtut','bend','macro'].map(k=>(r.tests||{})[k]==='pass'?k.toUpperCase():'').filter(Boolean).join('·')})`})))});
+  const pg=new Map(); R.filter(r=>recStatus(r)==='pass').forEach(r=>{ const k=gkey(r); (pg.get(k)||pg.set(k,[]).get(k)).push(r); });
+  out.push({k:'dpass',sev:0,t:'같은 조인트에 날짜가 다른 합격 기록이 2건 이상',hint:'재시험·재발급이면 정상입니다. 같은 용접사·같은 조건이라 인증번호가 같아지니 필요하면 하나만 남기세요.',items:[...pg.values()].filter(l=>l.length>1).flatMap(l=>l.map(r=>({id:r.id,t:nm(r)})))});
+  const pass=R.filter(r=>recStatus(r)==='pass');
+  out.push({k:'nowps',sev:1,t:'WPS 번호가 없는 합격 기록',hint:'WPS 탭의 "재시험 기록에 같은 WPS 복사"/"WPS 미지정 기록에 추천 적용"으로 지정하세요.',items:pass.filter(r=>!(r.wpsNo||'').trim()).map(r=>({id:r.id,t:nm(r)}))});
+  out.push({k:'unreg',sev:1,t:'WPS 마스터에 없는 WPS 번호를 쓴 기록',hint:'오타이거나 마스터에 등록되지 않은 WPS입니다.',items:R.filter(r=>(r.wpsNo||'').trim()&&!wpsFind(r.wpsNo)).map(r=>({id:r.id,t:nm(r)+' — '+r.wpsNo}))});
+  out.push({k:'range',sev:0,t:'WPS 적용 범위를 벗어난 합격 기록',hint:'WPS 탭의 "범위 밖 의심만"에서 사유를 볼 수 있습니다.',items:pass.filter(r=>{ const m=wpsFind(r.wpsNo); return m&&wpsCover(m,r).length; }).map(r=>({id:r.id,t:nm(r)+' — '+wpsCover(wpsFind(r.wpsNo),r).join(' / ')}))});
+  out.push({k:'nobody',sev:1,t:'용접사 정보가 없는 기록',hint:'용접사가 삭제된 기록입니다.',items:records.filter(r=>!wm.has(r.welderId)).map(r=>({id:r.id,t:nm(r)}))});
+  return out; }
+function auditCard(){ const A=dataAudit(), tot=A.reduce((a,x)=>a+x.items.length,0);
+  return `<div class="card"><details ${tot?'open':''}><summary style="cursor:pointer"><b style="font-size:16px">🔎 데이터 점검</b> <span class="pill" style="background:${tot?'var(--warn)':'var(--ok)'}">${tot?`확인 필요 ${tot}건`:'이상 없음'}</span> <small style="color:var(--mute)">시험 기록의 빠진 결과·중복·WPS 누락 점검 (미입사자 기록 제외)</small></summary>
+   ${A.map(x=>x.items.length?`<div style="margin:10px 0 4px"><b>${x.sev>=2?'🔴':x.sev===1?'🟠':'⚪'} ${x.t} (${x.items.length}건)</b><div style="color:var(--mute);font-size:12px">${x.hint}</div><div style="max-height:200px;overflow:auto;border:1px solid var(--line);border-radius:6px;margin-top:4px">${x.items.slice(0,60).map(i=>`<div style="padding:3px 8px;border-bottom:1px solid var(--line);font-size:13px"><a href="#" onclick="editRec=null;tab='records';editR(${i.id});render();return false">${esc(i.t)}</a></div>`).join('')}${x.items.length>60?`<div style="padding:3px 8px;color:var(--mute)">… 외 ${x.items.length-60}건</div>`:''}</div></div>`:'').join('')||''}
+  </details></div>`; }
 const WL={open:new Set()};
 function toggleWelder(id){ WL.open.has(id)?WL.open.delete(id):WL.open.add(id); drawWelders(); }
 // 한 용접사에게 발행된 인증서 전체 (합격 기록 기준) - 조인트별 화면과 달리 사람 기준으로 모두 보여준다
@@ -810,9 +828,12 @@ function parseCerts(sheets){
     const photo=strs.find(x=>x.v.trim()==='Photo'), en=photo?cells.find(x=>x.ri===photo.ri&&x.ci>photo.ci&&typeof x.v==='string'&&!/:/.test(x.v)):null;
     const rawName=nm?nm[1].trim():'', han=(rawName.match(/[가-힣]+/)||[''])[0], enFromName=rawName.replace(han,'').replace(/^[,\s]+/,'').trim(), inl=re=>[...new Set(strs.map(c=>c.v.match(re)).filter(Boolean).map(m=>xDate(m[1])).filter(Boolean))];
     const wInl=inl(/Date of Welding\s*:\s*(\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2})/), iInl=inl(/Date of issue\s*:\s*(\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2})/), wCell=dateAfter(/Date of Welding\s*:\s*$/), iCell=dateAfter(/Date of issue\s*:\s*$/);
-    const posSheet=((sh.name.match(/\bP[A-G]\b/gi)||[]).pop()||'').toUpperCase();
-    out.push({sheet:sh.name,posSheet,welderNo:normNo(idm[1]),name:han||rawName,nameEn:(en?en.v.trim():'')||enFromName,wDates:[...wInl,wCell].filter(Boolean),birthPlace:bp?bp[1].trim():'',birthDate:bp?`${bp[2]}-${bp[3]}-${bp[4]}`:'',employer:emp?emp[1].trim():'',
-      refNo:ref?ref[1].trim():'',wpsNo:wps?wps[1].trim():'',code:d[1],productType:d[2].toUpperCase(),joint:d[3].toUpperCase(),fillerGroup:d[4].replace(/\s/,' ').toUpperCase().replace(/^FM(\d)/,'FM $1'),fillerType:d[5].toUpperCase(),
+    const posSheet=((sh.name.match(/\bP[A-G]\b/gi)||[]).pop()||'').toUpperCase(), jointSheet=((sh.name.match(/\b(BW|FW)\b/i)||[])[1]||'').toUpperCase();
+    const tstMarks={rtut:mark(/X-ray|UT testing|MT testing/),macro:mark(/Macroscopic/),bend:mark(/Bend Test/)}, jointMarks=tstMarks.macro==='pass'&&tstMarks.bend!=='pass'&&tstMarks.rtut!=='pass'?'FW':((tstMarks.bend==='pass'||tstMarks.rtut==='pass')&&tstMarks.macro!=='pass'?'BW':'');
+    // 설계명의 BW/FW가 시트 이름·시험 항목(굽힘/RT=BW, 매크로=FW)과 다르면 시트 이름 → 시험 항목 순으로 따른다 (시트 복사 때 설계명을 안 고친 경우)
+    const jointDesig=d[3].toUpperCase(), jointRes=jointSheet||jointMarks||jointDesig;
+    out.push({sheet:sh.name,posSheet,jointDesig,jointConflict:jointRes!==jointDesig,welderNo:normNo(idm[1]),name:han||rawName,nameEn:(en?en.v.trim():'')||enFromName,wDates:[...wInl,wCell].filter(Boolean),birthPlace:bp?bp[1].trim():'',birthDate:bp?`${bp[2]}-${bp[3]}-${bp[4]}`:'',employer:emp?emp[1].trim():'',
+      refNo:ref?ref[1].trim():'',wpsNo:wps?wps[1].trim():'',code:d[1],productType:d[2].toUpperCase(),joint:jointRes,fillerGroup:d[4].replace(/\s/,' ').toUpperCase().replace(/^FM(\d)/,'FM $1'),fillerType:d[5].toUpperCase(),
       thickness:+d[6],position:d[7].toUpperCase(),backing:d[8]?String(d[8]).trim():'',weldingDate:wInl[0]||wCell||dateAfter(/Date of Welding/),issueDate:iInl[0]||iCell||dateAfter(/Date of issue/),dateConflict:!!(wInl[0]&&wCell&&wInl[0]!==wCell),
       tests:{vt:mark(/Visual Testing/),rtut:mark(/X-ray|UT testing|MT testing/),macro:mark(/Macroscopic/),fracture:mark(/Fracture/),bend:mark(/Bend Test/),additional:mark(/Additional Test/)}});
   }
@@ -825,6 +846,8 @@ function inheritWpsPlan(){ const g=new Map(); for(const r of records){ const k=g
 async function inheritWpsApply(silent){ const up=inheritWpsPlan(); if(!up.length){ if(!silent) toast('복사할 기록이 없습니다. (같은 조인트에 WPS가 한 종류만 있는 기록만 대상)',3500); return 0; }
   if(!silent&&!confirm(`같은 용접사·같은 조인트(유형·공정·두께·자세)의 다른 기록에 WPS가 한 종류만 지정돼 있는 WPS 미지정 기록 ${up.length}건에 그 WPS를 복사할까요?\n(재시험·불합격 기록은 같은 WPS로 시험한 것으로 봅니다)`)) return 0;
   await DB.putMany('records',up); await load(); if(!silent){ drawWps(); toast(`${up.length}건에 WPS를 복사했습니다.`,3000); } return up.length; }
+// 인증서가 발급됐다는 것은 시험에 합격했다는 뜻이므로, 인증서에서 새로 만드는 기록은 빠진 필수 시험 결과를 Pass 로 채운다(진행중으로 남지 않게)
+function certTestsPass(joint,t0){ const t={...t0}; t.vt='pass'; if(joint==='BW'){ if(t.rtut==='na'&&t.fracture==='na') t.rtut='pass'; if(t.bend==='na') t.bend='pass'; } else { if(t.macro==='na'&&t.fracture==='na') t.macro='pass'; } return t; }
 async function importCerts(certs){
   const bad=certs.filter(c=>c.bad), ok=certs.filter(c=>!c.bad&&c.weldingDate), noDate=certs.filter(c=>!c.bad&&!c.weldingDate);
   const byNo=new Map(welders.map(w=>[normNo(w.welderNo),w])), byName=new Map(); welders.forEach(w=>{(byName.get(w.name)||byName.set(w.name,[]).get(w.name)).push(w);});
@@ -846,6 +869,7 @@ async function importCerts(certs){
     else if(w&&records.some(r=>r.welderId===w.id&&cond(r))){ skipped++; const allUsed=records.filter(r=>r.welderId===w.id&&cond(r)).every(r=>used.has(r.id)); notes.push(`${c.sheet.trim()}: ${allUsed?'같은 조건의 인증서가 이미 연결돼 있어 보류 (시트명과 본문의 자세/두께가 다른 중복 인증서일 수 있음)':'같은 조건의 시험 기록은 있으나 합격 기록이 없어 보류'} — 본문: ${c.joint} t${c.thickness} ${c.position}`); }
     else { plan.push({c,w,rec:null}); created++; if(!w&&!newWelders.has(c.welderNo)) newWelders.set(c.welderNo,c); }
     if(w&&c.refNo){ const calc=refBase({welderId:w.id,process:PROC_BY_CODE[c.code]||c.code,thickness:c.thickness,joint:c.joint,position:c.position}); if(c.refNo.toUpperCase()!==calc.toUpperCase()){ refDiff++; if(refDiff<=3) notes.push(`${c.sheet.trim()}: 인증서의 Reference No.(${c.refNo})가 규칙 값(${calc})과 달라 규칙 값을 사용`); } }
+    if(c.jointConflict) notes.push(`${c.sheet.trim()}: 본문 설계명의 이음(${c.jointDesig})이 시트 이름/시험 항목과 달라 ${c.joint}로 처리 (인증서 확인 필요)`);
     if(c.dateConflict) notes.push(`${c.sheet}: 용접일 칸(${c.wDates[c.wDates.length-1]})과 본문 텍스트(${c.weldingDate})가 달라 텍스트 날짜를 사용`);
   }
   const wpsSet=new Set(ok.map(c=>c.wpsNo).filter(Boolean));
@@ -862,7 +886,7 @@ async function importCerts(certs){
     if(rec) upR.push({...rec,wpsNo:c.wpsNo||rec.wpsNo||'',refNo:(rec.refNo&&!isAutoRef(rec.refNo))?rec.refNo:'',issueDate:c.issueDate||rec.issueDate||''});
     else upR.push({...FIELDS_DEFAULT,welderId:w.id,weldingDate:c.weldingDate,project:'',wpsNo:c.wpsNo,process:PROC_BY_CODE[c.code]||c.code,productType:c.productType,pipeDiameter:'',joint:c.joint,
       fillerGroup:c.fillerGroup,fillerType:c.fillerType,thickness:c.thickness,deposited:c.thickness,position:c.position,backing:c.backing||(c.joint==='BW'?'ss nb':'N/A'),
-      tests:applyImpliedVT(c.tests),refNo:'',issueDate:c.issueDate,renewals:[]});
+      tests:certTestsPass(c.joint,applyImpliedVT(c.tests)),refNo:'',issueDate:c.issueDate,renewals:[]});
   }
   if(upW.size) await DB.putMany('welders',[...upW.values()]);
   await DB.putMany('records',upR); await load(); const inh=await inheritWpsApply(true), left=records.filter(r=>!(r.wpsNo||'').trim()).length;
