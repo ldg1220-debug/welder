@@ -35,7 +35,7 @@ table.list td{overflow:hidden;text-overflow:ellipsis;max-width:0}
 table.list td.bx{max-width:none}
 table.list.measure td,table.list.nested td{max-width:none;overflow:visible}
 table.list th{position:relative}
-.rh{position:absolute;right:0;top:0;bottom:0;width:9px;cursor:col-resize;user-select:none;border-right:2px solid #c3ccd8}.stk{position:sticky!important;z-index:2;background:#fff}th.stk{z-index:4;background:#eef2f6}tr:hover td.stk{background:#f5f8fb}tr.gone td.stk{background:#fdeeee}tr.kid td.stk{background:#f7f9fb}.stkl{box-shadow:2px 0 3px -1px rgba(0,0,0,.3)}.rh:hover,.rh:active{background:var(--accent);opacity:.5}
+.rh{position:absolute;right:0;top:0;bottom:0;width:9px;cursor:col-resize;user-select:none;border-right:2px solid #c3ccd8}.stk{position:sticky!important;z-index:2;background:#fff}.tw table.list th.stk,th.stk{z-index:5!important;background:#eef2f6}tr:hover td.stk{background:#f5f8fb}tr.gone td.stk{background:#fdeeee}tr.kid td.stk{background:#f7f9fb}.stkl{box-shadow:2px 0 3px -1px rgba(0,0,0,.3)}.rh:hover,.rh:active{background:var(--accent);opacity:.5}
 .pz{border:2px dashed var(--line);border-radius:6px;min-height:64px;padding:6px;display:flex;align-items:center;gap:8px;color:var(--mute);font-size:12px;cursor:pointer;background:#fafbfc}
 .pz:focus,.pz.over{border-color:var(--accent);outline:0;background:#eef5fd;color:var(--accent)}
 #genj [data-mv],#gens [data-mv]{cursor:move}#genj [data-mv]:hover,#gens [data-mv]:hover{filter:drop-shadow(0 0 2px #1f5fae)}table.mx{border-collapse:collapse;font-size:12px;white-space:nowrap}table.mx th,table.mx td{border:1px solid #c9d1da;padding:2px 5px;text-align:center}table.mx thead th{background:#fdf0cf;position:sticky;top:0;z-index:2}table.mx thead tr.h2 th{top:22px}table.mx thead tr.h3 th{top:44px}table.mx thead tr.h4 th{top:66px;background:#f3f3f3;font-weight:400;font-size:11px}table.mx td.l,table.mx th.l{background:#eef2f7;text-align:left}table.mx td.ok{background:#22e0e8;cursor:pointer}table.mx td.rn{background:#ffe27a;cursor:pointer}table.mx td.ex{background:#f3b6b6;cursor:pointer;color:#7a1f1f}table.mx td.pg{background:#ffd7a8}table.mx td.ft{color:#b33}table.mx tr.sep td{border-top:2px solid #333}table.mx tr.gone td{color:#8a94a0}#genj [data-ax=x]{cursor:ew-resize}#genj [data-ax=y],#gens [data-ax=y]{cursor:ns-resize}#genj [data-p]:hover rect{fill:#e07b00}
@@ -105,7 +105,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v77 · 인증서/WPS PDF·날짜 입력</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v78 · 열 고정·현황표 업체 구분</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -304,7 +304,7 @@ function fileToDataURL(file,max,png){ // 이미지를 축소해 DB 용량을 줄
 function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();}
 
 // ===================== 공통 유틸: 열 너비 조절, 이미지 붙여넣기, 자동완성 =====================
-function rz(box,key,stick){ stick=stick||0; // 표 머리글 경계를 끌어 열 너비 조절 (엑셀처럼), 너비는 브라우저에 기억
+function rz(box,key,stick,defW){ stick=stick||0; // 표 머리글 경계를 끌어 열 너비 조절 (엑셀처럼), 너비는 브라우저에 기억
   const t=box.querySelector('table'); if(!t) return;
   const ths=[...t.querySelectorAll('thead th')]; let saved=null;
   try{saved=JSON.parse(localStorage.getItem('cw-'+key));}catch(e){}
@@ -312,7 +312,8 @@ function rz(box,key,stick){ stick=stick||0; // 표 머리글 경계를 끌어 �
   t.classList.add('measure'); t.style.width='max-content'; t.style.tableLayout='auto';
   const nat=ths.map(th=>Math.min(Math.max(Math.ceil(th.getBoundingClientRect().width)+6,48),th.textContent.trim()?280:620));
   nom.forEach(r=>r.style.display='');
-  const w=saved&&saved.length===ths.length?saved.slice():nat.slice();
+  const w=saved&&saved.length===ths.length?saved.slice():nat.map((x,i)=>defW&&defW[i]?defW[i]:x);   // 저장된 너비가 없으면 권장 너비(defW) 사용
+  box.dataset.fit='1'; fitTw(box);
   const cg=document.createElement('colgroup'); w.forEach(x=>{const c=document.createElement('col');c.style.width=x+'px';cg.appendChild(c);}); t.prepend(cg);
   const total=()=>{t.style.width=w.reduce((a,b)=>a+b,0)+'px';}; t.style.tableLayout='fixed'; t.classList.remove('measure'); total();
   // 왼쪽 N개 열 고정(가로로 스크롤해도 번호 등이 보이게)
@@ -325,6 +326,9 @@ function rz(box,key,stick){ stick=stick||0; // 표 머리글 경계를 끌어 �
       document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up);};
     h.ondblclick=()=>{w[i]=nat[i];cg.children[i].style.width=w[i]+'px';total();stk();save();}; });
 }
+// 표 영역을 화면 높이에 맞춰 가로 스크롤바가 항상 화면 안에 보이게 한다
+function fitTw(b){ const r=b.getBoundingClientRect(); b.style.maxHeight=Math.max(280,window.innerHeight-r.top-24+Math.min(window.scrollY,r.top>0?0:0))+'px'; }
+addEventListener('resize',()=>document.querySelectorAll('.tw[data-fit]').forEach(fitTw));
 function resetWidths(){ try{Object.keys(localStorage).filter(k=>k.startsWith('cw-')).forEach(k=>localStorage.removeItem(k));}catch(e){} render(); }
 const uniq=(arr)=>{const c={};arr.forEach(v=>{v=String(v??'').trim();if(v)c[v]=(c[v]||0)+1;});return Object.keys(c).sort((a,b)=>c[b]-c[a]);}; // 많이 쓴 순
 const dl=(id,arr)=>`<datalist id="${id}">${arr.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
@@ -668,12 +672,12 @@ function drawWStatus(){ cfDef('wsm',[{k:'co',label:'업체',get:w=>w.company},{k
   $('#wssum').innerHTML=`<table class="mx"><thead><tr><th class="l">소속</th><th>구분</th><th>인원</th><th>자격 유효</th><th>서명 갱신 필요</th><th>전부 만료</th><th>시험 진행중</th></tr></thead><tbody>${sb}<tr><td class="l"><b>합계</b></td><td></td>${tot.map(x=>`<td><b>${x}</b></td>`).join('')}</tbody></table><div style="font-size:12px;color:var(--mute);margin-top:4px">현재 필터(재직/소속/검색)에 해당하는 인원 기준 · 자격 유효 = 만료되지 않은 합격이 1건 이상 · 기준일 ${t}</div>`; }
 // ---- 현황표를 앱 화면과 같은 모양(공정/이음/두께/자세 병합 머리글, 칸 색, 소속별 집계)의 .xlsx 로 저장
 const XG_FILL=['','','EEF2F6','FDF0CF','F3F3F3','22E0E8','FFE27A','F3B6B6','FFD7A8','EEF2F7'];  // fills[2..9]
-const XG={def:0,hd:2,hd2:3,txtL:4,txtC:5,ok:6,rn:7,ex:8,pg:9,ft:10,bold:11,left:12,sumH:13,sumB:14};
+const XG={def:0,hd:2,hd2:3,txtL:4,txtC:5,ok:6,rn:7,ex:8,pg:9,ft:10,bold:11,left:12,sumH:13,sumB:14,coM:23,coMT:24}, XGT={12:15,5:16,11:17,6:18,7:19,8:20,9:21,10:22,23:24};   // XGT: 업체 묶음의 첫 줄(위쪽 굵은선) 용 서식
 function exportXlsxGrid(filename,sheet,grid,merges,widths,freeze,heights){ const enc=new TextEncoder(), X=t=>String(t??'').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])), col=i=>{ let q='',n=i+1; while(n){ const m=(n-1)%26; q=String.fromCharCode(65+m)+q; n=Math.floor((n-1)/26); } return q; };
   const sd=grid.map((row,ri)=>`<row r="${ri+1}"${heights&&heights[ri]?` ht="${heights[ri]}" customHeight="1"`:''}>${row.map((c,ci)=>{ if(!c) return ''; const ref=col(ci)+(ri+1), sty=c.s||0; return (c.v===''||c.v==null)?`<c r="${ref}" s="${sty}"/>`:typeof c.v==='number'?`<c r="${ref}" s="${sty}"><v>${c.v}</v></c>`:`<c r="${ref}" s="${sty}" t="inlineStr"><is><t xml:space="preserve">${X(c.v)}</t></is></c>`; }).join('')}</row>`).join('');
   const font=(b,c)=>`<font>${b?'<b/>':''}<sz val="10"/>${c?`<color rgb="FF${c}"/>`:''}<name val="맑은 고딕"/></font>`, fill=h=>`<fill><patternFill patternType="solid"><fgColor rgb="FF${h}"/><bgColor indexed="64"/></patternFill></fill>`;
   const xf=(font,fillId,border,h,wrap)=>`<xf numFmtId="0" fontId="${font}" fillId="${fillId}" borderId="${border}" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${h}" vertical="center"${wrap?' wrapText="1"':''}/></xf>`;
-  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3">${font(0)}${font(1)}${font(0,'C0392B')}</fonts><fills count="10"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>${[2,3,4,5,6,7,8,9].map(i=>fill(XG_FILL[i])).join('')}</fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF9AA7B5"/></left><right style="thin"><color rgb="FF9AA7B5"/></right><top style="thin"><color rgb="FF9AA7B5"/></top><bottom style="thin"><color rgb="FF9AA7B5"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="15">${xf(0,0,0,'left')}${xf(0,0,0,'left')}${xf(1,3,1,'center',1)}${xf(0,4,1,'center',1)}${xf(0,0,1,'left')}${xf(0,0,1,'center')}${xf(0,5,1,'center')}${xf(0,6,1,'center')}${xf(0,7,1,'center')}${xf(0,8,1,'center')}${xf(2,0,1,'center')}${xf(1,0,1,'left')}${xf(0,9,1,'left')}${xf(1,2,1,'center')}${xf(1,0,1,'center')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3">${font(0)}${font(1)}${font(0,'C0392B')}</fonts><fills count="10"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>${[2,3,4,5,6,7,8,9].map(i=>fill(XG_FILL[i])).join('')}</fills><borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF9AA7B5"/></left><right style="thin"><color rgb="FF9AA7B5"/></right><top style="thin"><color rgb="FF9AA7B5"/></top><bottom style="thin"><color rgb="FF9AA7B5"/></bottom><diagonal/></border><border><left style="thin"><color rgb="FF9AA7B5"/></left><right style="thin"><color rgb="FF9AA7B5"/></right><top style="medium"><color rgb="FF1F2937"/></top><bottom style="thin"><color rgb="FF9AA7B5"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="25">${xf(0,0,0,'left')}${xf(0,0,0,'left')}${xf(1,3,1,'center',1)}${xf(0,4,1,'center',1)}${xf(0,0,1,'left')}${xf(0,0,1,'center')}${xf(0,5,1,'center')}${xf(0,6,1,'center')}${xf(0,7,1,'center')}${xf(0,8,1,'center')}${xf(2,0,1,'center')}${xf(1,0,1,'left')}${xf(0,9,1,'left')}${xf(1,2,1,'center')}${xf(1,0,1,'center')}${xf(0,9,2,'left')}${xf(0,0,2,'center')}${xf(1,0,2,'left')}${xf(0,5,2,'center')}${xf(0,6,2,'center')}${xf(0,7,2,'center')}${xf(0,8,2,'center')}${xf(2,0,2,'center')}${xf(1,9,1,'center',1)}${xf(1,9,2,'center',1)}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const sheetXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0">${freeze?`<pane xSplit="${freeze[0]}" ySplit="${freeze[1]}" topLeftCell="${col(freeze[0])}${freeze[1]+1}" activePane="bottomRight" state="frozen"/>`:''}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="16"/><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${sd}</sheetData>${merges.length?`<mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${col(m[1])}${m[0]+1}:${col(m[3])}${m[2]+1}"/>`).join('')}</mergeCells>`:''}</worksheet>`;
   const files=[['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
     ['_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
@@ -689,10 +693,11 @@ function exportWStatus(){ const {ws,cell,C,prog,t}=wsData(), pl=x=>String(x).rep
   // 머리글: 공정 / 이음 / 두께 / 자세 (같은 값은 가로로 병합)
   const lv=[c=>pl(c[0]),c=>c[0]+'|'+c[1],c=>c[0]+'|'+c[1]+'|'+c[2],c=>null], txt=[c=>pl(c[0]),c=>c[1]==='BW'?'맞대기':'필릿',c=>fmtN(c[2])+'t',c=>c[3]];
   for(let lvl=0;lvl<4;lvl++){ let i=0; while(i<nC){ let j=i; if(lvl<3) while(j+1<nC&&lv[lvl](C[j+1][1])===lv[lvl](C[i][1])) j++; for(let k=i;k<=j;k++) put(lvl,L+k,k===i?txt[lvl](C[i][1]):'',lvl<3?XG.hd:XG.hd2); if(j>i) M.push([lvl,L+i,lvl,L+j]); i=j+1; } }
-  ws.forEach((w,n)=>{ const r=H+n; let fin=0;
-    [w.company,n+1,w.name,w.birthDate?w.birthDate.replace(/-/g,'').slice(2):'',w.welderNo,w.role,w.status].forEach((v,i)=>put(r,i,v,[XG.left,XG.txtC,XG.bold,XG.txtC,XG.left,XG.txtC,XG.txtC][i]));
-    C.forEach(([k],i)=>{ const c=cell[w.id+'|'+k]; if(!c){ put(r,L+i,'',XG.txtC); return; } if(c.kind==='ok'||c.kind==='rn') fin++; put(r,L+i,c.kind==='pg'?'진행':c.kind==='ft'?'✕':c.kind==='ex'?'만료':'합격',XG[c.kind]); });
-    put(r,L+nC,fin,XG.bold); put(r,L+nC+1,prog[w.id]||'',XG.txtC); });
+  let gs=0; ws.forEach((w,n)=>{ const r=H+n; let fin=0, first=n===0||w.company!==ws[n-1].company; if(first) gs=n; const T=st=>first?(XGT[st]||st):st;   // 업체가 바뀌는 줄은 위쪽 굵은선
+    [n+1,w.name,w.birthDate?w.birthDate.replace(/-/g,'').slice(2):'',w.welderNo,w.role,w.status].forEach((v,i)=>put(r,i+1,v,T([XG.txtC,XG.bold,XG.txtC,XG.left,XG.txtC,XG.txtC][i])));
+    put(r,0,first?w.company:'',first?XG.coMT:XG.coM); const last=n===ws.length-1||ws[n+1].company!==w.company; if(last&&r>H+gs) M.push([H+gs,0,r,0]);   // 업체 칸은 묶음 전체를 병합
+    C.forEach(([k],i)=>{ const c=cell[w.id+'|'+k]; if(!c){ put(r,L+i,'',T(XG.txtC)); return; } if(c.kind==='ok'||c.kind==='rn') fin++; put(r,L+i,c.kind==='pg'?'진행':c.kind==='ft'?'✕':c.kind==='ex'?'만료':'합격',T(XG[c.kind])); });
+    put(r,L+nC,fin,T(XG.bold)); put(r,L+nC+1,prog[w.id]||'',T(XG.txtC)); });
   // 소속별 집계
   const cos=uniq(ws.map(w=>w.company)), roles=uniq(ws.map(w=>w.role)); let r0=H+ws.length+1; G.push(Array(total).fill(null)); const hd=['소속','','구분','','인원','자격 유효','서명 갱신 필요','전부 만료','시험 진행중'];
   G.push(Array(total).fill(null)); hd.forEach((h,i)=>{ if(h!=='') put(r0,i,h,XG.sumH); }); [[r0,0,r0,1],[r0,2,r0,3]].forEach(m=>M.push(m));
@@ -1286,7 +1291,7 @@ function drawRecs(){
   $('#rlist').innerHTML=`<table class="list"><thead><tr>${msTh('rec')}<th class="num" title="같은 조인트의 재시험 이전 시도 수">시도</th><th>용접일${cfTh('rec','date')}</th><th>용접사${cfTh('rec','name')}</th><th>소속${cfTh('rec','company')}</th><th class="num" title="용접사의 현재 재직 상태">재직${cfTh('rec','emp')}</th><th class="num">유형${cfTh('rec','joint')}</th><th>공정${cfTh('rec','proc')}</th><th class="num">두께${cfTh('rec','thk')}</th><th class="num">자세${cfTh('rec','pos')}</th><th>용가재${cfTh('rec','fm')}</th><th>WPS${cfTh('rec','wps')}</th>
    <th class="num">VT${cfTh('rec','vt')}</th><th class="num">RT/UT${cfTh('rec','rt')}</th><th class="num">Bend/Macro${cfTh('rec','bd')}</th><th class="num">판정${cfTh('rec','st')}</th><th>만료일${cfTh('rec','exp')}</th><th class="num">서명${cfTh('rec','rn')}</th><th></th></tr></thead><tbody>${page.map(g=>{
     const open=RF.all||RF.open.has(g.main.r.id); return rowHTML(g.main,false,g)+(open?g.kids.map(k=>rowHTML(k,true,g)).join(''):'');}).join('')||'<tr><td colspan="19" style="color:var(--mute)">조건에 맞는 기록이 없습니다.</td></tr>'}</tbody></table>`;
-  rz($('#rlist'),'records6');
+  rz($('#rlist'),'records7',5);
   $('#rinfo').textContent=`같은 조인트에 시험이 여러 번인 묶음 ${multi}개 (접힌 이전 시도 ${hidden}건)`;
   $('#rpager').innerHTML=pages>1?`<button class="b sm sec" ${RF.page?'':'disabled'} onclick="RF.page--;drawRecs()">← 이전</button><span>${RF.page+1} / ${pages} 페이지</span><button class="b sm sec" ${RF.page<pages-1?'':'disabled'} onclick="RF.page++;drawRecs()">다음 →</button>`:'';
 }
@@ -1375,7 +1380,7 @@ function drawWpsMaster(){
       ${m?`${m&&wpsPqrCheck(m).length?`<div class="msg err" style="margin:4px 0">◆ 점검 필요: ${esc(wpsPqrCheck(m).join(' / '))}</div>`:''}<div style="margin:2px 0 8px;color:var(--mute);font-size:12px">개정일 ${m.revDate||'-'} · PWHT ${esc(m.pwht||'-')} · 비고 ${esc(m.remarks||'-')}</div>${pqrMini(m)}<div style="height:8px"></div>`:''}
       <b style="font-size:13px">사용 기록 (${l.length}건)</b>${usageTbl(x)}</div></td></tr>`:'';
     return head+detail;}).join('')||'<tr><td colspan="18" style="color:var(--mute)">표시할 WPS가 없습니다. 오른쪽 위 "WPS/WPQR 목록 엑셀 가져오기"로 WPS 목록을 올리거나 "+ WPS 추가"로 직접 등록하세요.</td></tr>'}</tbody></table>`;
-  rz($('#wpslist'),'wps1',2);
+  rz($('#wpslist'),'wps2',2,[78,140,60,44,130,72,56,88,56,116,104,124,56,50,50,56,44]);
 }
 const PQLINK=key=>wpsMaster.filter(m=>m.pqrNos.some(n=>n.toUpperCase()===key));
 function pqrRows(except){
