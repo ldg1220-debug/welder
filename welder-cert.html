@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>용접사 자격 인증서 관리</title>
+<title>용접 자격 통합 관리</title>
 <style>
 :root{--bg:#f4f6f8;--card:#fff;--ink:#1c2530;--mute:#6b7785;--line:#d5dbe1;--accent:#1f5fae;--ok:#1a7f4b;--bad:#c62828;--warn:#b7791f}
 *{box-sizing:border-box}
@@ -158,11 +158,13 @@ input[type=file]{font-size:12px}
 }
 body.ro input[type=file]{display:none!important}
 #srvb{font-size:11px;background:#1d6b3f;border-radius:8px;padding:1px 8px;margin-left:6px;font-weight:400}#srvb a{color:#fff;margin-left:6px}
+#msgbtn{margin-left:10px;font-size:15px;font-weight:700;padding:5px 16px;border-radius:18px;border:2px solid #ffd166;background:#ffd166;color:#14314f;cursor:pointer;vertical-align:middle;box-shadow:0 1px 4px rgba(0,0,0,.3)}#msgbtn:hover{background:#fff}#msgbtn.new{animation:msgp 1.2s infinite}#msgbtn b{color:#c0392b;margin-left:4px}
+@keyframes msgp{50%{box-shadow:0 0 0 5px rgba(255,209,102,.5)}}
 </style>
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v119 · 이면비드도 점 편집</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v120</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -323,7 +325,7 @@ async function rapi(path,body){ const r=await fetch(path,body===undefined?{crede
   if(r.status===401&&path!=='/api/login'){ await remoteLogin(); return rapi(path,body); }
   if(!r.ok) throw new Error((j&&j.error)||('서버 오류 '+r.status)); if(j&&j.v) REMOTE.v=j.v; return j; }
 function remoteLogin(msg){ return new Promise(ok=>{ document.getElementById('rlg')?.remove(); const d=document.createElement('div'); d.id='rlg'; d.style.cssText='position:fixed;inset:0;z-index:999999;background:rgba(20,49,79,.92);display:flex;align-items:center;justify-content:center';
-  d.innerHTML=`<form style="background:#fff;border-radius:12px;padding:26px 28px;width:min(340px,92vw);display:flex;flex-direction:column;gap:10px"><h2 style="margin:0">🔧 용접사 자격 인증서 관리</h2><div style="color:#c0392b;font-size:13px;min-height:18px" id="rlge">${msg||''}</div><label>아이디<input name="user" autocomplete="username" required></label><label>비밀번호<input name="pass" type="password" autocomplete="current-password" required></label><button class="b">로그인</button><small style="color:#667">계정은 마스터에게 문의하세요.</small></form>`; document.body.appendChild(d);
+  d.innerHTML=`<form style="background:#fff;border-radius:12px;padding:26px 28px;width:min(340px,92vw);display:flex;flex-direction:column;gap:10px"><h2 style="margin:0">🔧 용접 자격 통합 관리</h2><div style="color:#c0392b;font-size:13px;min-height:18px" id="rlge">${msg||''}</div><label>아이디<input name="user" autocomplete="username" required></label><label>비밀번호<input name="pass" type="password" autocomplete="current-password" required></label><button class="b">로그인</button><small style="color:#667">계정은 마스터에게 문의하세요.</small></form>`; document.body.appendChild(d);
   const f=d.querySelector('form'); f.user.focus(); f.onsubmit=async e=>{ e.preventDefault(); try{ const j=await rapi('/api/login',{user:f.user.value.trim(),pass:f.pass.value}); REMOTE.user=j.user; REMOTE.role=j.role; d.remove(); ok(); }catch(err){ d.querySelector('#rlge').textContent=err.message; f.pass.value=''; f.pass.focus(); } }; }); }
 function roBlock(){ toast('조회 전용 계정은 수정할 수 없습니다. (내려받기·인쇄는 가능)',3500); throw new Error('조회 전용 계정은 수정할 수 없습니다.'); }
 const DB={db:null,
@@ -3068,8 +3070,8 @@ document.addEventListener('drop',async e=>{ const o=document.getElementById('dro
   try{ await z.f(ok); }catch(err){ alert('가져오기 실패: '+(err.message||err)); } });
 
 // ---- 서버 모드 보조: 상태 표시 / 다른 PC 변경 감지 / 조회 전용 UI 잠금 / 계정 관리
-function remoteBadge(){ if(!REMOTE.on) return; document.getElementById('srvb')?.remove(); const h=document.querySelector('header h1'); if(!h) return; h.insertAdjacentHTML('beforeend',`<span id="srvb" title="서버에 연결되어 있습니다">🖥 ${esc(REMOTE.user)} · ${REMOTE.role==='master'?'마스터':'조회 전용'}<a href="#" onclick="acctMine();return false" title="내 비밀번호 변경">🔑</a><a href="#" onclick="msgOpen();return false" title="쪽지함">✉<b id="msgn"></b></a><a href="#" onclick="remoteLogout();return false">로그아웃</a></span>`); msgBadge(); }
-function msgBadge(){ const e=document.getElementById('msgn'); if(e) e.textContent=REMOTE.m?` ${REMOTE.m}`:''; if(e) e.style.color=REMOTE.m?'#ffd166':''; }
+function remoteBadge(){ if(!REMOTE.on) return; document.getElementById('srvb')?.remove(); const h=document.querySelector('header h1'); if(!h) return; h.insertAdjacentHTML('beforeend',`<span id="srvb" title="서버에 연결되어 있습니다">🖥 ${esc(REMOTE.user)} · ${REMOTE.role==='master'?'마스터':'조회 전용'}<a href="#" onclick="acctMine();return false" title="내 비밀번호 변경">🔑</a><a href="#" onclick="remoteLogout();return false">로그아웃</a></span>`); document.getElementById('msgbtn')?.remove(); document.getElementById('srvb').insertAdjacentHTML('afterend',`<button type="button" id="msgbtn" onclick="msgOpen()" title="${REMOTE.role==='master'?'받은 쪽지함 (조회 계정이 보낸 의견)':'관리자에게 메세지 보내기'}">✉ 쪽지<b id="msgn"></b></button>`); msgBadge(); }
+function msgBadge(){ const e=document.getElementById('msgn'); if(e) e.textContent=REMOTE.m?` ${REMOTE.m}`:''; const b=document.getElementById('msgbtn'); if(b) b.classList.toggle('new',!!REMOTE.m); }
 async function remoteLogout(){ try{ await rapi('/api/logout',{}); }catch(e){} location.reload(); }
 async function remotePoll(){ if(!REMOTE.on||document.visibilityState!=='visible') return; try{ const r=await fetch('/api/version',{credentials:'same-origin'}); if(r.status===401){ await remoteLogin(); return; } const j=await r.json(); if(j.m!==undefined&&j.m!==REMOTE.m){ const up=j.m>(REMOTE.m||0); REMOTE.m=j.m; msgBadge(); if(up&&REMOTE.m) toast(REMOTE.role==='master'?'✉ 새 쪽지가 있습니다.':'✉ 마스터의 답장이 있습니다.',4000); } if(j.v!==REMOTE.v){ REMOTE.v=j.v; syncPing(); } }catch(e){} }
 const RO_OK=/내보내|다운로드|인쇄|PDF|pdf|미리보기|엑셀|SVG|PNG|닫기|취소|보기|검색|필터|로그아웃|새로고침|크게|펼|접기|선택 해제|전체 선택/, RO_BAD=/저장|삭제|추가|수정|편집|가져오|일괄|복원|초기화|발급|확정|적용|되돌리|병합|정리|변경|등록|지정|채우기|복제|이름|붙여|스케치|생성|계산|재계산|종결|갱신|연결|업로드|사진/;
