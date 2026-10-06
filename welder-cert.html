@@ -105,7 +105,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v80 · 열 고정·현황표 업체 구분</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v81 · 열 고정·현황표 업체 구분</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -852,21 +852,27 @@ async function pdfPages(buf){ const doc=await pdfLoad(buf), pages=[]; const root
 function pdfLines(items){ const r=items.filter(i=>i.s.trim()).map(i=>({...i})).sort((a,b)=>b.y-a.y||a.x-b.x), L=[]; for(const it of r){ let l=L.find(l=>Math.abs(l.y-it.y)<=Math.max(2,it.sz*.4)); if(!l){ l={y:it.y,a:[]}; L.push(l); } l.a.push(it); } L.sort((a,b)=>b.y-a.y); L.forEach(l=>l.a.sort((a,b)=>a.x-b.x)); return L; }
 // ---------- PQR 양식 PDF -> PQR 목록 ----------
 const PROC_NAME={'135':'MAG','136':'MAG','138':'MAG','131':'MIG','141':'TIG','142':'TIG','143':'TIG','111':'SMAW','121':'SAW','122':'SAW','52':'LBW','521':'LBW'};
-function parsePqrPage(pages){ // pages: 같은 PQR 번호의 페이지들(각각 pdfLines 결과)
-  const T=pages.map(L=>L.map(l=>l.a.map(x=>x.s).join(' ')).join('\n')).join('\n'), p1=pages[0].map(l=>l.a.map(x=>x.s).join(' ')).join('\n'), o={};
-  const g=(re,t)=>{ const m=(t||T).match(re); return m?m[1].trim():''; };
+function pqrDate(t){ const m=String(t||'').match(/DATE\s*:\s*(\d{1,4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,4})/i)||String(t||'').match(/Date of welding\s*:\s*(\d{1,4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,4})/i); if(!m) return ''; let y,mo,d; if(m[1].length===4){ y=+m[1]; mo=+m[2]; d=+m[3]; } else { y=+m[3]; if(+m[1]>12){ d=+m[1]; mo=+m[2]; } else if(+m[2]>12){ mo=+m[1]; d=+m[2]; } else { d=+m[1]; mo=+m[2]; } } if(!(y>1990&&mo>=1&&mo<=12&&d>=1&&d<=31)) return ''; return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function pqrFields(T,p1,hint){ // T=전체 글자, p1=첫 쪽 글자, hint={sheet,joint}
+  const o={}, g=(re,t)=>{ const m=(t||T).match(re); return m?m[1].trim():''; };
   o.pqrNo=g(/PQR No\.\s*:\s*(PQR-?[A-Za-z0-9-]+)/i);
-  const d=T.match(/DATE\s*:\s*(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})/); o.weldDate=d?`${d[1]}-${d[2].padStart(2,'0')}-${d[3].padStart(2,'0')}`:'';
+  o.weldDate=pqrDate(T)||pqrDate(T.replace(/DATE\s*:\s*\n/i,'DATE : '));
   const hdrIdx=p1.search(/Base Metals/); const tbl=hdrIdx>0?p1.slice(0,hdrIdx):p1, body=hdrIdx>0?p1.slice(hdrIdx):p1;
-  let pc=g(/Welding Process\s*:\s*(\d{2,3})/,body); if(!pc){ const m=tbl.match(/\b(135|136|138|131|141|142|143|111|121|122|521|52)\b/); pc=m?m[1]:''; }
+  let pc=g(/Welding Process\s*:\s*(?:[A-Za-z]+\s+)?(\d{2,3})/,T); if(!pc){ const m=tbl.match(/\b(135|136|138|131|141|142|143|111|121|122|521|52)\b/); pc=m?m[1]:''; }
   o.process=pc?`${pc}(${PROC_NAME[pc]||''})`.replace('()',''):'';
-  o.position=g(/Welding Position\s*:\s*(P[A-G]|H-?L?\d*|[A-Z]{1,3}\d?)/,body);
-  const th=g(/Thickness\s*:\s*([^\n|]*)/,body), tm=th.match(/^\s*(\d+(?:\.\d+)?)\s*t?\s*(?:\+\s*(\d+(?:\.\d+)?)\s*t?)?/i); o.thickness=tm?(tm[2]?`${tm[1]} + ${tm[2]}`:tm[1]):'';
-  const gm=body.match(/ISO\s*15608\s*([\d.]+(?:\s*\+\s*[\d.]+)?)/); o.materialGroup=gm?gm[1].replace(/\s+/g,' ').replace(/\s*\+\s*/,' + '):'';
-  const wtm=th.match(/\/\s*(T-?BUTT|BW|FW)/i); const multi=/Multipass/i.test(body), t1=numOf(o.thickness)||0;
-  if(wtm) o.weldType=wtm[1].toUpperCase().replace(/^TBUTT$/,'T-BUTT'); else { o.weldType=/^PB$/.test(o.position)?(multi||t1>=10?'T-BUTT':'FW'):'BW'; o.inferType=true; }
-  const fil=g(/Specification\s*:\s*((?:AWS|ISO)[^\n|]*?)(?:\s+Other|\n|\||$)/,body), gas=g(/Type\s*:\s*(M\d+|I\d+|C\d+)/,body), pre=g(/Preheat Temp\s*:\s*(\S+(?:\s*℃)?)/,body);
+  o.position=g(/Welding Position\s*:\s*(P[A-G]|H-?L?\d*|[A-Z]{1,3}\d?)/,T);
+  const th=g(/Thickness\s*:\s*([^\n|]*)/,T), tm=th.match(/^\s*(\d+(?:\.\d+)?)\s*t?\s*(?:\+\s*(\d+(?:\.\d+)?)\s*t?)?/i); o.thickness=tm?(tm[2]?`${tm[1]} + ${tm[2]}`:tm[1]):'';
+  const gm=T.match(/ISO\s*15608\s*([\d.]+(?:\s*\+\s*[\d.]+)?)/)||T.match(/\[\s*([\d.]+(?:\s*\+\s*[\d.]+)?)\s*Group\s*\]/i); o.materialGroup=gm?gm[1].replace(/\s+/g,' ').replace(/\s*\+\s*/,' + '):'';
+  const wtm=th.match(/\/\s*(T-?BUTT|BW|FW)/i), jt=(hint&&hint.joint)||g(/Joint type\s*:\s*([A-Za-z-]+)/i,T), sn=(hint&&hint.sheet)||''; const multi=/Multipass/i.test(T), t1=numOf(o.thickness)||0;
+  if(wtm) o.weldType=wtm[1].toUpperCase().replace(/^TBUTT$/,'T-BUTT');
+  else if(/fillet/i.test(jt)) o.weldType='FW'; else if(/t-?butt/i.test(jt)) o.weldType='T-BUTT'; else if(/butt/i.test(jt)) o.weldType='BW';
+  else if(/t-?bw/i.test(sn)) o.weldType='T-BUTT'; else if(/(^|[^a-z])bw([^a-z]|$)/i.test(sn)) o.weldType='BW'; else if(/(^|[^a-z])fw([^a-z]|$)|fillet/i.test(sn)) o.weldType='FW';
+  else { o.weldType=/^PB$/.test(o.position)?(multi||t1>=10?'T-BUTT':'FW'):'BW'; o.inferType=true; }
+  const fil=g(/Specification\s*:\s*((?:AWS|ISO)[^\n|]*?)(?:\s+Other|\n|\||$)/,body)||g(/Filler metal Specification\s*:\s*([^\n|]*)/i,T), gas=g(/Type\s*:\s*(M\d+|I\d+|C\d+)/,body), pre=g(/Preheat Temp\s*:\s*(\S+(?:\s*℃)?)/,T);
   o.remarks=[fil&&`용가재 ${fil}`,gas&&`가스 ${gas}`,pre&&`예열 ${pre}`].filter(Boolean).join(' · ');
+  return {o,tbl,body}; }
+function parsePqrPage(pages){ // pages: 같은 PQR 번호의 페이지들(각각 pdfLines 결과)
+  const T=pages.map(L=>L.map(l=>l.a.map(x=>x.s).join(' ')).join('\n')).join('\n'), p1=pages[0].map(l=>l.a.map(x=>x.s).join(' ')).join('\n'), {o,tbl}=pqrFields(T,p1,null);
   // 패스 표: 전류·전압·속도·입열량은 'I·U·60/(v·1000)×k' 관계(k 0.55~1.05)로 숫자 조합을 찾는다
   const items=pages[0].flatMap(l=>l.a.map(x=>({...x,y:l.y}))), top=(pages[0].find(l=>/Base Metals/.test(l.a.map(x=>x.s).join(' ')))||{y:-1e9}).y;
   const hdrY=(pages[0].filter(l=>/Temp\(.*\)|\(KJ\/cm\)/i.test(l.a.map(x=>x.s).join(' '))).map(l=>l.y).sort((a,b)=>a-b)[0]);
@@ -889,15 +895,40 @@ async function importPqrPdf(file,buf){
   if(typeof DecompressionStream==='undefined') return alert('이 브라우저는 PDF 직접 읽기를 지원하지 않습니다. 최신 Chrome/Edge를 사용하세요.');
   toast('PDF를 읽는 중…',2000); const r=await pqrFromPdf(buf);
   if(!r.list.length) return alert(`"${file.name}" 에서 PQR 양식을 찾지 못했습니다.\n(${r.total}쪽 중 글자가 있는 쪽 ${r.text}쪽)\n\n스캔/사진 PDF는 글자가 없어 읽을 수 없습니다. 엑셀에서 직접 PDF로 저장한 파일을 사용하거나, PQR 목록 엑셀로 가져오세요.`);
-  const byP=new Map(pqrMaster.map(m=>[m.pqrNo.toUpperCase(),m])), diff=[], nw=[];
-  const merged=r.list.map(o=>{ const old=byP.get(o.pqrNo.toUpperCase()); const n={...(old||{standard:'ISO 15614-1'}),pqrNo:old?old.pqrNo:o.pqrNo};
-    for(const k of ['materialGroup','process','position','thickness','weldDate','heat','heatRange','passes']){ if(o[k]&&(Array.isArray(o[k])?o[k].length:true)){ if(old&&old[k]&&String(old[k])!==String(o[k])&&k!=='passes') diff.push(`${o.pqrNo} ${k==='materialGroup'?'모재':k==='process'?'공정':k==='position'?'자세':k==='thickness'?'두께':k==='weldDate'?'시험일':k==='heat'?'입열량':'입열량 범위'}: ${old[k]} → ${o[k]}`); n[k]=o[k]; } }
+  return commitPqrList(r.list,file.name,`PDF ${r.total}쪽`,r.total-r.text>0?`\n글자가 없는 쪽 ${r.total-r.text}쪽(스캔 이미지)은 읽지 못했습니다.\n`:''); }
+async function commitPqrList(list,fname,srcLabel,extra){
+  const byP=new Map(pqrMaster.map(m=>[m.pqrNo.toUpperCase(),m])), diff=[], nw=[], KL={materialGroup:'모재',process:'공정',position:'자세',thickness:'두께',weldDate:'시험일',heat:'입열량',heatRange:'입열량 범위'};
+  const merged=list.map(o=>{ const old=byP.get(o.pqrNo.toUpperCase()); const n={...(old||{standard:'ISO 15614-1'}),pqrNo:old?old.pqrNo:o.pqrNo};
+    for(const k of ['materialGroup','process','position','thickness','weldDate','heat','heatRange','passes']){ if(o[k]&&(Array.isArray(o[k])?o[k].length:true)){ if(old&&old[k]&&String(old[k])!==String(o[k])&&k!=='passes') diff.push(`${o.pqrNo} ${KL[k]}: ${old[k]} → ${o[k]}`); n[k]=o[k]; } }
     if(!n.weldType) n.weldType=o.weldType; else if(old&&old.weldType&&o.weldType&&old.weldType!==o.weldType&&!o.inferType) diff.push(`${o.pqrNo} 형식: ${old.weldType} → ${o.weldType}`),n.weldType=o.weldType;
-    if(!old) nw.push(o.pqrNo); if(!n.remarks&&o.remarks) n.remarks=o.remarks; n.pdfName=file.name; return n; });
-  const unread=r.total-r.text;
-  if(!confirm(`PDF ${r.total}쪽에서 PQR ${merged.length}건을 읽었습니다 (신규 ${nw.length} / 갱신 ${merged.length-nw.length}).\n${merged.map(m=>`  ${m.pqrNo}  ${m.process||'?'} · ${m.position||'?'} · ${m.thickness||'?'}t · ${m.weldType}${m.heatRange?` · 입열량 ${m.heatRange}`:''} · 패스 ${(m.passes||[]).length}`).slice(0,25).join('\n')}${merged.length>25?`\n  … 외 ${merged.length-25}건`:''}\n${unread>0?`\n글자가 없는 쪽 ${unread}쪽(스캔 이미지)은 읽지 못했습니다.\n`:''}${diff.length?`\n[기존 값과 달라지는 항목]\n${diff.slice(0,15).join('\n')}${diff.length>15?`\n… 외 ${diff.length-15}건`:''}\n`:''}\n※ 자동 판독이므로 가져온 뒤 PQR 목록에서 확인하세요.\n가져올까요?`)) return;
-  await DB.putMany('pqr',merged); await load(); WF.view='pqr'; stayRender(); toast(`PQR ${merged.length}건을 PDF에서 가져왔습니다.`,4000); }
-
+    if(!old) nw.push(o.pqrNo); if(!n.remarks&&o.remarks) n.remarks=o.remarks; n.pdfName=fname; return n; });
+  if(!confirm(`${srcLabel}에서 PQR ${merged.length}건을 읽었습니다 (신규 ${nw.length} / 갱신 ${merged.length-nw.length}).\n${merged.map(m=>`  ${m.pqrNo}  ${m.process||'?'} · ${m.position||'?'} · ${m.thickness||'?'}t · ${m.weldType}${m.heatRange?` · 입열량 ${m.heatRange}`:''} · 패스 ${(m.passes||[]).length}`).slice(0,30).join('\n')}${merged.length>30?`\n  … 외 ${merged.length-30}건`:''}\n${extra||''}${diff.length?`\n[기존 값과 달라지는 항목]\n${diff.slice(0,20).join('\n')}${diff.length>20?`\n… 외 ${diff.length-20}건`:''}\n`:''}\n※ 자동 판독이므로 가져온 뒤 PQR 목록에서 확인하세요.\n가져올까요?`)) return;
+  await DB.putMany('pqr',merged); await load(); WF.view='pqr'; stayRender(); toast(`PQR ${merged.length}건을 가져왔습니다.`,4000); }
+// ---------- PQR 양식 엑셀 -> PQR 목록 (시트 1개 = PQR 1개, 구형 3쪽 양식은 1쪽 시트의 Joint Type 을 함께 사용) ----------
+function parsePqrXlsx(sheets){ const list=[], dup=[], skip=[], joint={};
+  const cellTxt=sh=>{ const a=[]; sh.rows.forEach((row,ri)=>row&&row.forEach((v,ci)=>{ if(typeof v==='string'&&v.trim()) a.push(v); })); return a; };
+  for(const sh of sheets){ const t=cellTxt(sh).join('\n'), m=t.match(/WPQR No\.\s*:\s*(PQR-?[A-Za-z0-9-]+)/i), j=t.match(/Joint Type\s*:\s*([A-Za-z-]+)/i); if(m&&j&&!/Base Metals/.test(t)) joint[m[1].toUpperCase()]=j[1]; }
+  for(const sh of sheets){ const txt=cellTxt(sh), T=txt.join('\n'); if(!/Base Metals|Base metal Specification/.test(T)||!/PQR No\.\s*:\s*PQR/i.test(T)) continue;
+    const no=(T.match(/PQR No\.\s*:\s*(PQR-?[A-Za-z0-9-]+)/i)||[])[1]; if(!no||!/\d{3}$/.test(no)){ if(no) skip.push(`${sh.name} (${no})`); continue; }
+    let T2=T; { const di=sh.rows.findIndex(r=>r&&r.some(v=>typeof v==='string'&&/^DATE\s*:\s*$/i.test(v.trim()))); if(di>=0){ const dv=sh.rows[di].find(v=>typeof v==='string'&&/\d{4}/.test(v)||typeof v==='number'&&v>30000); if(dv!=null) T2=T.replace(/DATE\s*:\s*\n?/i,'DATE : '+(typeof dv==='number'?serialISO(dv).replace(/-/g,'.'):dv)+'\n'); } }
+    const {o}=pqrFields(T2,T2,{sheet:sh.name,joint:joint[no.toUpperCase()]||''});
+    // 패스 표
+    let hr=-1,col={}; sh.rows.forEach((row,ri)=>{ if(hr>=0||!row) return; const k=row.findIndex(v=>typeof v==='string'&&/Ampare/i.test(v)); if(k>=0){ hr=ri; row.forEach((v,ci)=>{ const s=String(v??'').replace(/\s+/g,''); if(/Ampare/i.test(s)) col.cur=ci; else if(/^Volt/i.test(s)) col.vol=ci; else if(/^Speed/i.test(s)){ col.spd=ci; col.mm=/mm\//i.test(s); } else if(/^Heat/i.test(s)) col.heat=ci; else if(/InterPass/i.test(s)) col.ip=ci; else if(/PassNo/i.test(s)) col.pass=ci; else if(/^Welding.*Process/i.test(s)||/^WeldingProcess/i.test(s)) col.proc=ci; }); } });
+    const rows=[]; let hrange='';
+    if(hr>=0&&col.cur!=null){ for(let ri=hr+1;ri<sh.rows.length;ri++){ const row=sh.rows[ri]||[]; if(row.some(v=>typeof v==='string'&&/Base Metals/.test(v))) break;
+        const I=+row[col.cur], U=+row[col.vol]; if(!(I>0)) continue; let v=+row[col.spd]; if(col.mm) v=v/10; const hc=row[col.heat]; let H=typeof hc==='number'?hc:parseFloat(String(hc||'').match(/\d+(?:\.\d+)?/)||''); if(typeof hc==='string'){ const rg=hc.replace(/\s/g,'').match(/\((\d+\.?\d*)~(\d+\.?\d*)\)/); if(rg) hrange=`${rg[1]}~${rg[2]}`; }
+        const ipv=row[col.ip], pn=row[col.pass];
+        rows.push({pass:typeof pn==='number'?pn:rows.length+1,current:I,voltage:U,speed:r2(v),heat:H?r2(H):'',interpass:typeof ipv==='number'?ipv:''});
+        if(!hrange&&H) for(let ci=(col.ip??col.heat)+1;ci<row.length;ci++){ const a=row[ci]; const b=row[ci+1]; if(typeof a==='number'&&typeof b==='number'&&Math.abs(a/H-.75)<.01&&Math.abs(b/H-1.25)<.01){ (rows[rows.length-1]).rg=[a,b]; break; } } }
+      const lab=[]; sh.rows.forEach((row,ri)=>row&&row.forEach((v,ci)=>{ if(typeof v==='string'&&v.trim()==='입열량') lab.push([ri,ci]); }));
+      if(!hrange&&lab.length){ const [ri,ci]=lab[0]; for(const rr of [ri+1,ri]){ const row=sh.rows[rr]||[]; const nums=row.filter((v,k)=>typeof v==='number'&&k>=ci-3&&k<=ci+3); if(nums.length>=2){ hrange=`${+Math.min(...nums.slice(0,2)).toFixed(3)}~${+Math.max(...nums.slice(0,2)).toFixed(3)}`; break; } } } }
+    if(rows.length){ o.passes=rows.map(r=>{ const {rg,...x}=r; return x; }); const hs=rows.map(r=>r.heat).filter(Boolean); if(hs.length) o.heat=String(Math.max(...hs));
+      if(!hrange){ const rg=rows.filter(r=>r.rg); if(rg.length) hrange=`${r2(Math.min(...rg.map(r=>r.rg[0])))}~${r2(Math.max(...rg.map(r=>r.rg[1])))}`; else if(hs.length) { hrange=`${r2(.75*Math.min(...hs))}~${Math.max(...hs)}`; o.heatRangeCalc=true; } } }
+    if(hrange) o.heatRange=hrange; o.sheet=sh.name;
+    if(!o.process&&!o.thickness&&!rows.length){ skip.push(sh.name); continue; }
+    if(list.some(x=>x.pqrNo.toUpperCase()===o.pqrNo.toUpperCase())){ dup.push(`${sh.name} (${o.pqrNo})`); continue; }
+    list.push(o); }
+  return {list,dup,skip}; }
 async function importFiles(list){ for(const f of [...(list||[])]) await importFile(f); }
 async function importFile(file){
   if(!file) return;
@@ -1287,6 +1318,7 @@ async function importWpsForms(forms,ctx){ ctx=ctx||{ext:{},key:''};
 async function importXlsx(buf,fname){
   const sheets=await readXlsx(buf), certs=parseCerts(sheets); const cached=await cacheBook(sheets,fname||''); if(cached){ await load(); }
   if(certs.length) return importCerts(certs);   // 발행된 인증서(시트별 1장) 엑셀
+  { const pq=parsePqrXlsx(sheets); if(pq.list.length) return commitPqrList(pq.list,fname||'',`엑셀 ${sheets.length}시트`,`${pq.dup.length?`\n번호가 중복돼 건너뛴 시트: ${pq.dup.join(', ')}\n`:''}${pq.skip.length?`\n번호/내용이 불완전해 건너뛴 시트: ${pq.skip.join(', ')}\n`:''}`); }
   const wl=parseWpsLists(sheets); if(wl.wps.length||wl.pqr.length) return importWpsLists(wl);   // WPS / WPQR 목록
   const wf=parseWpsForms(sheets); if(wf.length){ const ctx={ext:sheets.ext||{},key:bookKey(fname||'')};
     if(wpsMaster.some(w=>w.form&&w.form.codeStd)&&cached){ if(!confirm(`'${fname}' 의 연결 원본 시트(Details) ${cached}개를 보관했습니다.\n\n이 파일의 WPS 양식 ${wf.length}장도 다시 가져올까요?\n  확인 = 양식도 가져옴(같은 번호는 덮어씀)\n  취소 = 패스별 조건표 연결만 갱신`)){ const n=await relinkPasses(false); await load(); alert(`패스별 조건표 연결 갱신: ${n}건`); return render(); } }
