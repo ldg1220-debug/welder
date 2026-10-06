@@ -105,7 +105,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v79 · 열 고정·현황표 업체 구분</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v80 · 열 고정·현황표 업체 구분</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -791,12 +791,120 @@ async function relinkPasses(onlyEmpty){ let n=0, up=[]; for(const w of wpsMaster
   if(up.length) await DB.putMany('wps',up); return n; }
 // 파일 불러오기가 끝나면 보던 탭과 스크롤 위치를 그대로 유지하고 표만 새로 그린다
 function stayRender(){ const y=window.scrollY; render(); window.scrollTo(0,y); }
+// ---------- PDF 텍스트 추출 (오프라인, 라이브러리 없음) ----------
+// 글자가 들어 있는 PDF(엑셀/ALPDF 등에서 변환)만 읽는다. 스캔(그림) PDF는 글자가 없어 읽을 수 없다.
+const pdfStr=u=>{ let s=''; for(let i=0;i<u.length;i+=8192) s+=String.fromCharCode.apply(null,u.subarray(i,i+8192)); return s; };
+async function pdfInflate(u8){ try{ const ds=new DecompressionStream('deflate'); const w=ds.writable.getWriter(); w.write(u8).catch(()=>{}); w.close().catch(()=>{}); return new Uint8Array(await new Response(ds.readable).arrayBuffer()); }catch(e){ return null; } }
+function pdfParser(s){ let i=0; const ws=()=>{ for(;;){ const c=s[i]; if(c===' '||c==='\n'||c==='\r'||c==='\t'||c==='\f'||c==='\0') i++; else if(c==='%'){ while(i<s.length&&s[i]!=='\n'&&s[i]!=='\r') i++; } else break; } };
+  const val=()=>{ ws(); const c=s[i];
+    if(c==='<'&&s[i+1]==='<'){ i+=2; const d={}; for(;;){ ws(); if(s[i]==='>'&&s[i+1]==='>'){ i+=2; break; } if(i>=s.length) break; const k=val(); const v=val(); if(typeof k==='object'&&k&&k.n!=null) d[k.n]=v; } return d; }
+    if(c==='['){ i++; const a=[]; for(;;){ ws(); if(s[i]===']'||i>=s.length){ i++; break; } a.push(val()); } return a; }
+    if(c==='/'){ i++; let n=''; while(i<s.length&&!/[\s\/\[\]<>()%]/.test(s[i])) n+=s[i++]; return {n:n.replace(/#([0-9a-f]{2})/gi,(m,h)=>String.fromCharCode(parseInt(h,16)))}; }
+    if(c==='('){ i++; let d=1,o=''; while(i<s.length&&d>0){ const ch=s[i++]; if(ch==='\\'){ const e=s[i++]; if(e==='n')o+='\n'; else if(e==='r')o+='\r'; else if(e==='t')o+='\t'; else if(e==='b')o+='\b'; else if(e==='f')o+='\f'; else if(/[0-7]/.test(e)){ let q=e; while(q.length<3&&/[0-7]/.test(s[i])) q+=s[i++]; o+=String.fromCharCode(parseInt(q,8)&255); } else if(e==='\r'){ if(s[i]==='\n') i++; } else if(e!=='\n') o+=e; } else if(ch==='('){ d++; o+=ch; } else if(ch===')'){ d--; if(d>0) o+=ch; } else o+=ch; } return o; }
+    if(c==='<'){ i++; let h=''; while(i<s.length&&s[i]!=='>') h+=s[i++]; i++; h=h.replace(/\s/g,''); if(h.length%2) h+='0'; let o=''; for(let k=0;k<h.length;k+=2) o+=String.fromCharCode(parseInt(h.substr(k,2),16)); return o; }
+    const m=/^[+-]?(?:\d+\.?\d*|\.\d+)/.exec(s.substr(i,24));
+    if(m){ i+=m[0].length; if(/^\d+$/.test(m[0])){ const save=i; ws(); const m2=/^(\d+)\s+R(?![A-Za-z])/.exec(s.substr(i,24)); if(m2){ i+=m2[0].length; return {ref:+m[0]}; } i=save; } return parseFloat(m[0]); }
+    let k=''; while(i<s.length&&!/[\s\/\[\]<>()%]/.test(s[i])) k+=s[i++]; if(k==='true') return true; if(k==='false') return false; if(k==='null'||!k){ if(!k) i++; return null; } return {kw:k}; };
+  return {val,pos:()=>i,set:p=>{i=p;},ws}; }
+async function pdfLoad(buf){ const u8=new Uint8Array(buf), s=pdfStr(u8), objs=new Map(); const re=/(\d+)\s+(\d+)\s+obj\b/g; let m; const stm=[];
+  while((m=re.exec(s))){ const p=pdfParser(s); p.set(m.index+m[0].length); let v; try{ v=p.val(); }catch(e){ continue; } let st=null; p.ws(); const at=p.pos();
+    if(v&&typeof v==='object'&&!Array.isArray(v)&&s.substr(at,6)==='stream'){ let a=at+6; if(s[a]==='\r') a++; if(s[a]==='\n') a++; let len=typeof v.Length==='number'?v.Length:-1, e=len>=0&&s.substr(a+len,20).replace(/^\s+/,'').startsWith('endstream')?a+len:s.indexOf('endstream',a); if(e<0) e=s.length; st=[a,e]; re.lastIndex=e; }
+    objs.set(+m[1],{v,st}); }
+  const get=o=>{ let n=0; while(o&&typeof o==='object'&&o.ref!=null&&n++<20){ const t=objs.get(o.ref); o=t?t.v:null; } return o; };
+  const nm=o=>{ o=get(o); return o&&o.n!=null?o.n:null; };
+  const stream=async o=>{ const r=typeof o==='object'&&o&&o.ref!=null?objs.get(o.ref):objs.get(o); if(!r||!r.st) return null; let d=u8.subarray(r.st[0],r.st[1]); let f=get(r.v.Filter); f=Array.isArray(f)?f.map(nm):[nm(f)]; if(f.includes('FlateDecode')) d=await pdfInflate(d); else if(f.some(x=>x&&x!=='FlateDecode')) return null; return d; };
+  for(const [n,o] of [...objs]){ if(o.v&&o.v.Type&&o.v.Type.n==='ObjStm'&&o.st){ const d=await stream(n); if(!d) continue; const t=pdfStr(d), N=get(o.v.N), F=get(o.v.First); const head=t.slice(0,F).trim().split(/\s+/).map(Number); for(let k=0;k<N;k++){ const on=head[2*k], off=head[2*k+1]; const p=pdfParser(t); p.set(F+off); try{ if(!objs.has(on)||!objs.get(on).st) objs.set(on,{v:p.val(),st:null}); }catch(e){} } } }
+  return {objs,get,nm,stream}; }
+function cmapParse(t){ const map=new Map(); const hx=h=>{ let o=''; for(let k=0;k<h.length;k+=4) o+=String.fromCharCode(parseInt(h.substr(k,4),16)); return o; };
+  for(const b of t.matchAll(/beginbfchar([\s\S]*?)endbfchar/g)) for(const m of b[1].matchAll(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>/g)) map.set(parseInt(m[1],16),hx(m[2]));
+  for(const b of t.matchAll(/beginbfrange([\s\S]*?)endbfrange/g)) for(const m of b[1].matchAll(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>\s*(<[0-9a-fA-F]+>|\[[^\]]*\])/g)){ const a=parseInt(m[1],16), z=parseInt(m[2],16); if(m[3][0]==='<'){ const base=m[3].slice(1,-1); for(let c=a;c<=z&&c-a<4096;c++){ const code=parseInt(base.slice(-4),16)+(c-a); map.set(c,hx(base.slice(0,-4))+String.fromCharCode(code)); } } else { const arr=[...m[3].matchAll(/<([0-9a-fA-F]+)>/g)]; arr.forEach((x,k)=>map.set(a+k,hx(x[1]))); } }
+  return map; }
+async function pdfFont(doc,fo){ const f=doc.get(fo)||{}; const sub=doc.nm(f.Subtype); const f0=sub==='Type0'; let map=null; if(f.ToUnicode){ const d=await doc.stream(f.ToUnicode); if(d) map=cmapParse(pdfStr(d)); }
+  return {two:f0,map,dec(str){ let o=''; if(f0){ for(let i=0;i+1<str.length;i+=2){ const c=str.charCodeAt(i)*256+str.charCodeAt(i+1); if(map&&map.has(c)) o+=map.get(c); else if(!map){ const a=c+29; o+=a>=32&&a<127?String.fromCharCode(a):''; } else o+=''; } } else { for(let i=0;i<str.length;i++){ const c=str.charCodeAt(i); o+=map&&map.has(c)?map.get(c):String.fromCharCode(c); } } return o; }}; }
+function pdfOps(cs,onText,fonts){ const toks=[]; const p=pdfParser(cs); const stack=[]; let ctm=[1,0,0,1,0,0], tm=[1,0,0,1,0,0], tlm=[1,0,0,1,0,0], font=null, size=0, lead=0; const mul=(a,b)=>[a[0]*b[0]+a[1]*b[2],a[0]*b[1]+a[1]*b[3],a[2]*b[0]+a[3]*b[2],a[2]*b[1]+a[3]*b[3],a[4]*b[0]+a[5]*b[2]+b[4],a[4]*b[1]+a[5]*b[3]+b[5]]; const gs=[]; let args=[];
+  const emit=str=>{ if(!font) return; const t=font.dec(str); if(!t) return; const m=mul(tm,ctm); onText(t,m[4],m[5],Math.abs(size*m[3]||size)); };
+  const nl=(tx,ty)=>{ tlm=mul([1,0,0,1,tx,ty],tlm); tm=[...tlm]; };
+  for(let guard=0;guard<4e6;guard++){ p.ws(); if(p.pos()>=cs.length) break; let v; try{ v=p.val(); }catch(e){ break; }
+    if(v&&typeof v==='object'&&v.kw!=null){ const op=v.kw, a=args; args=[];
+      if(op==='q') gs.push([ctm,font,size]); else if(op==='Q'){ const g=gs.pop(); if(g) [ctm,font,size]=g; }
+      else if(op==='cm'&&a.length>=6) ctm=mul(a.slice(-6),ctm);
+      else if(op==='BT'){ tm=[1,0,0,1,0,0]; tlm=[1,0,0,1,0,0]; }
+      else if(op==='Tf'){ const f=a[a.length-2]; font=f&&f.n!=null?fonts[f.n]:null; size=+a[a.length-1]||0; }
+      else if(op==='Tm'&&a.length>=6){ tm=a.slice(-6); tlm=[...tm]; }
+      else if(op==='Td'&&a.length>=2) nl(a[a.length-2],a[a.length-1]);
+      else if(op==='TD'&&a.length>=2){ lead=-a[a.length-1]; nl(a[a.length-2],a[a.length-1]); }
+      else if(op==='TL') lead=+a[a.length-1]||0;
+      else if(op==='T*') nl(0,-lead);
+      else if(op==='Tj') emit(a[a.length-1]||'');
+      else if(op==="'"){ nl(0,-lead); emit(a[a.length-1]||''); }
+      else if(op==='"'){ nl(0,-lead); emit(a[a.length-1]||''); }
+      else if(op==='TJ'){ const arr=a[a.length-1]||[]; let s=''; for(const e of arr){ if(typeof e==='string') s+=font?font.dec(e):''; else if(typeof e==='number'&&e<-250) s+=' '; } if(font&&s){ const m=mul(tm,ctm); onText(s,m[4],m[5],Math.abs(size*m[3]||size)); } }
+      continue; }
+    args.push(v); if(args.length>64) args.shift(); } }
+async function pdfPages(buf){ const doc=await pdfLoad(buf), pages=[]; const root=[...doc.objs.values()].map(o=>o.v).find(v=>v&&v.Type&&v.Type.n==='Catalog');
+  const walk=(n,inh)=>{ const o=doc.get(n); if(!o) return; const res=o.Resources||inh; if(o.Kids){ for(const k of doc.get(o.Kids)||[]) walk(k,res); } else pages.push({o,res}); };
+  if(root&&root.Pages) walk(root.Pages,null); else for(const [,o] of [...doc.objs].sort((a,b)=>a[0]-b[0])) if(o.v&&o.v.Type&&o.v.Type.n==='Page') pages.push({o:o.v,res:o.v.Resources});
+  const out=[], cache=new Map();
+  for(const pg of pages){ const items=[]; const fd=doc.get((doc.get(pg.res)||{}).Font)||{}; const fonts={}; for(const k of Object.keys(fd)){ const key=JSON.stringify(fd[k]); if(!cache.has(key)) cache.set(key,await pdfFont(doc,fd[k])); fonts[k]=cache.get(key); }
+    let cont=doc.get(pg.o.Contents); cont=Array.isArray(cont)?cont:[pg.o.Contents]; let cs=''; for(const c of cont){ const d=await doc.stream(c); if(d) cs+=pdfStr(d)+'\n'; }
+    pdfOps(cs,(t,x,y,sz)=>items.push({s:t,x,y,sz}),fonts); out.push(items); }
+  return out; }
+function pdfLines(items){ const r=items.filter(i=>i.s.trim()).map(i=>({...i})).sort((a,b)=>b.y-a.y||a.x-b.x), L=[]; for(const it of r){ let l=L.find(l=>Math.abs(l.y-it.y)<=Math.max(2,it.sz*.4)); if(!l){ l={y:it.y,a:[]}; L.push(l); } l.a.push(it); } L.sort((a,b)=>b.y-a.y); L.forEach(l=>l.a.sort((a,b)=>a.x-b.x)); return L; }
+// ---------- PQR 양식 PDF -> PQR 목록 ----------
+const PROC_NAME={'135':'MAG','136':'MAG','138':'MAG','131':'MIG','141':'TIG','142':'TIG','143':'TIG','111':'SMAW','121':'SAW','122':'SAW','52':'LBW','521':'LBW'};
+function parsePqrPage(pages){ // pages: 같은 PQR 번호의 페이지들(각각 pdfLines 결과)
+  const T=pages.map(L=>L.map(l=>l.a.map(x=>x.s).join(' ')).join('\n')).join('\n'), p1=pages[0].map(l=>l.a.map(x=>x.s).join(' ')).join('\n'), o={};
+  const g=(re,t)=>{ const m=(t||T).match(re); return m?m[1].trim():''; };
+  o.pqrNo=g(/PQR No\.\s*:\s*(PQR-?[A-Za-z0-9-]+)/i);
+  const d=T.match(/DATE\s*:\s*(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})/); o.weldDate=d?`${d[1]}-${d[2].padStart(2,'0')}-${d[3].padStart(2,'0')}`:'';
+  const hdrIdx=p1.search(/Base Metals/); const tbl=hdrIdx>0?p1.slice(0,hdrIdx):p1, body=hdrIdx>0?p1.slice(hdrIdx):p1;
+  let pc=g(/Welding Process\s*:\s*(\d{2,3})/,body); if(!pc){ const m=tbl.match(/\b(135|136|138|131|141|142|143|111|121|122|521|52)\b/); pc=m?m[1]:''; }
+  o.process=pc?`${pc}(${PROC_NAME[pc]||''})`.replace('()',''):'';
+  o.position=g(/Welding Position\s*:\s*(P[A-G]|H-?L?\d*|[A-Z]{1,3}\d?)/,body);
+  const th=g(/Thickness\s*:\s*([^\n|]*)/,body), tm=th.match(/^\s*(\d+(?:\.\d+)?)\s*t?\s*(?:\+\s*(\d+(?:\.\d+)?)\s*t?)?/i); o.thickness=tm?(tm[2]?`${tm[1]} + ${tm[2]}`:tm[1]):'';
+  const gm=body.match(/ISO\s*15608\s*([\d.]+(?:\s*\+\s*[\d.]+)?)/); o.materialGroup=gm?gm[1].replace(/\s+/g,' ').replace(/\s*\+\s*/,' + '):'';
+  const wtm=th.match(/\/\s*(T-?BUTT|BW|FW)/i); const multi=/Multipass/i.test(body), t1=numOf(o.thickness)||0;
+  if(wtm) o.weldType=wtm[1].toUpperCase().replace(/^TBUTT$/,'T-BUTT'); else { o.weldType=/^PB$/.test(o.position)?(multi||t1>=10?'T-BUTT':'FW'):'BW'; o.inferType=true; }
+  const fil=g(/Specification\s*:\s*((?:AWS|ISO)[^\n|]*?)(?:\s+Other|\n|\||$)/,body), gas=g(/Type\s*:\s*(M\d+|I\d+|C\d+)/,body), pre=g(/Preheat Temp\s*:\s*(\S+(?:\s*℃)?)/,body);
+  o.remarks=[fil&&`용가재 ${fil}`,gas&&`가스 ${gas}`,pre&&`예열 ${pre}`].filter(Boolean).join(' · ');
+  // 패스 표: 전류·전압·속도·입열량은 'I·U·60/(v·1000)×k' 관계(k 0.55~1.05)로 숫자 조합을 찾는다
+  const items=pages[0].flatMap(l=>l.a.map(x=>({...x,y:l.y}))), top=(pages[0].find(l=>/Base Metals/.test(l.a.map(x=>x.s).join(' ')))||{y:-1e9}).y;
+  const hdrY=(pages[0].filter(l=>/Temp\(.*\)|\(KJ\/cm\)/i.test(l.a.map(x=>x.s).join(' '))).map(l=>l.y).sort((a,b)=>a-b)[0]);
+  const ax=(items.find(i=>/Ampare/.test(i.s))||{x:300}).x-50, kP=/^14[123]/.test(o.process)?.6:.8;
+  const reg=items.filter(i=>i.y>top&&(hdrY==null||i.y<hdrY+.1)&&i.x>=ax&&!/^\(|^\d+\)$/.test(i.s.trim()));
+  const nums=[]; for(const it of reg) for(const m of it.s.matchAll(/(?<![\w.~-])(\d+(?:\.\d+)?)(?![\w~.])/g)) nums.push({v:+m[1],y:it.y,x:it.x+m.index*3});
+  const fit=(I,U,v,H)=>{ const k=H*v*1000/(60*U*I); return I>=20&&I<=2000&&U>=5&&U<=80&&v>=1&&v<=500&&H>0&&k>=.55&&k<=1.05; };
+  const rows=[]; const ys=[...new Set(nums.map(n=>Math.round(n.y/3)))];
+  for(const yk of ys){ const r=nums.filter(n=>Math.round(n.y/3)===yk).sort((a,b)=>a.x-b.x); let bw=null; for(let i=0;i+3<r.length;i++) if(fit(r[i].v,r[i+1].v,r[i+2].v,r[i+3].v)&&r[i+2].x<r[i+3].x){ const d=Math.abs(r[i+3].v*r[i+2].v*1000/(60*r[i+1].v*r[i].v)-kP); if(!bw||d<bw.d) bw={d,i}; } if(bw){ const i=bw.i; const pass=null; const ip=r[i+4]&&Number.isInteger(r[i+4].v)&&r[i+4].v>=20?r[i+4].v:''; rows.push({pass:pass,current:r[i].v,voltage:r[i+1].v,speed:r[i+2].v,heat:r[i+3].v,interpass:ip,y:r[i].y}); } }
+  if(!rows.length){ let best=null; outer: for(const a of nums) for(const b of nums) for(const c of nums) for(const h of nums){ if(a===b||a===c||a===h||b===c||b===h||c===h) continue; if(a.x<b.x&&b.x<c.x&&c.x<h.x&&fit(a.v,b.v,c.v,h.v)){ const k=h.v*c.v*1000/(60*b.v*a.v); if(!best||Math.abs(k-kP)<best.d) best={d:Math.abs(k-kP),r:{pass:1,current:a.v,voltage:b.v,speed:c.v,heat:h.v,interpass:'',y:0}}; } } if(best) rows.push(best.r); }
+  rows.sort((a,b)=>b.y-a.y); rows.forEach((r,i)=>{ if(r.pass==null) r.pass=i+1; delete r.y; }); o.passes=rows;
+  const rg=tbl.replace(/[\s|]/g,'').match(/\((\d+\.?\d*)~(\d+\.?\d*)\)/); if(rg) o.heatRange=`${rg[1]}~${rg[2]}`;
+  if(rows.length){ const hs=rows.map(r=>r.heat); o.heat=String(Math.max(...hs)); if(!o.heatRange&&rows.length>0) o.heatRange=`${r2(.75*Math.min(...hs))}~${Math.max(...hs)}`, o.heatRangeCalc=true; }
+  return o; }
+async function pqrFromPdf(buf){ const pg=await pdfPages(buf), by=new Map(); let text=0;
+  for(const it of pg){ const L=pdfLines(it); if(!L.length) continue; text++; const t=L.map(l=>l.a.map(x=>x.s).join(' ')).join('\n'); const m=t.match(/PQR No\.\s*:\s*(PQR-?[A-Za-z0-9-]+)/i); if(!m||!/Welding Procedure Qualification Record|Base Metals|Welder Name/i.test(t)) continue; if(!by.has(m[1].toUpperCase())) by.set(m[1].toUpperCase(),[]); by.get(m[1].toUpperCase()).push(L); }
+  const list=[]; for(const [,pages] of by){ const o=parsePqrPage(pages); if(o.pqrNo) list.push(o); }
+  return {list,total:pg.length,text}; }
+async function importPqrPdf(file,buf){
+  if(typeof DecompressionStream==='undefined') return alert('이 브라우저는 PDF 직접 읽기를 지원하지 않습니다. 최신 Chrome/Edge를 사용하세요.');
+  toast('PDF를 읽는 중…',2000); const r=await pqrFromPdf(buf);
+  if(!r.list.length) return alert(`"${file.name}" 에서 PQR 양식을 찾지 못했습니다.\n(${r.total}쪽 중 글자가 있는 쪽 ${r.text}쪽)\n\n스캔/사진 PDF는 글자가 없어 읽을 수 없습니다. 엑셀에서 직접 PDF로 저장한 파일을 사용하거나, PQR 목록 엑셀로 가져오세요.`);
+  const byP=new Map(pqrMaster.map(m=>[m.pqrNo.toUpperCase(),m])), diff=[], nw=[];
+  const merged=r.list.map(o=>{ const old=byP.get(o.pqrNo.toUpperCase()); const n={...(old||{standard:'ISO 15614-1'}),pqrNo:old?old.pqrNo:o.pqrNo};
+    for(const k of ['materialGroup','process','position','thickness','weldDate','heat','heatRange','passes']){ if(o[k]&&(Array.isArray(o[k])?o[k].length:true)){ if(old&&old[k]&&String(old[k])!==String(o[k])&&k!=='passes') diff.push(`${o.pqrNo} ${k==='materialGroup'?'모재':k==='process'?'공정':k==='position'?'자세':k==='thickness'?'두께':k==='weldDate'?'시험일':k==='heat'?'입열량':'입열량 범위'}: ${old[k]} → ${o[k]}`); n[k]=o[k]; } }
+    if(!n.weldType) n.weldType=o.weldType; else if(old&&old.weldType&&o.weldType&&old.weldType!==o.weldType&&!o.inferType) diff.push(`${o.pqrNo} 형식: ${old.weldType} → ${o.weldType}`),n.weldType=o.weldType;
+    if(!old) nw.push(o.pqrNo); if(!n.remarks&&o.remarks) n.remarks=o.remarks; n.pdfName=file.name; return n; });
+  const unread=r.total-r.text;
+  if(!confirm(`PDF ${r.total}쪽에서 PQR ${merged.length}건을 읽었습니다 (신규 ${nw.length} / 갱신 ${merged.length-nw.length}).\n${merged.map(m=>`  ${m.pqrNo}  ${m.process||'?'} · ${m.position||'?'} · ${m.thickness||'?'}t · ${m.weldType}${m.heatRange?` · 입열량 ${m.heatRange}`:''} · 패스 ${(m.passes||[]).length}`).slice(0,25).join('\n')}${merged.length>25?`\n  … 외 ${merged.length-25}건`:''}\n${unread>0?`\n글자가 없는 쪽 ${unread}쪽(스캔 이미지)은 읽지 못했습니다.\n`:''}${diff.length?`\n[기존 값과 달라지는 항목]\n${diff.slice(0,15).join('\n')}${diff.length>15?`\n… 외 ${diff.length-15}건`:''}\n`:''}\n※ 자동 판독이므로 가져온 뒤 PQR 목록에서 확인하세요.\n가져올까요?`)) return;
+  await DB.putMany('pqr',merged); await load(); WF.view='pqr'; stayRender(); toast(`PQR ${merged.length}건을 PDF에서 가져왔습니다.`,4000); }
+
 async function importFiles(list){ for(const f of [...(list||[])]) await importFile(f); }
 async function importFile(file){
   if(!file) return;
   try{
     const buf=await file.arrayBuffer(), head=new Uint8Array(buf,0,4);
     const isZip=head[0]===0x50&&head[1]===0x4B;
+    if(head[0]===0x25&&head[1]===0x50&&head[2]===0x44&&head[3]===0x46) return await importPqrPdf(file,buf);
     if(isZip||/\.xlsx$/i.test(file.name)){
       if(!isZip) return alert('올바른 .xlsx 파일이 아닙니다.');
       if(typeof DecompressionStream==='undefined') return alert('이 브라우저는 엑셀 직접 읽기를 지원하지 않습니다. 최신 Chrome/Edge를 사용하세요.');
@@ -1331,7 +1439,7 @@ function vWps(){
     <label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="wpass" ${WF.onlyPass?'checked':''}>합격 기록만 집계</label>
     <button class="b sec" onclick="inheritWpsApply()" title="같은 용접사·같은 조인트의 다른 기록에 WPS가 한 종류만 있으면 WPS 미지정 기록(재시험·불합격 등)에 복사">재시험 기록에 같은 WPS 복사</button>
     <button class="b sec" onclick="recommendWps()" title="WPS 마스터의 용접사 시험용 WPS 조건으로 미지정 기록에 WPS를 추천 적용">WPS 미지정 기록에 추천 적용</button>`:''}
-    <span style="flex:1"></span><span style="color:var(--mute);font-size:12px" title="머리글 경계(오른쪽 끝 회색 선)를 끌면 열 너비 조절, 더블클릭=자동 맞춤">머리글 경계를 끌어 열 너비 조절 · <a href="#" onclick="resetWidths();return false">너비 초기화</a> | WPS/WPQR 목록 엑셀 가져오기</span><input type="file" accept=".xlsx" multiple onchange="importFiles(this.files);this.value=''" style="max-width:230px"></div>
+    <span style="flex:1"></span><span style="color:var(--mute);font-size:12px" title="머리글 경계(오른쪽 끝 회색 선)를 끌면 열 너비 조절, 더블클릭=자동 맞춤">머리글 경계를 끌어 열 너비 조절 · <a href="#" onclick="resetWidths();return false">너비 초기화</a> | WPS/WPQR 목록 엑셀 · PQR 양식 PDF 가져오기</span><input type="file" accept=".xlsx,.pdf" multiple onchange="importFiles(this.files);this.value=''" style="max-width:230px"></div>
    <div id="wbulk" style="margin-top:8px"></div><div class="tw" id="wpslist" style="margin-top:4px"></div>${dl('dl-wps2',uniq([...wpsMaster.map(m=>m.wpsNo),...records.map(x=>x.wpsNo)]))}</div>`;
   $('#wq2').oninput=e=>{WF.q=e.target.value;drawWps();};
   for(const [id,k] of [['wused','onlyUsed'],['wwarn','onlyWarn'],['wpass','onlyPass']]){ const el=$('#'+id); if(el) el.onchange=e=>{WF[k]=e.target.checked;drawWps();}; }
@@ -1405,7 +1513,7 @@ function drawPqr(){
 }
 // ---- 편집 폼
 const WPS_FIELDS=[['wpsNo','WPS No.*','text'],['kind','구분','sel:WPS,pWPS'],['rev','Rev','text'],['revDate','개정일','date'],['pqr','연결 PQR (쉼표로 구분)','text'],['materialGroup','모재 그룹','text'],['weldType','용접 형식','sel:BW,FW,T-BUTT'],['process','공정 (예: 135(MAG))','text'],['position','자세 (예: ALL, PF, PA or PC)','text'],['thk','두께 범위 (예: 3≤T≤24)','text'],['backing','백킹/Detail','text'],['pwht','PWHT','text'],['part','용도/적용 부위','text'],['status','상태','sel:사용,예비,폐기'],['remarks','비고','text']];
-const PQR_FIELDS=[['pqrNo','PQR No.*','text'],['standard','적용 규격','text'],['materialGroup','모재 그룹','text'],['weldType','용접 형식','sel:BW,FW,T-BUTT'],['process','공정','text'],['position','자세','text'],['thickness','시험 두께(mm)','text'],['approval','목 두께 a(필릿) / 승인란','text'],['heat','시험 입열량 (kJ/cm, 범위 계산용)','text'],['weldDate','시험일','date'],['certBody','인증기관','text'],['remarks','비고','text']];
+const PQR_FIELDS=[['pqrNo','PQR No.*','text'],['standard','적용 규격','text'],['materialGroup','모재 그룹','text'],['weldType','용접 형식','sel:BW,FW,T-BUTT'],['process','공정','text'],['position','자세','text'],['thickness','시험 두께(mm)','text'],['approval','목 두께 a(필릿) / 승인란','text'],['heat','시험 입열량 (kJ/cm, 범위 계산용)','text'],['heatRange','승인 입열량 범위 (kJ/cm, 예: 2.84~3.78 · 비우면 시험값 ±25%)','text'],['weldDate','시험일','date'],['certBody','인증기관','text'],['remarks','비고','text']];
 function setWpsField(no){ const f=$('#rf'); f.elements.wpsNo.value=no; f.dispatchEvent(new Event('input',{bubbles:true})); }
 function newMaster(){ if(WF.view==='wps') return openWpsDoc(null); WF.edit={type:'pqr',obj:{standard:'ISO 15614-1',weldType:'BW'}}; drawWps(); scrollTo(0,0); }
 function editMaster(type,id){ if(type==='wps') return openWpsDoc(id); WF.edit={type,obj:{...pqrMaster.find(x=>x.id===id)}}; drawWps(); scrollTo(0,0); }
@@ -1443,7 +1551,7 @@ async function saveMaster(type,old,f){
     if(old.wpsNo&&old.wpsNo!==no){ const ch=records.filter(r=>(r.wpsNo||'').trim().toUpperCase()===old.wpsNo.toUpperCase()); if(ch.length){ await DB.putMany('records',ch.map(r=>({...r,wpsNo:no}))); toast(`번호가 바뀌어 시험 기록 ${ch.length}건의 WPS 번호도 함께 변경했습니다.`,5000); } }
   } else {
     const no=f.pqrNo.trim(); if(pqrMaster.some(m=>m.pqrNo.toUpperCase()===no.toUpperCase()&&m.id!==old.id)){ alert('이미 등록된 PQR 번호입니다.'); return false; }
-    await DB.put('pqr',{...old,pqrNo:no,standard:f.standard.trim(),materialGroup:f.materialGroup.trim(),weldType:f.weldType,process:f.process.trim(),position:f.position.trim(),thickness:f.thickness.trim(),weldDate:f.weldDate,certBody:f.certBody.trim(),approval:f.approval.trim(),heat:(f.heat||'').trim(),remarks:f.remarks.trim()});
+    await DB.put('pqr',{...old,pqrNo:no,standard:f.standard.trim(),materialGroup:f.materialGroup.trim(),weldType:f.weldType,process:f.process.trim(),position:f.position.trim(),thickness:f.thickness.trim(),weldDate:f.weldDate,certBody:f.certBody.trim(),approval:f.approval.trim(),heat:(f.heat||'').trim(),heatRange:(f.heatRange||'').trim(),remarks:f.remarks.trim()});
     if(old.pqrNo&&old.pqrNo!==no){ const ch=wpsMaster.filter(m=>m.pqrNos.some(q=>q.toUpperCase()===old.pqrNo.toUpperCase())); if(ch.length){ await DB.putMany('wps',ch.map(m=>({...m,pqrNos:m.pqrNos.map(q=>q.toUpperCase()===old.pqrNo.toUpperCase()?no:q)}))); toast(`이 PQR을 참조하는 WPS ${ch.length}건의 참조 번호도 변경했습니다.`,5000); } }
   }
   WF.edit=null; await load(); drawWps();
@@ -1472,7 +1580,7 @@ function pqrApproval(p){
   const a=fw?numOf(p.approval):null; if(a){ o.aMin=r2(.75*a); o.aMax=r2(1.5*a); o.a=a; }
   const gm=String(p.materialGroup||'').trim().match(/^1\.(\d)$/); o.group=gm?`1.1~1.${gm[1]}`:String(p.materialGroup||'').trim();
   o.pipe=fw?'N/A':'>500 or >150 welded in rotated PA'; o.position='ALL';
-  const H=numOf(p.heat); if(H){ o.heatMin=r2(.75*H); o.heatMax=r2(1.25*H); }
+  const HR=rngOf(p.heatRange), H=numOf(p.heat); if(HR&&HR[0]!==HR[1]){ o.heatMin=HR[0]; o.heatMax=HR[1]; o.heatSrc='range'; } else if(H){ o.heatMin=r2(.75*H); o.heatMax=r2(1.25*H); }
   return o; }
 function wpsPqrCheck(m){ // WPS 목록/양식이 연결된 PQR 승인 범위 안에 있는지, 목록과 양식이 서로 맞는지
   const w=[]; const ps=(m.pqrNos||[]).map(pqrFind).filter(Boolean);
@@ -1532,8 +1640,9 @@ function drawPassGuide(){ const box=$('#pguide'); if(!box||!WD) return; const o=
   const ref=passRef(o,code), rows=paramsFilled(o.params), hdr=[];
   hdr.push(p?`연결 PQR <b>${esc(p.pqrNo)}</b> — 공법 <b>${esc(p.process||'?')}</b>${pcode&&wcode&&pcode!==wcode?` <span class="wn">◆ WPS 공정(${esc(wcode)})과 다름</span>`:` <span style="color:var(--ok)">✔ 공법 승인 범위: ${esc(pcode||'?')} 만 사용 가능</span>`}`:'<span class="wn">연결 PQR이 없거나 PQR 목록에 없는 번호입니다 — 공법 범위를 확인할 수 없습니다.</span>');
   let hi=null; if(ap&&ap.heatMin) hi=[ap.heatMin,ap.heatMax];
-  hdr.push(hi?`입열량 승인 범위(PQR ${esc(p.heat)} 의 ±25%): <b>${hi[0]} ~ ${hi[1]} kJ/cm</b>`:`입열량: PQR에 시험 입열량이 없어 승인 범위를 계산할 수 없습니다 (PQR 편집에서 "입열량"을 입력하면 ±25% 범위가 표시됩니다).`);
+  hdr.push(hi?`입열량 승인 범위${ap.heatSrc==='range'?`(PQR 기재 ${esc(p.heatRange)})`:`(PQR ${esc(p.heat)} 의 ±25%)`}: <b>${hi[0]} ~ ${hi[1]} kJ/cm</b>`:`입열량: PQR에 시험 입열량이 없어 승인 범위를 계산할 수 없습니다 (PQR 편집에서 "입열량"을 입력하면 ±25% 범위가 표시됩니다).`);
   if(ap&&ap.tMin!=null) hdr.push(`참고 — 두께 ${ap.tMin}~${ap.tMax} mm · 자세 ${ap.position} (WPS 양식 ②에 반영)`);
+  if(p&&(p.passes||[]).length){ const ad=(k,r)=>{ if(r) ref.agg[k]=ref.agg[k]?[Math.min(ref.agg[k][0],r[0]),Math.max(ref.agg[k][1],r[1])]:[...r]; }; for(const r of p.passes){ ad('current',rngOf(r.current)); ad('voltage',rngOf(r.voltage)); ad('speed',rngOf(r.speed)); ad('heat',rngOf(r.heat)); } ref.from.unshift(p.pqrNo+' 시험'); }
   const A=ref.agg, has=A.current||A.voltage||A.speed||A.heat;
   const refTxt=has?`<table class="list nested" style="font-size:12px;margin-top:6px"><thead><tr><th>항목</th><th>추천(실적) 범위</th><th></th></tr></thead><tbody>${[['current','전류 (A)'],['voltage','전압 (V)'],['speed','용접 속도 (cm/min)'],['heat','입열량 (kJ/cm)']].map(([k,l])=>`<tr class="kid"><td>${l}</td><td><b>${fr(A[k])}</b></td><td class="bx">${A[k]&&k!=='speed'?`<button type="button" class="b sm sec" onclick="fillPass('${k}')" title="값이 비어 있는 행에 채움">빈칸 채우기</button>`:''}</td></tr>`).join('')}</tbody></table><div style="font-size:11px;color:var(--mute);margin-top:3px">출처: ${esc(ref.basis)} ${esc(ref.from.slice(0,8).join(', '))}${ref.from.length>8?` 외 ${ref.from.length-8}건`:''} — 법적 한계가 아니라 사내 실적 기반 <b>추천값</b>입니다. 최종 한계는 PQR 시험값/입열량(±25%)·규격서로 확인하세요.</div>`:`<div style="font-size:12px;color:var(--mute);margin-top:6px">비교할 수 있는 다른 WPS 패스 조건이 없어 전류/전압/속도 추천 범위를 만들 수 없습니다.</div>`;
   const msgs=[]; rows.forEach((r,i)=>{ const lab=`${r.pass||i+1}층`; const c=procCodesOf(r.process)[0];
@@ -1569,7 +1678,7 @@ function drawCalc(){ const box=$('#calcbox'); if(!box) return; const c=WD.calc; 
   const same=(a,b)=>String(a||'').replace(/\s/g,'').split('[')[0].toLowerCase()===String(b||'').replace(/\s/g,'').split('[')[0].toLowerCase();
   box.innerHTML=`<div style="border:1px solid var(--accent);border-radius:8px;padding:10px;margin-top:8px;background:#f7fbff"><b>${esc(c.p.pqrNo)}</b> 시험: ${c.p.weldType} · ${esc(c.p.process)} · ${esc(c.p.position)} · t=${esc(c.p.thickness)}${c.ap.a?` · a=${c.ap.a}`:''}<br><small style="color:var(--mute)">적용 규칙: ${esc(c.ap.rule)} · 목 두께 0.75a~1.5a · 그룹 1.n→1.1~1.n · 자세 ALL — 회사 자료 기반 해석이므로 규격서 확인 필요</small>
    <table class="list nested" style="width:100%;margin-top:6px;font-size:13px"><thead><tr><th>항목</th><th>현재 값</th><th>PQR 기준 산정</th><th class="num">상태</th><th></th></tr></thead><tbody>${c.rows.map((r,i)=>`<tr class="kid"><td>${r.l}</td><td>${esc(r.cur||'')}</td><td><b>${esc(r.val)}</b></td><td class="num">${same(r.cur,r.val)?'<span style="color:var(--ok)">✔ 동일</span>':'<span class="wn">다름</span>'}</td><td class="bx"><button type="button" class="b sm sec" onclick="applyCalc(${i})">적용</button></td></tr>`).join('')}</tbody></table>
-   ${c.ap.heatMin?`<div style="margin-top:4px;font-size:12px">입열량 승인 범위(±25%): <b>${c.ap.heatMin} ~ ${c.ap.heatMax} kJ/cm</b> (PQR 시험 입열량 ${esc(c.p.heat)})</div>`:''}
+   ${c.ap.heatMin?`<div style="margin-top:4px;font-size:12px">입열량 승인 범위${c.ap.heatSrc==='range'?'(PQR 기재)':'(±25%)'}: <b>${c.ap.heatMin} ~ ${c.ap.heatMax} kJ/cm</b> (PQR 시험 입열량 ${esc(c.p.heat)})</div>`:''}
    <div class="row"><button type="button" class="b sm" onclick="applyCalc(-1)">모두 적용</button><button type="button" class="b sm sec" onclick="WD.calc=null;drawCalc()">닫기</button></div></div>`; }
 function applyCalc(i){ const o=WD.obj; collectDoc(); (i<0?WD.calc.rows:[WD.calc.rows[i]]).forEach(r=>r.apply()); vWpsDoc(); WD.calc=null; toast('PQR 기준 값을 적용했습니다. 저장을 눌러 확정하세요.',3500); }
 function vWpsDoc(){
@@ -2388,7 +2497,7 @@ function enhanceDate(i){ if(i.dataset.dm) return; i.dataset.dm='1'; const v0=i.v
   const chk=()=>{ const v=i.value; i.setCustomValidity(!v||dateOk(v)?'':'날짜를 YYYY-MM-DD 형식으로 입력하세요 (예: 2026-10-05)'); i.style.outline=v&&!dateOk(v)&&v.length===10?'2px solid #c0392b':''; };
   i.addEventListener('input',e=>{ const m=dateMask(i.value); if(m!==i.value) i.value=m; chk(); }); i.addEventListener('blur',chk); chk();
   const bt=document.createElement('button'); bt.type='button'; bt.textContent='📅'; bt.title='달력에서 선택'; bt.style.cssText='border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 7px;cursor:pointer'; w.appendChild(bt);
-  bt.onclick=()=>{ const t=document.createElement('input'); t.type='date'; t.min='1900-01-01'; t.max='2999-12-31'; t.style.cssText='position:absolute;opacity:0;pointer-events:none;width:1px;height:1px'; if(dateOk(i.value)) t.value=i.value; w.appendChild(t); t.onchange=()=>{ if(t.value){ i.value=t.value; i.dispatchEvent(new Event('input',{bubbles:true})); i.dispatchEvent(new Event('change',{bubbles:true})); } t.remove(); }; try{ t.showPicker(); }catch(e){ t.focus(); t.click(); } }; }
+  bt.onclick=()=>{ const t=document.createElement('input'); t.dataset.dm='1'; t.type='date'; t.min='1900-01-01'; t.max='2999-12-31'; t.style.cssText='position:absolute;opacity:0;pointer-events:none;width:1px;height:1px'; if(dateOk(i.value)) t.value=i.value; w.appendChild(t); t.onchange=()=>{ if(t.value){ i.value=t.value; i.dispatchEvent(new Event('input',{bubbles:true})); i.dispatchEvent(new Event('change',{bubbles:true})); } t.remove(); }; try{ t.showPicker(); }catch(e){ t.focus(); t.click(); } }; }
 function fixDateInputs(root){ (root||document).querySelectorAll('input[type=date]').forEach(enhanceDate); }
 new MutationObserver(m=>{ for(const x of m) for(const n of x.addedNodes) if(n.nodeType===1) fixDateInputs(n.matches&&n.matches('input[type=date]')?n.parentNode:n); }).observe(document.body,{childList:true,subtree:true}); fixDateInputs();
 DB.open().then(load).then(autoFixNo).then(autoFixRef).then(autoFixProc).then(autoFixStrict).then(autoFixVT).then(render).catch(e=>{document.body.insertAdjacentHTML('beforeend','<div class="msg err">저장소를 열 수 없습니다: '+esc(e)+'</div>');});
