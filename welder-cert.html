@@ -162,7 +162,7 @@ body.ro input[type=file]{display:none!important}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v117 · 이면비드도 점 편집</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v118 · 이면비드도 점 편집</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -330,7 +330,7 @@ const DB={db:null,
   async openRemote(){ let h=null; try{ const r=await fetch('/api/hello'); if(r.ok) h=await r.json(); }catch(e){} if(!h||!h.server) return false;
     REMOTE.on=true; if(h.needSetup){ document.body.insertAdjacentHTML('beforeend','<div class="msg err">서버에 마스터 계정이 없습니다. 서버 PC에서 server.js 를 다시 실행해 마스터 계정을 만드세요.</div>'); }
     const r=await fetch('/api/me',{credentials:'same-origin'}); if(r.ok){ const j=await r.json(); REMOTE.user=j.user; REMOTE.role=j.role; REMOTE.v=j.v; } else await remoteLogin();
-    document.body.classList.toggle('ro',RO()); remoteBadge(); setInterval(remotePoll,8000); return true; },
+    document.body.classList.toggle('ro',RO()); remoteBadge(); setInterval(remotePoll,8000); remotePoll(); return true; },
   open(){ return (/^https?:$/.test(location.protocol)?this.openRemote():Promise.resolve(false)).then(rem=>{ if(rem) return; return this.openLocal(); }); },
   openLocal(){return new Promise((res,rej)=>{const r=indexedDB.open('welder-cert',4);
     r.onupgradeneeded=e=>{const d=e.target.result, has=n=>d.objectStoreNames.contains(n);
@@ -3067,12 +3067,28 @@ document.addEventListener('drop',async e=>{ const o=document.getElementById('dro
   try{ await z.f(ok); }catch(err){ alert('가져오기 실패: '+(err.message||err)); } });
 
 // ---- 서버 모드 보조: 상태 표시 / 다른 PC 변경 감지 / 조회 전용 UI 잠금 / 계정 관리
-function remoteBadge(){ if(!REMOTE.on) return; document.getElementById('srvb')?.remove(); const h=document.querySelector('header h1'); if(!h) return; h.insertAdjacentHTML('beforeend',`<span id="srvb" title="서버에 연결되어 있습니다">🖥 ${esc(REMOTE.user)} · ${REMOTE.role==='master'?'마스터':'조회 전용'}<a href="#" onclick="remoteLogout();return false">로그아웃</a></span>`); }
+function remoteBadge(){ if(!REMOTE.on) return; document.getElementById('srvb')?.remove(); const h=document.querySelector('header h1'); if(!h) return; h.insertAdjacentHTML('beforeend',`<span id="srvb" title="서버에 연결되어 있습니다">🖥 ${esc(REMOTE.user)} · ${REMOTE.role==='master'?'마스터':'조회 전용'}<a href="#" onclick="msgOpen();return false" title="쪽지함">✉<b id="msgn"></b></a><a href="#" onclick="remoteLogout();return false">로그아웃</a></span>`); msgBadge(); }
+function msgBadge(){ const e=document.getElementById('msgn'); if(e) e.textContent=REMOTE.m?` ${REMOTE.m}`:''; if(e) e.style.color=REMOTE.m?'#ffd166':''; }
 async function remoteLogout(){ try{ await rapi('/api/logout',{}); }catch(e){} location.reload(); }
-async function remotePoll(){ if(!REMOTE.on||document.visibilityState!=='visible') return; try{ const r=await fetch('/api/version',{credentials:'same-origin'}); if(r.status===401){ await remoteLogin(); return; } const j=await r.json(); if(j.v!==REMOTE.v){ REMOTE.v=j.v; syncPing(); } }catch(e){} }
+async function remotePoll(){ if(!REMOTE.on||document.visibilityState!=='visible') return; try{ const r=await fetch('/api/version',{credentials:'same-origin'}); if(r.status===401){ await remoteLogin(); return; } const j=await r.json(); if(j.m!==undefined&&j.m!==REMOTE.m){ const up=j.m>(REMOTE.m||0); REMOTE.m=j.m; msgBadge(); if(up&&REMOTE.m) toast(REMOTE.role==='master'?'✉ 새 쪽지가 있습니다.':'✉ 마스터의 답장이 있습니다.',4000); } if(j.v!==REMOTE.v){ REMOTE.v=j.v; syncPing(); } }catch(e){} }
 const RO_OK=/내보내|다운로드|인쇄|PDF|pdf|미리보기|엑셀|SVG|PNG|닫기|취소|보기|검색|필터|로그아웃|새로고침|크게|펼|접기|선택 해제|전체 선택/, RO_BAD=/저장|삭제|추가|수정|편집|가져오|일괄|복원|초기화|발급|확정|적용|되돌리|병합|정리|변경|등록|지정|채우기|복제|이름|붙여|스케치|생성|계산|재계산|종결|갱신|연결|업로드|사진/;
 function roGuard(){ if(!RO()) return; document.querySelectorAll('button,label.b').forEach(b=>{ const t=(b.textContent||'').trim(); if(!t||b.dataset.ro) return; if(RO_BAD.test(t)&&!RO_OK.test(t)){ b.dataset.ro='1'; b.disabled=true; b.style.opacity='.4'; b.title='조회 전용 계정입니다'; if(b.matches('label')) b.style.pointerEvents='none'; } }); }
 if(typeof MutationObserver!=='undefined'){ let _rg; new MutationObserver(()=>{ if(!RO()) return; clearTimeout(_rg); _rg=setTimeout(roGuard,120); }).observe(document.body,{childList:true,subtree:true}); }
+
+// ---- 쪽지: 조회 전용 계정이 마스터에게 의견을 보내고, 마스터가 답장/완료 처리
+const TABN={dash:'대시보드',welders:'용접사',records:'시험기록',wps:'WPS·PQR',shape:'형상 도구',settings:'설정'};
+async function msgOpen(){ document.getElementById('msgov')?.remove(); const o=document.createElement('div'); o.id='msgov'; o.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(20,49,79,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+  o.onclick=e=>{ if(e.target===o) o.remove(); }; document.body.appendChild(o); await msgDraw(); }
+async function msgDraw(){ const o=document.getElementById('msgov'); if(!o) return; let L=[]; try{ L=await rapi('/api/msgs'); if(RO()||true) await rapi('/api/msg/seen',{}).catch(()=>{}); }catch(e){ o.innerHTML=`<div class="card">${esc(e.message)}</div>`; return; }
+  const M=REMOTE.role==='master', fd=t=>new Date(t).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); L=L.slice().sort((a,b)=>(a.done-b.done)||b.ts-a.ts);
+  o.innerHTML=`<div class="card" style="width:min(720px,100%);max-height:90vh;overflow:auto;margin:0"><div class="row" style="margin:0"><h2 style="margin:0;flex:1">✉ 쪽지함 ${M?'(받은 쪽지)':'(마스터에게 의견 보내기)'}</h2><button class="b sec sm" onclick="document.getElementById('msgov').remove()">닫기</button></div>
+   ${M?'':`<div style="margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:8px;background:#f7fbff"><label>관련 항목 (선택: 용접사/WPS/PQR 번호 등)<input id="msgref" value="${esc(TABN[tab]||'')}"></label><label style="margin-top:6px">내용<textarea id="msgtx" rows="4" maxlength="2000" placeholder="수정이 필요한 내용이나 의견을 적어 주세요"></textarea></label><div class="row"><button class="b" onclick="msgSend()">보내기</button><small class="hint">마스터에게만 전달됩니다.</small></div></div>`}
+   ${L.length?L.map(m=>`<div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0;${m.done?'opacity:.6':''}"><div style="font-size:12px;color:var(--mute)"><b style="color:var(--ink)">${esc(m.from)}</b> · ${fd(m.ts)}${m.ref?` · 📌 ${esc(m.ref)}`:''}${m.done?' · ✔ 처리됨':''}</div><div style="white-space:pre-wrap;margin:4px 0">${esc(m.text)}</div>${(m.replies||[]).map(r=>`<div style="margin:4px 0 0 14px;padding:4px 8px;background:#eef3f9;border-radius:6px;white-space:pre-wrap"><small style="color:var(--mute)">↳ ${esc(r.from)} · ${fd(r.ts)}</small><br>${esc(r.text)}</div>`).join('')}${M?`<div class="row" style="margin:6px 0 0"><button class="b sm" onclick="msgReply('${m.id}')">답장</button><button class="b sm sec" onclick="msgDone('${m.id}',${!m.done})">${m.done?'다시 열기':'처리 완료'}</button><button class="b sm red" onclick="msgDel('${m.id}')">삭제</button></div>`:''}</div>`).join(''):'<div style="color:var(--mute);padding:14px">쪽지가 없습니다.</div>'}</div>`;
+  REMOTE.m=M?L.filter(m=>!m.done).length:0; msgBadge(); }
+async function msgSend(){ const t=document.getElementById('msgtx').value.trim(); if(!t) return toast('내용을 입력하세요.',2000); try{ await rapi('/api/msg',{text:t,ref:document.getElementById('msgref').value}); toast('마스터에게 쪽지를 보냈습니다.',3000); msgDraw(); }catch(e){ alert(e.message); } }
+async function msgReply(id){ const t=prompt('답장 내용'); if(!t) return; try{ await rapi('/api/msg/reply',{id,text:t}); msgDraw(); }catch(e){ alert(e.message); } }
+async function msgDone(id,done){ try{ await rapi('/api/msg/done',{id,done}); msgDraw(); }catch(e){ alert(e.message); } }
+async function msgDel(id){ if(!confirm('이 쪽지를 삭제할까요?')) return; try{ await rapi('/api/msg/del',{id}); msgDraw(); }catch(e){ alert(e.message); } }
 async function acctRender(){ const box=document.getElementById('acct'); if(!box) return; let L=[]; try{ L=await rapi('/api/users'); }catch(e){ box.innerHTML=`<div class="msg err">${esc(e.message)}</div>`; return; }
   box.innerHTML=`<table class="list nested"><thead><tr><th>아이디</th><th>권한</th><th>생성일</th><th></th></tr></thead><tbody>${L.map(u=>`<tr class="kid"><td>${esc(u.name)}${u.name===REMOTE.user?' <small>(나)</small>':''}</td><td>${u.role==='master'?'마스터':'조회 전용'}</td><td>${(u.created||'').slice(0,10)}</td><td class="bx"><button class="b sm sec" onclick="acctPass('${esc(u.name)}')">비밀번호 변경</button> ${u.name===REMOTE.user?'':`<button class="b sm red" onclick="acctDel('${esc(u.name)}')">삭제</button>`}</td></tr>`).join('')}</tbody></table>`; }
 async function acctAdd(){ const name=prompt('새 계정 아이디 (2~30자)'); if(!name) return; const role=confirm('이 계정을 "마스터"(모든 수정 가능)로 만들까요?\n\n확인 = 마스터\n취소 = 조회 전용(조회·내려받기만)')?'master':'viewer'; const pass=prompt('비밀번호 (6자 이상)'); if(!pass) return; try{ await rapi('/api/users',{name,pass,role}); toast('계정을 만들었습니다.',2500); acctRender(); }catch(e){ alert(e.message); } }

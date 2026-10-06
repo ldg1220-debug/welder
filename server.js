@@ -32,6 +32,13 @@ process.on('SIGINT', () => { flush(); process.exit(0); }); process.on('SIGTERM',
 const kp = s => KEYPATH[s] || 'id';
 function putOne(s, v) { const st = store[s], k = kp(s); if (k === 'id') { if (v.id == null) v.id = ++st.seq; else if (+v.id > st.seq) st.seq = +v.id; } st.items[String(v[k])] = v; return v[k]; }
 
+// ---------- 쪽지 (조회 전용 계정 -> 마스터 의견, 마스터 답장) ----------
+const MF = path.join(DATA, 'messages.json'); let msgs = [];
+try { msgs = JSON.parse(fs.readFileSync(MF, 'utf8')); } catch (e) { msgs = []; }
+const saveMsgs = () => { const t = MF + '.tmp'; fs.writeFileSync(t, JSON.stringify(msgs)); fs.renameSync(t, MF); };
+const msgCount = ses => ses.role === 'master' ? msgs.filter(m => !m.done).length : msgs.filter(m => m.from === ses.name && m.ru).length;
+const msgSent = new Map();   // 사용자별 시간당 전송 제한
+
 // ---------- 계정 ----------
 const UF = path.join(DATA, 'users.json'); let users = {};
 try { users = JSON.parse(fs.readFileSync(UF, 'utf8')); } catch (e) { users = {}; }
@@ -49,7 +56,7 @@ setInterval(() => { const n = Date.now(); for (const [k, s] of sessions) if (s.e
 // ---------- 백업 (하루 1회, 14일 보관) ----------
 function dailyBackup() {
   try { flush(); const day = new Date().toISOString().slice(0, 10), dir = path.join(DATA, 'backup', day); if (fs.existsSync(dir)) return; fs.mkdirSync(dir, { recursive: true });
-    for (const f of [...STORES.map(s => s + '.json'), 'users.json']) if (fs.existsSync(path.join(DATA, f))) fs.copyFileSync(path.join(DATA, f), path.join(dir, f));
+    for (const f of [...STORES.map(s => s + '.json'), 'users.json', 'messages.json']) if (fs.existsSync(path.join(DATA, f))) fs.copyFileSync(path.join(DATA, f), path.join(dir, f));
     const days = fs.readdirSync(path.join(DATA, 'backup')).sort(); while (days.length > 14) fs.rmSync(path.join(DATA, 'backup', days.shift()), { recursive: true, force: true });
   } catch (e) { console.error('[백업 실패]', e.message); } }
 setInterval(dailyBackup, 6 * 3600 * 1000).unref();
@@ -75,12 +82,20 @@ const server = http.createServer(async (req, res) => {
     const ses = session(req); if (!ses) return send(res, 401, { error: 'login' });
     if (p === '/api/logout') { sessions.delete(ses.token); return send(res, 200, {}, { 'Set-Cookie': 'wsess=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' }); }
     if (p === '/api/me') return send(res, 200, { user: ses.name, role: ses.role, v: version });
-    if (p === '/api/version') return send(res, 200, { v: version });
+    if (p === '/api/version') return send(res, 200, { v: version, m: msgCount(ses) });
+    if (p === '/api/msgs' && req.method === 'GET') return send(res, 200, ses.role === 'master' ? msgs : msgs.filter(m => m.from === ses.name));
+    if (p === '/api/msg' && req.method === 'POST') { const b = await body(req), text = String(b.text || '').trim().slice(0, 2000); if (!text) return send(res, 400, { error: '내용을 입력하세요.' });
+      const now = Date.now(), a = (msgSent.get(ses.name) || []).filter(t => now - t < 3600000); if (a.length >= 30) return send(res, 429, { error: '쪽지를 너무 많이 보냈습니다. 잠시 뒤 다시 시도하세요.' }); a.push(now); msgSent.set(ses.name, a);
+      msgs.push({ id: crypto.randomBytes(6).toString('hex'), from: ses.name, role: ses.role, text, ref: String(b.ref || '').slice(0, 200), ts: now, done: false, ru: false, replies: [] }); saveMsgs(); return send(res, 200, {}); }
+    if (p === '/api/msg/seen' && req.method === 'POST') { let ch = false; for (const m of msgs) if (m.from === ses.name && m.ru) { m.ru = false; ch = true; } if (ch) saveMsgs(); return send(res, 200, {}); }
     if (p === '/api/passwd' && req.method === 'POST') { const b = await body(req); if (!checkUser(ses.name, b.old)) return send(res, 400, { error: '현재 비밀번호가 틀립니다.' }); if (String(b.pass || '').length < 6) return send(res, 400, { error: '비밀번호는 6자 이상이어야 합니다.' }); setUser(ses.name, b.pass, users[ses.name].role); return send(res, 200, {}); }
     let m;
     if ((m = /^\/api\/all\/(\w+)$/.exec(p)) && req.method === 'GET') { if (!STORES.includes(m[1])) return send(res, 404, {}); return send(res, 200, Object.values(store[m[1]].items)); }
     // ---- 이하 마스터 전용 ----
     if (ses.role !== 'master') return send(res, 403, { error: '조회 전용 계정은 수정할 수 없습니다.' });
+    if (p === '/api/msg/reply' && req.method === 'POST') { const b = await body(req), m = msgs.find(x => x.id === b.id), text = String(b.text || '').trim().slice(0, 2000); if (!m || !text) return send(res, 400, { error: '쪽지를 찾을 수 없거나 내용이 없습니다.' }); m.replies.push({ from: ses.name, text, ts: Date.now() }); m.ru = true; saveMsgs(); return send(res, 200, {}); }
+    if (p === '/api/msg/done' && req.method === 'POST') { const b = await body(req), m = msgs.find(x => x.id === b.id); if (!m) return send(res, 404, {}); m.done = !!b.done; saveMsgs(); return send(res, 200, {}); }
+    if (p === '/api/msg/del' && req.method === 'POST') { const b = await body(req); msgs = msgs.filter(x => x.id !== b.id); saveMsgs(); return send(res, 200, {}); }
     if (p === '/api/users' && req.method === 'GET') return send(res, 200, Object.keys(users).map(n => ({ name: n, role: users[n].role, created: users[n].created })));
     if (p === '/api/users' && req.method === 'POST') { const b = await body(req), n = String(b.name || '').trim(), role = b.role === 'master' ? 'master' : 'viewer';
       if (!/^[\w.@\-가-힣]{2,30}$/.test(n)) return send(res, 400, { error: '아이디는 2~30자(한글/영문/숫자/._-@)로 입력하세요.' }); if (String(b.pass || '').length < 6) return send(res, 400, { error: '비밀번호는 6자 이상이어야 합니다.' });
