@@ -162,7 +162,7 @@ body.ro input[type=file]{display:none!important}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v118 · 이면비드도 점 편집</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v119 · 이면비드도 점 편집</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -517,9 +517,9 @@ document.addEventListener('click',e=>{ if(!e.target.closest||!e.target.closest('
 document.addEventListener('click',e=>{ const t=e.target; document.querySelectorAll('details.dd[open]').forEach(d=>{ if(!d.contains(t)||(t.closest('.ddm')&&t.closest('button'))) d.open=false; }); }); document.addEventListener('keydown',e=>{ if(e.key==='Escape') cfClose(); });
 const TABS=[['dash','대시보드'],['welders','용접사'],['records','시험기록(WQT)'],['wps','WPS · PQR'],['shape','형상 도구'],['settings','설정 · 백업']];
 let tab='dash', editRec=null;
-function nav(){ $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="go('${k}')">${l}</button>`).join(''); }
+function nav(){ $('#nav').innerHTML=TABS.filter(([k])=>!RO()||['dash','welders','records','wps'].includes(k)).map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="go('${k}')">${l}</button>`).join(''); }
 function go(k){tab=k;editRec=null;render();}
-function render(){nav();({dash:vDash,welders:vWelders,records:vRecords,wps:vWps,shape:vShape,settings:vSettings})[tab]();}
+function render(){ if(RO()&&!['dash','welders','records','wps'].includes(tab)) tab='dash'; nav();({dash:vDash,welders:vWelders,records:vRecords,wps:vWps,shape:vShape,settings:vSettings})[tab]();}
 
 // 판정. 시험이 끝나지 않은(진행중) 기록이라도 용접사가 퇴사 처리돼 있으면 불합격으로 본다.
 // 판정: 시험 결과로 계산하되, 엑셀 시험 기록서의 '합격' 열이 FAIL 로 확정한 기록(finalResult)은 불합격으로 본다 (VT·RT 합격 후 굽힘 미실시로 종결된 경우 등)
@@ -2995,7 +2995,8 @@ function vSettings(){
   <div class="card"><h2>백업 · 복원</h2><div class="row"><button class="b" onclick="exportAll()">JSON 백업 다운로드</button>
    <label class="b sec" style="cursor:pointer">백업 파일로 복원…<input type="file" accept=".json" hidden onchange="importAll(this.files[0])"></label><small style="color:var(--bad)">복원하면 현재 데이터가 모두 대체됩니다.</small></div>
    <p class="hint">${REMOTE.on?'데이터는 사내 서버(server.js 의 data 폴더)에 저장되며, 서버가 매일 자동 백업합니다.':'데이터는 이 브라우저(IndexedDB)에만 저장됩니다. 브라우저 데이터를 지우면 사라지므로 주기적으로 백업하세요.'}</p></div>
-  ${REMOTE.on?`<div class="card"><h2>서버 계정</h2><div class="row"><span>로그인: <b>${esc(REMOTE.user)}</b> (${REMOTE.role==='master'?'마스터':'조회 전용'})</span><button class="b sm sec" onclick="acctMine()">내 비밀번호 변경</button>${REMOTE.role==='master'?'<button class="b sm" onclick="acctAdd()">+ 계정 추가</button>':''}</div>${REMOTE.role==='master'?'<div id="acct"></div><p class="hint">조회 전용 계정은 모든 화면을 볼 수 있고 엑셀·PDF·백업 내려받기만 가능합니다. 수정 요청은 서버가 거부합니다.</p>':''}</div>`:''}
+  ${!REMOTE.on?`<div class="card"><h2>서버 계정 · 쪽지</h2><p class="hint" style="margin:0">지금은 파일을 직접 열어 이 PC에만 저장하는 상태입니다. 계정·쪽지 기능은 <b>서버로 접속했을 때만</b> 나타납니다. 서버 PC에서 <code>server.js</code>를 실행한 뒤 브라우저 주소창에 <code>http://localhost:8080</code> (다른 PC는 <code>http://서버주소:8080</code>)을 입력해 접속하세요. 자세한 방법은 서버_사용법.md 참고.</p></div>`:''}
+  ${REMOTE.on?`<div class="card"><h2>서버 계정</h2><div class="row"><span>로그인: <b>${esc(REMOTE.user)}</b> (${REMOTE.role==='master'?'마스터':'조회 전용'})</span><button class="b sm sec" onclick="acctMine()">내 비밀번호 변경</button>${REMOTE.role==='master'?'<button class="b sm" onclick="acctAdd()">+ 조회 계정 추가</button>':''}</div>${REMOTE.role==='master'?'<div id="acct"></div><p class="hint">조회 전용 계정은 대시보드·용접사·시험기록·WPS/PQR 탭을 볼 수 있고 엑셀·PDF 내려받기·인쇄·쪽지만 가능합니다. 수정 요청은 서버가 거부합니다.</p>':''}</div>`:''}
   <div class="card"><h2>점검 · 표시</h2><div class="row"><button class="b sec" onclick="checkDupRefs()">Reference No. 중복 점검</button><small class="hint">서로 다른 용접사가 같은 번호를 쓰는지 (용접사 번호 체계 검토용)</small></div>
    <div class="row"><button class="b sec" onclick="resetWidths()">표 열 너비 초기화</button><small class="hint">표 머리글 경계를 끌어 바꾼 열 너비를 처음으로</small></div></div>`;
   $('#sf').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);
@@ -3067,7 +3068,7 @@ document.addEventListener('drop',async e=>{ const o=document.getElementById('dro
   try{ await z.f(ok); }catch(err){ alert('가져오기 실패: '+(err.message||err)); } });
 
 // ---- 서버 모드 보조: 상태 표시 / 다른 PC 변경 감지 / 조회 전용 UI 잠금 / 계정 관리
-function remoteBadge(){ if(!REMOTE.on) return; document.getElementById('srvb')?.remove(); const h=document.querySelector('header h1'); if(!h) return; h.insertAdjacentHTML('beforeend',`<span id="srvb" title="서버에 연결되어 있습니다">🖥 ${esc(REMOTE.user)} · ${REMOTE.role==='master'?'마스터':'조회 전용'}<a href="#" onclick="msgOpen();return false" title="쪽지함">✉<b id="msgn"></b></a><a href="#" onclick="remoteLogout();return false">로그아웃</a></span>`); msgBadge(); }
+function remoteBadge(){ if(!REMOTE.on) return; document.getElementById('srvb')?.remove(); const h=document.querySelector('header h1'); if(!h) return; h.insertAdjacentHTML('beforeend',`<span id="srvb" title="서버에 연결되어 있습니다">🖥 ${esc(REMOTE.user)} · ${REMOTE.role==='master'?'마스터':'조회 전용'}<a href="#" onclick="acctMine();return false" title="내 비밀번호 변경">🔑</a><a href="#" onclick="msgOpen();return false" title="쪽지함">✉<b id="msgn"></b></a><a href="#" onclick="remoteLogout();return false">로그아웃</a></span>`); msgBadge(); }
 function msgBadge(){ const e=document.getElementById('msgn'); if(e) e.textContent=REMOTE.m?` ${REMOTE.m}`:''; if(e) e.style.color=REMOTE.m?'#ffd166':''; }
 async function remoteLogout(){ try{ await rapi('/api/logout',{}); }catch(e){} location.reload(); }
 async function remotePoll(){ if(!REMOTE.on||document.visibilityState!=='visible') return; try{ const r=await fetch('/api/version',{credentials:'same-origin'}); if(r.status===401){ await remoteLogin(); return; } const j=await r.json(); if(j.m!==undefined&&j.m!==REMOTE.m){ const up=j.m>(REMOTE.m||0); REMOTE.m=j.m; msgBadge(); if(up&&REMOTE.m) toast(REMOTE.role==='master'?'✉ 새 쪽지가 있습니다.':'✉ 마스터의 답장이 있습니다.',4000); } if(j.v!==REMOTE.v){ REMOTE.v=j.v; syncPing(); } }catch(e){} }
@@ -3090,8 +3091,8 @@ async function msgReply(id){ const t=prompt('답장 내용'); if(!t) return; try
 async function msgDone(id,done){ try{ await rapi('/api/msg/done',{id,done}); msgDraw(); }catch(e){ alert(e.message); } }
 async function msgDel(id){ if(!confirm('이 쪽지를 삭제할까요?')) return; try{ await rapi('/api/msg/del',{id}); msgDraw(); }catch(e){ alert(e.message); } }
 async function acctRender(){ const box=document.getElementById('acct'); if(!box) return; let L=[]; try{ L=await rapi('/api/users'); }catch(e){ box.innerHTML=`<div class="msg err">${esc(e.message)}</div>`; return; }
-  box.innerHTML=`<table class="list nested"><thead><tr><th>아이디</th><th>권한</th><th>생성일</th><th></th></tr></thead><tbody>${L.map(u=>`<tr class="kid"><td>${esc(u.name)}${u.name===REMOTE.user?' <small>(나)</small>':''}</td><td>${u.role==='master'?'마스터':'조회 전용'}</td><td>${(u.created||'').slice(0,10)}</td><td class="bx"><button class="b sm sec" onclick="acctPass('${esc(u.name)}')">비밀번호 변경</button> ${u.name===REMOTE.user?'':`<button class="b sm red" onclick="acctDel('${esc(u.name)}')">삭제</button>`}</td></tr>`).join('')}</tbody></table>`; }
-async function acctAdd(){ const name=prompt('새 계정 아이디 (2~30자)'); if(!name) return; const role=confirm('이 계정을 "마스터"(모든 수정 가능)로 만들까요?\n\n확인 = 마스터\n취소 = 조회 전용(조회·내려받기만)')?'master':'viewer'; const pass=prompt('비밀번호 (6자 이상)'); if(!pass) return; try{ await rapi('/api/users',{name,pass,role}); toast('계정을 만들었습니다.',2500); acctRender(); }catch(e){ alert(e.message); } }
+  box.innerHTML=`<table class="list nested"><thead><tr><th>아이디</th><th>권한</th><th>생성일</th><th></th></tr></thead><tbody>${L.map(u=>`<tr class="kid"><td>${esc(u.name)}${u.name===REMOTE.user?' <small>(나)</small>':''}</td><td>${u.role==='master'?'마스터(1명)':'조회 전용'}</td><td>${(u.created||'').slice(0,10)}</td><td class="bx"><button class="b sm sec" onclick="acctPass('${esc(u.name)}')">비밀번호 변경</button> ${u.name===REMOTE.user?'':`<button class="b sm red" onclick="acctDel('${esc(u.name)}')">삭제</button>`}</td></tr>`).join('')}</tbody></table>`; }
+async function acctAdd(){ const name=prompt('새 계정 아이디 (2~30자)'); if(!name) return; const role='viewer'; const pass=prompt('비밀번호 (6자 이상)'); if(!pass) return; try{ await rapi('/api/users',{name,pass,role}); toast('계정을 만들었습니다.',2500); acctRender(); }catch(e){ alert(e.message); } }
 async function acctPass(name){ const pass=prompt(`"${name}" 의 새 비밀번호 (6자 이상)`); if(!pass) return; try{ await rapi('/api/users',{name,pass}); toast('비밀번호를 바꿨습니다. (해당 계정은 다시 로그인해야 합니다)',3500); acctRender(); }catch(e){ alert(e.message); } }
 async function acctDel(name){ if(!confirm(`계정 "${name}" 을(를) 삭제할까요?`)) return; try{ await rapi('/api/users/del',{name}); acctRender(); }catch(e){ alert(e.message); } }
 async function acctMine(){ const old=prompt('현재 비밀번호'); if(old===null) return; const pass=prompt('새 비밀번호 (6자 이상)'); if(!pass) return; try{ await rapi('/api/passwd',{old,pass}); toast('비밀번호를 바꿨습니다.',2500); }catch(e){ alert(e.message); } }
