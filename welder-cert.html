@@ -105,7 +105,7 @@ table.list th{background:#eef2f6;font-size:12px}
 </head>
 <body>
 <header>
-  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v78 · 열 고정·현황표 업체 구분</span></h1>
+  <h1>🔧 용접사 자격 인증서 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v79 · 열 고정·현황표 업체 구분</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -1510,7 +1510,45 @@ function paramOp(op,i){ collectDoc(); const a=WD.obj.params;
   if(op==='add') a.push({pass:String(a.length+1),process:a.length?a[a.length-1].process:'',filler:a.length?a[a.length-1].filler:'',current:'',voltage:'',polarity:a.length?a[a.length-1].polarity:'',speed:'',speedUnit:a.length?a[a.length-1].speedUnit:'cm/min',heat:'',heatUnit:a.length?a[a.length-1].heatUnit:'KJ/cm'});
   if(op==='del') a.splice(i,1); if(op==='dup') a.splice(i+1,0,{...a[i],pass:''});
   drawParams(); }
-function drawParams(){ const t=$('#ptbody'); if(!t) return; t.innerHTML=paramRows(WD.obj); $('#wdf').dataset.np=WD.obj.params.length; }
+function drawParams(){ const t=$('#ptbody'); if(!t) return; t.innerHTML=paramRows(WD.obj); $('#wdf').dataset.np=WD.obj.params.length; drawPassGuide(); }
+// ===================== WPS 패스 조건 — PQR 기준 범위/권장 가이드 =====================
+// PQR에는 전류·전압·속도 값이 없어 (1) 공법 일치 (2) PQR 입열량 ±25% (3) 같은 PQR/공법을 쓰는 다른 WPS의 실적 범위로 안내한다.
+const rngOf=t=>{ const n=String(t??'').replace(/,/g,'').match(/\d+(?:\.\d+)?/g); return n?[Math.min(...n.map(Number)),Math.max(...n.map(Number))]:null; };
+const spdCm=(r,u)=>{ if(!r) return null; const k=/mm\s*\/\s*min/i.test(u)?.1:/mm\s*\/\s*s/i.test(u)?6:/cm\s*\/\s*s/i.test(u)?60:/(^|[^cm])m\s*\/\s*min/i.test(u)?100:1; return [r[0]*k,r[1]*k]; };
+const HI_K={'135':.8,'136':.8,'138':.8,'131':.8,'133':.8,'111':.8,'114':.8,'141':.6,'142':.6,'143':.6,'121':1,'122':1,'52':.8,'521':.8};
+function rowHeat(r,code){ const I=rngOf(r.current),U=rngOf(r.voltage),v=spdCm(rngOf(r.speed),r.speedUnit); if(!I||!U||!v||!v[0]||!v[1]) return null; const k=HI_K[code]??.8; return [r2(k*U[0]*I[0]*60/(v[0]*1000)),r2(k*U[1]*I[1]*60/(v[1]*1000))]; }
+function paramsFilled(params){ let cur=''; return params.map(r=>{ if((r.process||'').trim()) cur=r.process; return {...r,process:cur}; }); }
+function passRef(o,code){ const mine=new Set((o.pqrNos||[]).map(String)); const agg={current:null,voltage:null,speed:null,heat:null}, from=new Set();
+  const add=(k,r)=>{ if(!r) return; agg[k]=agg[k]?[Math.min(agg[k][0],r[0]),Math.max(agg[k][1],r[1])]:[...r]; };
+  const pick=w=>{ let any=false; for(const r of paramsFilled(w.params||[])){ const c=procCodesOf(r.process)[0]||procCodesOf(w.process)[0]; if(code&&c&&c!==code) continue; any=true;
+      add('current',rngOf(r.current)); add('voltage',rngOf(r.voltage)); add('speed',spdCm(rngOf(r.speed),r.speedUnit)); add('heat',rngOf(r.heat)); } if(any) from.add(w.wpsNo); };
+  const others=wpsMaster.filter(w=>w.id!==WD.obj.id&&w.wpsNo!==WD.obj.wpsNo&&(w.params||[]).length);
+  others.filter(w=>(w.pqrNos||[]).some(x=>mine.has(String(x)))).forEach(pick);
+  let basis='같은 PQR을 쓰는 WPS'; if(!from.size){ others.filter(w=>code&&procCodesOf(w.process).includes(code)&&wt(w.weldType)===wt(WD.obj.weldType)).forEach(pick); basis='같은 공법·형식의 WPS(PQR 일치 WPS 없음)'; }
+  return {agg,from:[...from],basis}; }
+const fr=(a,d=1)=>a?(a[0]===a[1]?String(r2(a[0])):`${r2(a[0])} ~ ${r2(a[1])}`):'—';
+function drawPassGuide(){ const box=$('#pguide'); if(!box||!WD) return; const o=collectDoc(); if(o.form.passCols) { box.innerHTML=''; return; }
+  const p=pqrFind((o.pqrNos||[])[0]), ap=p?pqrApproval(p):null, pcode=p?procCodesOf(p.process)[0]:'', wcode=procCodesOf(o.process)[0]||procCodesOf(o.form.processIso)[0]||'', code=pcode||wcode;
+  const ref=passRef(o,code), rows=paramsFilled(o.params), hdr=[];
+  hdr.push(p?`연결 PQR <b>${esc(p.pqrNo)}</b> — 공법 <b>${esc(p.process||'?')}</b>${pcode&&wcode&&pcode!==wcode?` <span class="wn">◆ WPS 공정(${esc(wcode)})과 다름</span>`:` <span style="color:var(--ok)">✔ 공법 승인 범위: ${esc(pcode||'?')} 만 사용 가능</span>`}`:'<span class="wn">연결 PQR이 없거나 PQR 목록에 없는 번호입니다 — 공법 범위를 확인할 수 없습니다.</span>');
+  let hi=null; if(ap&&ap.heatMin) hi=[ap.heatMin,ap.heatMax];
+  hdr.push(hi?`입열량 승인 범위(PQR ${esc(p.heat)} 의 ±25%): <b>${hi[0]} ~ ${hi[1]} kJ/cm</b>`:`입열량: PQR에 시험 입열량이 없어 승인 범위를 계산할 수 없습니다 (PQR 편집에서 "입열량"을 입력하면 ±25% 범위가 표시됩니다).`);
+  if(ap&&ap.tMin!=null) hdr.push(`참고 — 두께 ${ap.tMin}~${ap.tMax} mm · 자세 ${ap.position} (WPS 양식 ②에 반영)`);
+  const A=ref.agg, has=A.current||A.voltage||A.speed||A.heat;
+  const refTxt=has?`<table class="list nested" style="font-size:12px;margin-top:6px"><thead><tr><th>항목</th><th>추천(실적) 범위</th><th></th></tr></thead><tbody>${[['current','전류 (A)'],['voltage','전압 (V)'],['speed','용접 속도 (cm/min)'],['heat','입열량 (kJ/cm)']].map(([k,l])=>`<tr class="kid"><td>${l}</td><td><b>${fr(A[k])}</b></td><td class="bx">${A[k]&&k!=='speed'?`<button type="button" class="b sm sec" onclick="fillPass('${k}')" title="값이 비어 있는 행에 채움">빈칸 채우기</button>`:''}</td></tr>`).join('')}</tbody></table><div style="font-size:11px;color:var(--mute);margin-top:3px">출처: ${esc(ref.basis)} ${esc(ref.from.slice(0,8).join(', '))}${ref.from.length>8?` 외 ${ref.from.length-8}건`:''} — 법적 한계가 아니라 사내 실적 기반 <b>추천값</b>입니다. 최종 한계는 PQR 시험값/입열량(±25%)·규격서로 확인하세요.</div>`:`<div style="font-size:12px;color:var(--mute);margin-top:6px">비교할 수 있는 다른 WPS 패스 조건이 없어 전류/전압/속도 추천 범위를 만들 수 없습니다.</div>`;
+  const msgs=[]; rows.forEach((r,i)=>{ const lab=`${r.pass||i+1}층`; const c=procCodesOf(r.process)[0];
+    if(pcode&&c&&c!==pcode) msgs.push(`${lab}: 공법 ${esc(r.process)} 는 PQR 공법(${esc(pcode)})과 다름`);
+    const h=rowHeat(r,c||code), hv=rngOf(r.heat);
+    if(h){ if(hi&&(h[0]<hi[0]-.005||h[1]>hi[1]+.005)) msgs.push(`${lab}: 계산 입열량 ${fr(h)} → 승인 범위 ${hi[0]}~${hi[1]} 벗어남`);
+      else if(hv&&Math.abs(h[0]-hv[0])>Math.max(.05,hv[0]*.1)) msgs.push(`${lab}: 입력 입열량 ${fr(hv)} ≠ 계산값 ${fr(h)} (k=${HI_K[c||code]??.8})`); }
+    if(hv&&hi&&(hv[0]<hi[0]-.005||hv[1]>hi[1]+.005)) msgs.push(`${lab}: 입열량 ${fr(hv)} 는 승인 범위 ${hi[0]}~${hi[1]} 밖`);
+    for(const [k,l,u] of [['current','전류','A'],['voltage','전압','V']]){ const v=rngOf(r[k]), a=A[k]; if(v&&a&&(v[0]<a[0]*.8||v[1]>a[1]*1.2)) msgs.push(`${lab}: ${l} ${fr(v)}${u} 는 실적 범위 ${fr(a)} 에서 ±20% 이상 벗어남`); } });
+  const calc=rows.filter(r=>r.current&&r.voltage&&r.speed).length;
+  box.innerHTML=`<div style="border:1px solid var(--accent);border-radius:8px;padding:10px;margin-bottom:8px;background:#f7fbff;font-size:13px"><b>PQR 기준 작성 가이드</b><div style="margin-top:4px">${hdr.map(x=>`<div>${x}</div>`).join('')}</div>${refTxt}
+   <div style="margin-top:6px"><b>행별 점검</b> ${calc?`<small style="color:var(--mute)">(입열량 = k·U·I·60/(v·1000), k=${HI_K[code]??.8}${HI_K[code]==null?' 가정':''} · 범위는 최소/최소·최대/최대로 계산)</small>`:''}${msgs.length?`<ul style="margin:4px 0 0 18px;padding:0">${msgs.map(m=>`<li class="wn">${m}</li>`).join('')}</ul>`:`<div style="color:var(--ok)">${rows.length?'문제 없음 ✔':'패스 행이 없습니다.'}</div>`}</div></div>`; }
+function fillPass(k){ collectDoc(); const A=passRef(WD.obj,procCodesOf((pqrFind((WD.obj.pqrNos||[])[0])||{}).process)[0]||procCodesOf(WD.obj.process)[0]||'').agg[k]; if(!A) return; let n=0;
+  WD.obj.params.forEach(r=>{ if(!String(r[k]||'').trim()){ r[k]=A[0]===A[1]?String(r2(A[0])):`${r2(A[0])}~${r2(A[1])}`; n++; } }); drawParams(); toast(n?`${n}행의 빈 ${k==='current'?'전류':k==='voltage'?'전압':'입열량'} 칸을 채웠습니다.`:'빈 칸이 없습니다.',2500); }
+
 function pasteParams(){ const ta=$('#ptext'); const rows=ta.value.replace(/\r/g,'').split('\n').map(l=>l.split('\t')).filter(r=>r.some(c=>c.trim())); if(!rows.length) return;
   collectDoc(); const body=rows.filter(r=>!/층수|Pass/i.test(r[0]||'')); const add=body.map(r=>Object.fromEntries(pcols(WD.obj).map(([k],i)=>[k,(r[i]||'').trim()])));
   WD.obj.params.push(...add); ta.value=''; drawParams(); toast(`${add.length}행을 추가했습니다 (엑셀 A~J열 순서: 층수·공법·용가재·전류·전압·극성·속도·단위·입열량·단위).`,5000); }
@@ -1554,7 +1592,7 @@ function vWpsDoc(){
     </div><datalist id="dl-pqr">${pqrMaster.map(p=>`<option value="${esc(p.pqrNo)}">`).join('')}</datalist><div id="calcbox"></div></div>
    <div class="card"><h3 style="margin-top:0">② WPS 양식 내용 (인쇄되는 항목)</h3><div class="grid">${FORM_FIELDS.map(([k,l,t])=>inp('f',k,l,t,F[k])).join('')}
      <label style="grid-column:span 2">후열처리 상세 (줄바꿈으로 구분)<textarea name="f_pwhtDetail" rows="3">${esc(F.pwhtDetail||'')}</textarea></label></div></div>
-   <div class="card"><h3 style="margin-top:0">③ 용접 상세 Welding Details — 패스별 조건표</h3>
+   <div class="card"><h3 style="margin-top:0">③ 용접 상세 Welding Details — 패스별 조건표</h3><div id="pguide"></div>
     ${o.passLink?`<div style="font-size:12px;color:var(--mute);margin-bottom:6px">엑셀 연결 그림: <b>${esc(o.passLink.bookName||'같은 파일')}</b> › ${esc(o.passLink.sheet)}!${esc(o.passLink.ref.split('!')[1]||'')} ${o.passSrc==='exact'?'· 원본에서 불러옴':o.passSrc==='fallback'?'· 같은 이름 시트로 임시 채움(원본 파일을 가져오면 갱신)':'· 직접 수정함'} <button type="button" class="b sm sec" onclick="relinkOne()">연결 다시 불러오기</button></div>`:''}
     <div style="overflow-x:auto"><table class="list nested"><thead><tr>${pcols(o).map(([,l])=>`<th>${l}</th>`).join('')}<th></th></tr></thead><tbody id="ptbody">${paramRows(o)}</tbody></table></div>
     <div class="row"><button type="button" class="b sm" onclick="paramOp('add')">+ 행 추가</button>
@@ -1564,6 +1602,7 @@ function vWpsDoc(){
     ${[['joint','이음부 형상 Joint Design'],['sequence','용접 순서 Welding Sequence']].map(([k,l])=>`<div><div style="font-size:12px;color:var(--mute);margin-bottom:3px">${l}</div>${pzHTML('wps:'+k,o.sketches[k]||null,'클릭 후 Ctrl+V · 이미지 끌어놓기')}<div class="row" style="margin-top:6px"><input type="file" accept="image/*" onchange="pickImg('wps:${k}',this)" style="max-width:200px"></div><div class="row" style="margin-top:4px"><button type="button" class="b sm" onclick="openSkEditor('${k}')" title="이동·글자·선·용접기호 지시선을 직접 수정">스케치 편집</button><button type="button" class="b sm sec" onclick="collectDoc();openLibPicker('${k}')">라이브러리에서 선택</button><button type="button" class="b sm sec" onclick="collectDoc();GEN.open=true;GEN.t=numOf(WD.obj.form.thickness)&&Math.min(numOf(WD.obj.form.thickness)*1,40)||GEN.t;vWpsDoc();genDraw()">형상 생성</button>${o.sketches[k]?`<button type="button" class="b sm sec" onclick="saveSlotToLib('${k}')">라이브러리에 저장</button><button type="button" class="b sm red" onclick="WD.obj.sketches['${k}']='';collectDoc();vWpsDoc()">삭제</button>`:''}</div></div>`).join('')}</div>${GEN.open?genPanelHTML('doc'):''}</div>
    </form>`;
   $('#wdf').onsubmit=async e=>{ e.preventDefault(); await saveWpsDoc(); };
+  let gt; $('#wdf').addEventListener('input',e=>{ if(/^(p\d+_|m_pqr|m_process|f_processIso)/.test(e.target.name||'')){ clearTimeout(gt); gt=setTimeout(drawPassGuide,250); } }); drawPassGuide();
   if(GEN.open) genDraw();
 }
 async function saveWpsDoc(){ const o=collectDoc(); if(!String(o.wpsNo||'').trim()) return alert('WPS 번호를 입력하세요.');
