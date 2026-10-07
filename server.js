@@ -92,19 +92,24 @@ const server = http.createServer(async (req, res) => {
     let m;
     if ((m = /^\/api\/all\/(\w+)$/.exec(p)) && req.method === 'GET') { if (!STORES.includes(m[1])) return send(res, 404, {}); return send(res, 200, Object.values(store[m[1]].items)); }
     // ---- 이하 마스터 전용 ----
-    if (ses.role !== 'master') return send(res, 403, { error: '조회 전용 계정은 수정할 수 없습니다.' });
+    // ---- 데이터 쓰기: 마스터=전체 / 편집 계정(editor)=용접사·시험기록(+대시보드 '확인함', 현황표 숨김 설정) 만 / 조회 계정=불가 ----
+    const EDITOR_STORES = ['welders', 'records'], EDITOR_SET = ['auditIgnore', 'wsHide'];
+    const canWrite = (store, v) => ses.role === 'master' || (ses.role === 'editor' && (EDITOR_STORES.includes(store) || (store === 'settings' && v && EDITOR_SET.includes(v.key))));
+    const deny = () => send(res, 403, { error: ses.role === 'editor' ? '편집 권한이 없는 항목입니다. (편집 계정은 용접사·시험기록만 수정할 수 있습니다)' : '조회 전용 계정은 수정할 수 없습니다.' });
+    if ((m = /^\/api\/put\/(\w+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); const v = await body(req); if (!canWrite(m[1], v)) return deny(); const id = putOne(m[1], v); markDirty(m[1]); return send(res, 200, { id, v: version }); }
+    if ((m = /^\/api\/putMany\/(\w+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); const a = await body(req); if (!Array.isArray(a)) return send(res, 400, {}); if (!a.every(v => canWrite(m[1], v))) return deny(); const ids = a.map(v => putOne(m[1], v)); markDirty(m[1]); return send(res, 200, { ids, v: version }); }
+    if ((m = /^\/api\/del\/(\w+)\/(.+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); if (!canWrite(m[1], null)) return deny(); delete store[m[1]].items[decodeURIComponent(m[2])]; markDirty(m[1]); return send(res, 200, { v: version }); }
+    if ((m = /^\/api\/clear\/(\w+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); if (ses.role !== 'master') return deny(); store[m[1]].items = {}; markDirty(m[1]); return send(res, 200, { v: version }); }
+    if (ses.role !== 'master') return send(res, 403, { error: '마스터 계정만 할 수 있습니다.' });
     if (p === '/api/msg/reply' && req.method === 'POST') { const b = await body(req), m = msgs.find(x => x.id === b.id), text = String(b.text || '').trim().slice(0, 2000); if (!m || !text) return send(res, 400, { error: '쪽지를 찾을 수 없거나 내용이 없습니다.' }); m.replies.push({ from: ses.name, text, ts: Date.now() }); m.ru = true; saveMsgs(); return send(res, 200, {}); }
     if (p === '/api/msg/done' && req.method === 'POST') { const b = await body(req), m = msgs.find(x => x.id === b.id); if (!m) return send(res, 404, {}); m.done = !!b.done; saveMsgs(); return send(res, 200, {}); }
     if (p === '/api/msg/del' && req.method === 'POST') { const b = await body(req); msgs = msgs.filter(x => x.id !== b.id); saveMsgs(); return send(res, 200, {}); }
     if (p === '/api/users' && req.method === 'GET') return send(res, 200, Object.keys(users).map(n => ({ name: n, role: users[n].role, created: users[n].created })));
-    if (p === '/api/users' && req.method === 'POST') { const b = await body(req), n = String(b.name || '').trim(), role = 'viewer';   // 마스터는 1명만 (처음 실행 때 만든 계정)
+    if (p === '/api/users' && req.method === 'POST') { const b = await body(req), n = String(b.name || '').trim(), role = b.role === 'editor' ? 'editor' : 'viewer';   // 마스터는 1명만 (처음 실행 때 만든 계정)
       if (!/^[\w.@\-가-힣]{2,30}$/.test(n)) return send(res, 400, { error: '아이디는 2~30자(한글/영문/숫자/._-@)로 입력하세요.' }); if (String(b.pass || '').length < 6) return send(res, 400, { error: '비밀번호는 6자 이상이어야 합니다.' });
       setUser(n, b.pass, users[n] ? users[n].role : role); for (const [k, s] of sessions) if (s.name === n) sessions.delete(k); return send(res, 200, {}); }
+    if (p === '/api/users/role' && req.method === 'POST') { const b = await body(req), n = String(b.name || ''); if (!users[n] || users[n].role === 'master') return send(res, 400, { error: '변경할 수 없는 계정입니다.' }); if (!['viewer', 'editor'].includes(b.role)) return send(res, 400, {}); users[n].role = b.role; saveUsers(); for (const [, x] of sessions) if (x.name === n) x.role = b.role; return send(res, 200, {}); }
     if (p === '/api/users/del' && req.method === 'POST') { const b = await body(req), n = String(b.name || ''); if (!users[n]) return send(res, 404, { error: '없는 계정' }); if (users[n].role === 'master' && masters().length <= 1) return send(res, 400, { error: '마지막 마스터 계정은 삭제할 수 없습니다.' }); delete users[n]; saveUsers(); for (const [k, s] of sessions) if (s.name === n) sessions.delete(k); return send(res, 200, {}); }
-    if ((m = /^\/api\/put\/(\w+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); const v = await body(req); const id = putOne(m[1], v); markDirty(m[1]); return send(res, 200, { id, v: version }); }
-    if ((m = /^\/api\/putMany\/(\w+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); const a = await body(req); if (!Array.isArray(a)) return send(res, 400, {}); const ids = a.map(v => putOne(m[1], v)); markDirty(m[1]); return send(res, 200, { ids, v: version }); }
-    if ((m = /^\/api\/del\/(\w+)\/(.+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); delete store[m[1]].items[decodeURIComponent(m[2])]; markDirty(m[1]); return send(res, 200, { v: version }); }
-    if ((m = /^\/api\/clear\/(\w+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); store[m[1]].items = {}; markDirty(m[1]); return send(res, 200, { v: version }); }
     return send(res, 404, { error: 'not found' });
   } catch (e) { console.error('[요청 오류]', p, e.message); try { send(res, 400, { error: String(e.message || e) }); } catch (_) {} }
 });
