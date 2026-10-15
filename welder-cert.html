@@ -160,11 +160,12 @@ body.ro input[type=file]{display:none!important}
 #srvb{font-size:11px;background:#1d6b3f;border-radius:8px;padding:1px 8px;margin-left:6px;font-weight:400}#srvb a{color:#fff;margin-left:6px}
 #msgbtn{margin-left:10px;font-size:15px;font-weight:700;padding:5px 16px;border-radius:18px;border:2px solid #ffd166;background:#ffd166;color:#14314f;cursor:pointer;vertical-align:middle;box-shadow:0 1px 4px rgba(0,0,0,.3)}#msgbtn:hover{background:#fff}#msgbtn.new{animation:msgp 1.2s infinite}#msgbtn b{color:#c0392b;margin-left:4px}
 @keyframes msgp{50%{box-shadow:0 0 0 5px rgba(255,209,102,.5)}}
+.wcb{position:relative;display:block}.wcb>input{width:100%}.wcbl{position:absolute;z-index:60;left:0;right:0;top:calc(100% + 2px);max-height:260px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18)}.wcbl[hidden]{display:none}.wci{padding:7px 10px;cursor:pointer;font-size:14px;white-space:nowrap}.wci small{color:var(--mute)}.wci.on,.wci[data-id]:hover{background:#e6f0fb}
 </style>
 </head>
 <body>
 <header>
-  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v122</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v123</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -2795,7 +2796,7 @@ function vRecForm(){
      <select id="cond"><option value="">— 조건 선택 (용접사·용접일·검사결과는 유지) —</option>${CL.map((x,i)=>`<option value="${i}">${x.r.joint} · ${esc(x.r.process)} · t${fmtN(x.r.thickness)} · ${esc(x.r.position)} · ${esc(x.r.fillerGroup)} (${x.n}건)</option>`).join('')}<option value="__newc__">＋ 새 조건 추가 (아래에 직접 입력)</option></select></label></div>
    ${dl('dl-project',uniq(records.map(x=>x.project)))}${dl('dl-wps',uniq([...wpsMaster.map(m=>m.wpsNo),...records.map(x=>x.wpsNo)]))}${dl('dl-fg',uniq(records.map(x=>x.fillerGroup)))}${dl('dl-gas',uniq(records.map(x=>x.gas)))}${dl('dl-pos',uniq(records.map(x=>x.position)))}
    <div class="gh">기본 정보</div><div class="grid">
-   <label>용접사 *<select name="welderId">${welders.map(w=>`<option value="${w.id}" ${w.id===r.welderId?'selected':''}>${esc(w.welderNo)} · ${esc(w.name)}</option>`).join('')}</select></label>
+   <label>용접사 * <small style="color:var(--mute);font-weight:400">이름·번호·소속 입력 (초성 가능: ㅇㅈㅅ)</small><span class="wcb"><input id="wcbi" autocomplete="off" placeholder="이름 / 번호 / 소속을 입력하세요" value="${esc(((w0)=>w0?w0.welderNo+' · '+w0.name:'')(welders.find(w=>w.id===r.welderId)))}"><div class="wcbl" hidden></div></span><select name="welderId" style="display:none">${welders.map(w=>`<option value="${w.id}" ${w.id===r.welderId?'selected':''}>${esc(w.welderNo)} · ${esc(w.name)}</option>`).join('')}</select></label>
    <label>시험재 용접일자 *<input type="date" name="weldingDate" value="${r.weldingDate}" required></label>
    <label>프로젝트/제작품목<input name="project" value="${esc(r.project)}" list="dl-project"></label>
    <label>WPS No. <span id="wpsHint" style="font-size:11px"></span><input name="wpsNo" value="${esc(r.wpsNo)}" placeholder="WPS-RM013" list="dl-wps"></label></div>
@@ -3044,6 +3045,27 @@ function enhanceDate(i){ if(i.dataset.dm) return; i.dataset.dm='1'; const v0=i.v
   i.addEventListener('input',e=>{ const m=dateMask(i.value); if(m!==i.value) i.value=m; chk(); }); i.addEventListener('blur',chk); chk();
   const bt=document.createElement('button'); bt.type='button'; bt.textContent='📅'; bt.title='달력에서 선택'; bt.style.cssText='border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 7px;cursor:pointer'; w.appendChild(bt);
   bt.onclick=()=>{ const t=document.createElement('input'); t.dataset.dm='1'; t.type='date'; t.min='1900-01-01'; t.max='2999-12-31'; t.style.cssText='position:absolute;opacity:0;pointer-events:none;width:1px;height:1px'; if(dateOk(i.value)) t.value=i.value; w.appendChild(t); t.onchange=()=>{ if(t.value){ i.value=t.value; i.dispatchEvent(new Event('input',{bubbles:true})); i.dispatchEvent(new Event('change',{bubbles:true})); } t.remove(); }; try{ t.showPicker(); }catch(e){ t.focus(); t.click(); } }; }
+
+// ---- 용접사 검색 선택칸 (시험기록 입력): 이름/번호/소속/초성으로 걸러서 고른다. 실제 값은 숨은 select(name=welderId)에 들어가 기존 저장 로직 그대로 동작
+const CHO='ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ', choOf=t=>[...String(t||'')].map(c=>{ const k=c.charCodeAt(0)-44032; return k>=0&&k<11172?CHO[Math.floor(k/588)]:c; }).join('');
+const wcbTxt=w=>`${w.welderNo} · ${w.name}`;
+function wcbFilter(q){ q=String(q||'').trim().toLowerCase(); const jam=/^[ㄱ-ㅎ\s]+$/.test(q)&&q; const toks=q.split(/\s+/).filter(Boolean);
+  const hit=w=>{ const hay=`${w.welderNo} ${w.name} ${w.company||''} ${w.status||''}`.toLowerCase(); if(!toks.length) return true; if(jam){ const c=choOf(`${w.name} ${w.company||''}`); return toks.every(t=>c.includes(t)); } return toks.every(t=>hay.includes(t)||choOf(hay).includes(t)); };
+  const rk=w=>{ const n=String(w.name).toLowerCase(); return !q?0:(n.startsWith(q)||choOf(n).startsWith(q))?0:(n.includes(q)||choOf(n).includes(q))?1:2; };
+  return welders.filter(hit).sort((a,b)=>rk(a)-rk(b)||(+(b.status==='재직')-+(a.status==='재직'))||String(a.name).localeCompare(String(b.name),'ko')).slice(0,60); }
+function wcbOpen(inp,all){ const box=inp.parentNode.querySelector('.wcbl'), list=wcbFilter(all?'':inp.value); inp._list=list; inp._act=list.length?0:-1;
+  box.innerHTML=list.length?list.map((w,i)=>`<div class="wci${i===0?' on':''}" data-id="${w.id}"><b>${esc(w.welderNo)}</b> · ${esc(w.name)}<small> ${esc(w.company||'')}${w.status&&w.status!=='재직'?` · <span style="color:#c0392b">${esc(w.status)}</span>`:''}</small></div>`).join(''):'<div class="wci" style="color:#888">일치하는 용접사가 없습니다</div>'; box.hidden=false; }
+function wcbPick(inp,id){ const w=welders.find(x=>String(x.id)===String(id)); if(!w) return; const f=inp.closest('form'), sel=f&&f.elements.welderId; inp.value=wcbTxt(w); inp.parentNode.querySelector('.wcbl').hidden=true; if(sel){ sel.value=String(w.id); sel.dispatchEvent(new Event('change',{bubbles:true})); sel.dispatchEvent(new Event('input',{bubbles:true})); const nx=f.elements.weldingDate; if(nx) setTimeout(()=>nx.focus(),30); } }
+function wcbMark(inp,d){ const box=inp.parentNode.querySelector('.wcbl'), n=(inp._list||[]).length; if(!n) return; inp._act=(inp._act+d+n)%n; box.querySelectorAll('.wci').forEach((e,i)=>{ e.classList.toggle('on',i===inp._act); if(i===inp._act) e.scrollIntoView({block:'nearest'}); }); }
+document.addEventListener('focusin',e=>{ if(e.target.id==='wcbi'){ e.target.select(); wcbOpen(e.target,true); } });
+document.addEventListener('input',e=>{ if(e.target.id==='wcbi') wcbOpen(e.target,false); });
+document.addEventListener('keydown',e=>{ const t=e.target; if(!t||t.id!=='wcbi') return; const box=t.parentNode.querySelector('.wcbl');
+  if(e.key==='ArrowDown'){ e.preventDefault(); if(box.hidden) wcbOpen(t,true); else wcbMark(t,1); } else if(e.key==='ArrowUp'){ e.preventDefault(); wcbMark(t,-1); }
+  else if(e.key==='Enter'){ if(!box.hidden){ e.preventDefault(); const w=(t._list||[])[t._act]; if(w) wcbPick(t,w.id); } }
+  else if(e.key==='Escape'){ box.hidden=true; }
+  else if(e.key==='Tab'&&!box.hidden){ const w=(t._list||[])[t._act]; if((t._list||[]).length===1||(t.value&&w&&wcbTxt(w).toLowerCase().includes(t.value.toLowerCase()))) wcbPick(t,w.id); } });
+document.addEventListener('mousedown',e=>{ const it=e.target.closest&&e.target.closest('.wcbl .wci[data-id]'); if(it){ e.preventDefault(); wcbPick(it.closest('.wcb').querySelector('#wcbi'),it.dataset.id); } });
+document.addEventListener('focusout',e=>{ if(e.target.id!=='wcbi') return; const t=e.target; setTimeout(()=>{ const box=t.parentNode&&t.parentNode.querySelector('.wcbl'); if(box) box.hidden=true; const f=t.closest('form'), sel=f&&f.elements.welderId, w=sel&&welders.find(x=>String(x.id)===sel.value); if(w) t.value=wcbTxt(w); },120); });
 function fixDateInputs(root){ (root||document).querySelectorAll('input[type=date]').forEach(enhanceDate); }
 new MutationObserver(m=>{ for(const x of m) for(const n of x.addedNodes) if(n.nodeType===1) fixDateInputs(n.matches&&n.matches('input[type=date]')?n.parentNode:n); }).observe(document.body,{childList:true,subtree:true}); fixDateInputs();
 
