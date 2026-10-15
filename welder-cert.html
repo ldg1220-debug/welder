@@ -165,7 +165,7 @@ body.ro input[type=file]{display:none!important}
 </head>
 <body>
 <header>
-  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v123</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v124</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -2716,8 +2716,7 @@ async function assignWps(){
   await DB.putMany('records',records.filter(r=>WF.sel.has(r.id)).map(r=>({...r,wpsNo:v.trim()}))); WF.sel.clear(); await load(); drawWps(); toast('WPS 번호를 반영했습니다.',3000);
 }
 function newRec(){ if(!welders.length) return alert('먼저 용접사를 등록하세요.');
-  const last=[...records].sort((a,b)=>b.id-a.id)[0]; // 직전에 입력한 기록의 조건을 기본값으로
-  editRec={...FIELDS_DEFAULT,...(last?Object.fromEntries(COND.map(k=>[k,last[k]])):{}),tests:{},renewals:[],welderId:last?last.welderId:welders[0].id}; vRecords(); }
+  editRec={...FIELDS_DEFAULT,tests:{},renewals:[],welderId:0}; vRecords(); } // 빈 상태로 시작 — 용접사를 고르면 그 용접사의 최근 기록 조건을 불러온다
 function copyRec(id){ const r=records.find(x=>x.id===id);
   editRec={...FIELDS_DEFAULT,...Object.fromEntries(COND.map(k=>[k,r[k]])),welderId:r.welderId,weldingDate:today(),tests:{},renewals:[],refNo:'',issueDate:''}; vRecords(); }
 function condList(project){ // 해당 프로젝트에 등록된 시험 조건 조합 (자주 쓴 순)
@@ -2786,17 +2785,17 @@ function recTopHTML(c){ const w=welders.find(x=>x.id===c.welderId)||{}, st=recSt
    ${iss.length?`<div class="rt-list">${iss.map(x=>`<div class="rt-i s${x.sev}"><span class="ic">${x.ic}</span><span class="tx">${x.t}</span>${x.a||''}</div>`).join('')}</div>`:'<div class="rt-ok">✔ 점검할 문제가 없습니다 (WPS 적합 · 판정 완료 · 이음/시험항목 일치)</div>'}</div>`; }
 function vRecForm(){
   const r=editRec, T=r.tests||{}, R3=[['na','미실시'],['pass','Pass'],['fail','Fail']];
-  const PL=projList(), CL=r.project&&PL.some(x=>x[0]===r.project)?condList(r.project):[];
+  const PL0=projList(), wp=new Set(records.filter(x=>x.welderId===r.welderId).map(x=>(x.project||'').trim()).filter(Boolean)), PL=[...PL0].sort((a,b)=>(wp.has(b[0])-wp.has(a[0]))), CL=r.project&&PL.some(x=>x[0]===r.project)?condList(r.project):[];
   $('#view').innerHTML=`<form id="rf"><div class="card"><h2>${r.id?'시험 기록 수정':'새 시험 기록 (WQT)'}</h2><div id="recTop"></div>
    <div class="gh">빠른 입력 <small style="font-weight:400;color:var(--mute)">프로젝트에 등록된 시험 조건을 불러와 아래 칸을 한 번에 채웁니다 (선택)</small></div>
    <div class="row" style="margin:0 0 4px;align-items:flex-end">
     <label style="min-width:260px;flex:1;max-width:460px">① 프로젝트 / 제작품목
-     <select id="prj"><option value="">— 프로젝트 선택 —</option>${PL.map(([n,c])=>`<option value="${esc(n)}" ${n===r.project?'selected':''}>${esc(n)} (${c}건)</option>`).join('')}<option value="__new__">＋ 새 프로젝트 추가 (직접 입력)</option></select></label>
+     <select id="prj"><option value="">— 프로젝트 선택 —</option>${PL.map(([n,c])=>`<option value="${esc(n)}" ${n===r.project?'selected':''}>${wp.has(n)?'★ ':''}${esc(n)} (${c}건)</option>`).join('')}<option value="__new__">＋ 새 프로젝트 추가 (직접 입력)</option></select></label>
     <label style="min-width:340px;flex:1;max-width:560px">② 이 프로젝트에 등록된 시험 조건
      <select id="cond"><option value="">— 조건 선택 (용접사·용접일·검사결과는 유지) —</option>${CL.map((x,i)=>`<option value="${i}">${x.r.joint} · ${esc(x.r.process)} · t${fmtN(x.r.thickness)} · ${esc(x.r.position)} · ${esc(x.r.fillerGroup)} (${x.n}건)</option>`).join('')}<option value="__newc__">＋ 새 조건 추가 (아래에 직접 입력)</option></select></label></div>
    ${dl('dl-project',uniq(records.map(x=>x.project)))}${dl('dl-wps',uniq([...wpsMaster.map(m=>m.wpsNo),...records.map(x=>x.wpsNo)]))}${dl('dl-fg',uniq(records.map(x=>x.fillerGroup)))}${dl('dl-gas',uniq(records.map(x=>x.gas)))}${dl('dl-pos',uniq(records.map(x=>x.position)))}
    <div class="gh">기본 정보</div><div class="grid">
-   <label>용접사 * <small style="color:var(--mute);font-weight:400">이름·번호·소속 입력 (초성 가능: ㅇㅈㅅ)</small><span class="wcb"><input id="wcbi" autocomplete="off" placeholder="이름 / 번호 / 소속을 입력하세요" value="${esc(((w0)=>w0?w0.welderNo+' · '+w0.name:'')(welders.find(w=>w.id===r.welderId)))}"><div class="wcbl" hidden></div></span><select name="welderId" style="display:none">${welders.map(w=>`<option value="${w.id}" ${w.id===r.welderId?'selected':''}>${esc(w.welderNo)} · ${esc(w.name)}</option>`).join('')}</select></label>
+   <label>용접사 * <small style="color:var(--mute);font-weight:400">이름·번호·소속 입력 (초성 가능: ㅇㅈㅅ)</small><span class="wcb"><input id="wcbi" autocomplete="off" placeholder="이름 / 번호 / 소속을 입력하세요" value="${esc(((w0)=>w0?w0.welderNo+' · '+w0.name:'')(welders.find(w=>w.id===r.welderId)))}"><div class="wcbl" hidden></div></span><select name="welderId" style="display:none"><option value="" ${r.welderId?'':'selected'}>— 선택 —</option>${welders.map(w=>`<option value="${w.id}" ${w.id===r.welderId?'selected':''}>${esc(w.welderNo)} · ${esc(w.name)}</option>`).join('')}</select></label>
    <label>시험재 용접일자 *<input type="date" name="weldingDate" value="${r.weldingDate}" required></label>
    <label>프로젝트/제작품목<input name="project" value="${esc(r.project)}" list="dl-project"></label>
    <label>WPS No. <span id="wpsHint" style="font-size:11px"></span><input name="wpsNo" value="${esc(r.wpsNo)}" placeholder="WPS-RM013" list="dl-wps"></label></div>
@@ -2847,13 +2846,17 @@ function vRecForm(){
   const iss=()=>{const d=f.elements.weldingDate.value; $('#issHint').textContent=f.elements.issueDate.value?'':(d?`(비우면 용접일+14일 = ${defaultIssue(d)})`:'');};
   window._collect=collect; f.oninput=()=>{iss();upd();}; iss();
   f.onchange=()=>{iss();upd();}; upd();
+  f.addEventListener('welderpick',()=>{ if(r.id||(r.project&&!r._auto)) return; const wid=+f.elements.welderId.value, w=welders.find(x=>x.id===wid); if(!w) return;
+    const mine=records.filter(x=>x.welderId===wid).sort((a,b)=>String(b.weldingDate).localeCompare(String(a.weldingDate))||b.id-a.id);
+    if(!mine.length){ toast(`${w.name}: 이전 시험 기록이 없습니다. 프로젝트와 시험 조건을 직접 입력하세요.`,4000); return; }
+    const src=mine[0]; editRec={...collect(),...Object.fromEntries(COND.map(k=>[k,src[k]])),_auto:1}; vRecForm(); toast(`${w.name}의 최근 기록(${src.weldingDate||''} · ${src.project||'프로젝트 없음'})에서 프로젝트·시험 조건을 불러왔습니다. 확인 후 수정하세요.`,6000); setTimeout(()=>{ const d=document.querySelector('#rf [name=weldingDate]'); if(d) d.focus(); },80); });
   $('#prj').onchange=e=>{ const v=e.target.value;
     if(v==='__new__'){ f.elements.project.value=''; f.elements.project.focus(); toast('새 프로젝트명을 "프로젝트/제작품목" 칸에 입력하고, 아래 시험 조건을 직접 입력하세요.',5000); e.target.value=''; return; }
     editRec={...collect(),project:v}; vRecForm(); };
   $('#cond').onchange=e=>{ const v=e.target.value; if(v==='') return;
     if(v==='__newc__'){ toast('아래 조건(공정·형상·두께·자세·용가재 등)을 직접 입력하세요. 저장하면 이 프로젝트의 조건 목록에 추가됩니다.',5000); f.elements.thickness.focus(); e.target.value=''; return; }
     const src=CL[+v].r; editRec={...collect(),...Object.fromEntries(COND.map(k=>[k,src[k]]))}; vRecForm(); };
-  f.onsubmit=async e=>{e.preventDefault();const c=collect();
+  f.onsubmit=async e=>{e.preventDefault();const c=collect(); if(!c.welderId) return alert('용접사를 선택하세요.'); delete c._auto;
     if(c.refNo&&isAutoRef(c.refNo)) c.refNo=''; // 규칙 형식이면 저장하지 않고 항상 계산
     await DB.put('records',c); await load(); editRec=null; vRecords();};
 }
@@ -3055,7 +3058,7 @@ function wcbFilter(q){ q=String(q||'').trim().toLowerCase(); const jam=/^[ㄱ-�
   return welders.filter(hit).sort((a,b)=>rk(a)-rk(b)||(+(b.status==='재직')-+(a.status==='재직'))||String(a.name).localeCompare(String(b.name),'ko')).slice(0,60); }
 function wcbOpen(inp,all){ const box=inp.parentNode.querySelector('.wcbl'), list=wcbFilter(all?'':inp.value); inp._list=list; inp._act=list.length?0:-1;
   box.innerHTML=list.length?list.map((w,i)=>`<div class="wci${i===0?' on':''}" data-id="${w.id}"><b>${esc(w.welderNo)}</b> · ${esc(w.name)}<small> ${esc(w.company||'')}${w.status&&w.status!=='재직'?` · <span style="color:#c0392b">${esc(w.status)}</span>`:''}</small></div>`).join(''):'<div class="wci" style="color:#888">일치하는 용접사가 없습니다</div>'; box.hidden=false; }
-function wcbPick(inp,id){ const w=welders.find(x=>String(x.id)===String(id)); if(!w) return; const f=inp.closest('form'), sel=f&&f.elements.welderId; inp.value=wcbTxt(w); inp.parentNode.querySelector('.wcbl').hidden=true; if(sel){ sel.value=String(w.id); sel.dispatchEvent(new Event('change',{bubbles:true})); sel.dispatchEvent(new Event('input',{bubbles:true})); const nx=f.elements.weldingDate; if(nx) setTimeout(()=>nx.focus(),30); } }
+function wcbPick(inp,id){ const w=welders.find(x=>String(x.id)===String(id)); if(!w) return; const f=inp.closest('form'), sel=f&&f.elements.welderId; inp.value=wcbTxt(w); inp.parentNode.querySelector('.wcbl').hidden=true; if(sel){ sel.value=String(w.id); sel.dispatchEvent(new Event('change',{bubbles:true})); sel.dispatchEvent(new Event('input',{bubbles:true})); sel.dispatchEvent(new CustomEvent('welderpick',{bubbles:true})); const nx=f.elements.weldingDate; if(nx) setTimeout(()=>nx.focus(),30); } }
 function wcbMark(inp,d){ const box=inp.parentNode.querySelector('.wcbl'), n=(inp._list||[]).length; if(!n) return; inp._act=(inp._act+d+n)%n; box.querySelectorAll('.wci').forEach((e,i)=>{ e.classList.toggle('on',i===inp._act); if(i===inp._act) e.scrollIntoView({block:'nearest'}); }); }
 document.addEventListener('focusin',e=>{ if(e.target.id==='wcbi'){ e.target.select(); wcbOpen(e.target,true); } });
 document.addEventListener('input',e=>{ if(e.target.id==='wcbi') wcbOpen(e.target,false); });
