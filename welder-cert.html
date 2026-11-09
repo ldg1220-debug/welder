@@ -166,7 +166,7 @@ body.ro input[type=file]{display:none!important}
 </head>
 <body>
 <header>
-  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v126</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v127</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -1547,7 +1547,7 @@ function recStMenu(e,id){ e.stopPropagation(); if(RO()) return toast('조회 전
   const m=document.createElement('div'); m.id='stmenu'; m.style.cssText=`position:fixed;z-index:9999;left:${Math.min(e.clientX,innerWidth-250)}px;top:${Math.min(e.clientY,innerHeight-190)}px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:4px;min-width:230px`;
   const B=(t,f,c)=>`<button type="button" style="display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:5px;cursor:pointer;font:inherit;font-size:13px;color:${c||'var(--ink)'}" onmouseover="this.style.background='#eef3f9'" onmouseout="this.style.background=''" onclick="document.getElementById('stmenu').remove();${f}">${t}</button>`;
   m.innerHTML=`<div style="font-size:11px;color:var(--mute);padding:4px 10px">${esc(r.weldingDate)} · ${esc((welders.find(w=>w.id===r.welderId)||{}).name||'')} · ${r.joint}</div>`+
-   B('✔ 합격으로 처리 <small style="color:var(--mute)">(필수 시험을 Pass로)</small>',`recSetStatus(${id},'pass')`,'#1a7f4b')+B('✕ 불합격으로 종결 <small style="color:var(--mute)">(시험 결과는 유지)</small>',`recSetStatus(${id},'fail')`,'#c0392b')+B('↺ 자동 판정으로 되돌리기 <small style="color:var(--mute)">(종결 해제)</small>',`recSetStatus(${id},'auto')`)+B('✎ 상세 수정 화면 열기',`editRec=null;tab='records';editR(${id});render()`);
+   B('✔ 합격으로 처리 <small style="color:var(--mute)">(필수 시험을 Pass로)</small>',`recSetStatus(${id},'pass')`,'#1a7f4b')+B('✕ 불합격으로 종결 <small style="color:var(--mute)">(시험 결과는 유지)</small>',`recSetStatus(${id},'fail')`,'#c0392b')+B('↺ 자동 판정으로 되돌리기 <small style="color:var(--mute)">(종결 해제)</small>',`recSetStatus(${id},'auto')`)+B('↻ 재시험 기록 추가 <small style="color:var(--mute)">(같은 조건, 결과는 비움)</small>',`retestRec(${id})`,'#b86e00')+B('✎ 상세 수정 화면 열기',`editRec=null;tab='records';editR(${id});render()`);
   document.body.appendChild(m); setTimeout(()=>document.addEventListener('click',function f(){ document.getElementById('stmenu')?.remove(); document.removeEventListener('click',f); }),0); }
 async function recSetStatus(id,mode){ const r=records.find(x=>x.id===id); if(!r) return; const T={...(r.tests||{})};
   if(mode==='pass'){ const need=r.joint==='BW'?['vt','rtut','bend']:['vt','macro'], ch=need.filter(k=>T[k]!=='pass'); if(Object.values(T).includes('fail')&&!confirm('Fail 로 기록된 시험이 있습니다. 필수 시험을 모두 Pass 로 바꿔 합격 처리할까요?')) return; if(ch.length&&!Object.values(T).includes('fail')&&!confirm(`합격 처리하려면 ${ch.map(k=>({vt:'VT',rtut:'RT/UT',bend:'Bend',macro:'Macro'})[k]).join('·')} 를 Pass 로 기록해야 합니다.\n지금 Pass 로 바꿀까요?`)) return;
@@ -1599,7 +1599,7 @@ function drawRecs(){
     const tog=kid?'<span style="color:var(--mute)">↳</span>':(g.kids.length?`<button class="b sm sec" style="padding:1px 7px" onclick="toggleGrp(${r.id})" title="재시험 이전 시도 ${g.kids.length}건 ${open?'접기':'보기'}">${open?'▾':'▸'} ${g.kids.length}</button>`:'');
     return `${msTr('rec',r.id,kid?'kid':'')}${msTd('rec',r.id)}<td class="num">${tog}</td><td>${r.weldingDate}</td><td>${esc(w.name)} <small style="color:var(--mute)">${esc(w.welderNo)}</small></td><td>${esc(w.company||'')}</td><td class="num">${w.status?`<span class="pill" style="background:${w.status==='재직'?'var(--ok)':w.status==='미확인'?'var(--warn)':'#8a94a0'}">${w.status}</span>`:''}</td><td class="num">${r.joint}</td><td>${esc(r.process)}</td><td class="num">${fmtN(r.thickness)}</td><td class="num">${esc(r.position)}</td><td>${esc(r.fillerGroup)}</td><td>${wpsCell(r)}</td>
    <td class="num"><span class="mc" onclick="cellTest(${r.id},'vt')" title="클릭: 미실시 → Pass → Fail">${mk3(T.vt)}</span></td><td class="num"><span class="mc" onclick="cellTest(${r.id},'rtut')" title="클릭: 미실시 → Pass → Fail">${mk3(T.rtut)}</span></td><td class="num"><span class="mc" onclick="cellTest(${r.id},'${r.joint==='BW'?'bend':'macro'}')" title="클릭: 미실시 → Pass → Fail">${mk3(r.joint==='BW'?T.bend:T.macro)}</span></td><td class="num"><span class="mc" onclick="recStMenu(event,${r.id})" title="클릭: 합격 / 불합격 처리">${pill(st,st==='fail'&&rawStatus(r)==='pending'?'퇴사자의 미완료 시험 → 불합격 처리':'')}</span></td><td>${calcExpire(r.weldingDate)}</td><td class="num">${(r.renewals||[]).length}/5</td>
-   <td class="bx"><button class="b sm sec" onclick="editR(${r.id})">수정</button>${kid?'':` <button class="b sm sec" title="같은 조건으로 새 기록 만들기" onclick="copyRec(${r.id})">복사</button>`}
+   <td class="bx"><button class="b sm sec" onclick="editR(${r.id})">수정</button>${kid?'':` <button class="b sm sec" title="같은 조건으로 새 기록 만들기" onclick="copyRec(${r.id})">복사</button>`}${!kid&&st==='fail'?` <button class="b sm" style="background:#e08a1a" title="같은 용접사·같은 조건으로 재시험 기록을 바로 만듭니다 (용접일은 오늘, 결과는 비움)" onclick="retestRec(${r.id})">↻ 재시험</button>`:''}
    ${st==='pass'?`<button class="b sm" onclick="showCert(${r.id})">인증서</button> <button class="b sm sec" onclick="addRenewal(${r.id})">6개월 서명</button>`:''}
    <button class="b sm red" onclick="delRec(${r.id})">삭제</button></td></tr>`;};
   const page=groups.slice(RF.page*PAGE,RF.page*PAGE+PAGE);
@@ -2735,6 +2735,9 @@ async function assignWps(){
 }
 function newRec(){ if(!welders.length) return alert('먼저 용접사를 등록하세요.');
   editRec={...FIELDS_DEFAULT,tests:{},renewals:[],welderId:0}; vRecords(); } // 빈 상태로 시작 — 용접사를 고르면 그 용접사의 최근 기록 조건을 불러온다
+function retestRec(id){ const r=records.find(x=>x.id===id); if(!r) return; if(RO()) return toast('조회 전용 계정은 수정할 수 없습니다.',2500); const w=welders.find(x=>x.id===r.welderId)||{};
+  editRec={...FIELDS_DEFAULT,...Object.fromEntries(COND.map(k=>[k,r[k]])),welderId:r.welderId,weldingDate:today(),tests:{},renewals:[],refNo:'',issueDate:''}; tab='records'; vRecords(); window.scrollTo(0,0);
+  toast(`↻ 재시험: ${w.name||''} · ${r.joint} ${r.process} t${fmtN(r.thickness)} ${r.position} — 이전 시도 ${r.weldingDate} 불합격. 용접일과 시험 결과를 입력하고 저장하세요 (이전 시도는 "시도" 칸에 묶여 보관됩니다).`,7000); setTimeout(()=>{ const d=document.querySelector('#rf [name=weldingDate]'); if(d) d.focus(); },80); }
 function copyRec(id){ const r=records.find(x=>x.id===id);
   editRec={...FIELDS_DEFAULT,...Object.fromEntries(COND.map(k=>[k,r[k]])),welderId:r.welderId,weldingDate:today(),tests:{},renewals:[],refNo:'',issueDate:''}; vRecords(); }
 function condList(project){ // 해당 프로젝트에 등록된 시험 조건 조합 (자주 쓴 순)
