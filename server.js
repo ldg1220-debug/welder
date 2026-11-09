@@ -10,7 +10,17 @@
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto'), os = require('os'), readline = require('readline');
 
-const ROOT = __dirname, DATA = path.join(ROOT, 'data'), HTML = path.join(ROOT, 'welder-cert.html');
+const ROOT = __dirname, DATA = path.join(ROOT, 'data'), APP = path.join(ROOT, 'app'), HTML_ROOT = path.join(ROOT, 'welder-cert.html');
+// 화면 파일: app 폴더에 welder-cert.html 이 있으면 그것을 쓰고, 없으면 server.js 와 같은 폴더의 파일을 쓴다 (app 폴더 권장)
+const htmlPath = () => { const a = path.join(APP, 'welder-cert.html'); return fs.existsSync(a) ? a : HTML_ROOT; };
+// 화면 파일이 바뀔 때마다 그 버전을 app/archive 에 보관 (예전 버전으로 되돌릴 수 있게). 파일 수정시각이 바뀐 경우에만 검사한다.
+let _hm = 0, _hh = '';
+function archiveHtml() { try { const f = htmlPath(), st = fs.statSync(f); if (st.mtimeMs === _hm) return; _hm = st.mtimeMs; const buf = fs.readFileSync(f), h = crypto.createHash('sha1').update(buf).digest('hex'); if (h === _hh) return; _hh = h;
+    const sf = path.join(DATA, 'html.sha'); let last = ''; try { last = fs.readFileSync(sf, 'utf8').trim(); } catch (e) {} if (h === last) return;
+    const ver = ((buf.toString('utf8', 0, buf.length).match(/id="ver"[^>]*>\s*(v\d+)/) || [])[1]) || 'v?', d = new Date(), z = n => String(n).padStart(2, '0'), stamp = `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}`;
+    const dir = path.join(path.dirname(f), 'archive'); fs.mkdirSync(dir, { recursive: true }); fs.copyFileSync(f, path.join(dir, `welder-cert_${ver}_${stamp}.html`)); fs.writeFileSync(sf, h);
+    const all = fs.readdirSync(dir).filter(x => /^welder-cert_.*\.html$/.test(x)).sort(); while (all.length > 30) fs.unlinkSync(path.join(dir, all.shift()));
+    console.log(`[화면 파일 보관] ${ver} → ${path.join(dir, `welder-cert_${ver}_${stamp}.html`)}`); } catch (e) { console.error('[화면 파일 보관 실패]', e.message); } }
 const STORES = ['welders', 'records', 'settings', 'images', 'wps', 'pqr', 'joints'];
 const KEYPATH = { settings: 'key' };           // 나머지는 id 자동 증가
 const argv = process.argv.slice(2), arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
@@ -86,7 +96,7 @@ function body(req) { return new Promise((ok, no) => { const a = []; let n = 0; r
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x'), p = url.pathname;
   try {
-    if (req.method === 'GET' && (p === '/' || p === '/index.html' || p === '/welder-cert.html')) { if (!fs.existsSync(HTML)) return send(res, 500, 'welder-cert.html 파일이 server.js 와 같은 폴더에 없습니다.'); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return fs.createReadStream(HTML).pipe(res); }
+        if (req.method === 'GET' && (p === '/' || p === '/index.html' || p === '/welder-cert.html')) { const hf = htmlPath(); if (!fs.existsSync(hf)) return send(res, 500, 'welder-cert.html 파일이 없습니다. server.js 옆의 app 폴더(또는 같은 폴더)에 두세요.'); archiveHtml(); res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return fs.createReadStream(hf).pipe(res); }
     if (!p.startsWith('/api/')) return send(res, 404, { error: 'not found' });
     if (req.method === 'POST' && req.headers['x-requested-with'] !== 'welder') return send(res, 403, { error: 'bad request' });
     if (p === '/api/login' && req.method === 'POST') {
@@ -152,8 +162,8 @@ function ask(q, hidden) { return new Promise(ok => { const rl = readline.createI
     if (!name || pw.length < 6) { console.error('아이디와 6자 이상의 비밀번호가 필요합니다.'); process.exit(1); }
     setUser(name, pw, 'master'); console.log(`마스터 계정 "${name}" 을(를) 만들었습니다.\n`);
   }
-  dailyBackup();
+  dailyBackup(); archiveHtml();
   server.listen(PORT, '0.0.0.0', () => {
     const ips = Object.values(os.networkInterfaces()).flat().filter(i => i && i.family === 'IPv4' && !i.internal).map(i => i.address);
-    console.log(`서버가 시작되었습니다 (종료: Ctrl+C)\n  이 PC에서:  http://localhost:${PORT}\n${ips.map(ip => `  다른 PC에서: http://${ip}:${PORT}`).join('\n')}\n  데이터 폴더: ${DATA}\n`); });
+    console.log(`서버가 시작되었습니다 (종료: Ctrl+C)\n  이 PC에서:  http://localhost:${PORT}\n${ips.map(ip => `  다른 PC에서: http://${ip}:${PORT}`).join('\n')}\n  데이터 폴더: ${DATA}\n  화면 파일:   ${htmlPath()}\n`); });
 })();
