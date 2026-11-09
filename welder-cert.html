@@ -166,7 +166,7 @@ body.ro input[type=file]{display:none!important}
 </head>
 <body>
 <header>
-  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v125</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v126</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -3018,7 +3018,7 @@ function vSettings(){
    <div class="hint">기본 공휴일: 양력 고정 공휴일과 대체공휴일(자동 계산), 2022~2030년 설·추석·부처님오신날과 선거일. 정부 발표로 바뀐 날은 위 칸에서 보정하세요.</div>
    <div class="actbar"><button class="b">저장</button><button type="button" class="b sec" onclick="syncSettingsForm();sampleCert()">📄 샘플 인증서 미리보기 (현재 설정 반영)</button></div></form></div>
   <div class="card"><h2>백업 · 복원</h2><div class="row"><button class="b" onclick="exportAll()">JSON 백업 다운로드</button>
-   <label class="b sec" style="cursor:pointer">백업 파일로 복원…<input type="file" accept=".json" hidden onchange="importAll(this.files[0])"></label><small style="color:var(--bad)">복원하면 현재 데이터가 모두 대체됩니다.</small></div>
+   <label class="b sec" style="cursor:pointer">백업 파일로 복원…<input type="file" accept=".json" multiple hidden onchange="importAll(this.files);this.value=''"></label><small style="color:var(--bad)">복원하면 현재 데이터가 모두 대체됩니다.</small><small class="hint" style="display:block">서버 data 폴더의 백업(welders.json, records.json … )도 한꺼번에 선택해 복원할 수 있습니다.</small></div>
    <p class="hint">${REMOTE.on?'데이터는 사내 서버(server.js 의 data 폴더)에 저장되며, 서버가 매일 자동 백업합니다.':'데이터는 이 브라우저(IndexedDB)에만 저장됩니다. 브라우저 데이터를 지우면 사라지므로 주기적으로 백업하세요.'}</p></div>
   ${!REMOTE.on?`<div class="card"><h2>서버 계정 · 쪽지</h2><p class="hint" style="margin:0">지금은 파일을 직접 열어 이 PC에만 저장하는 상태입니다. 계정·쪽지 기능은 <b>서버로 접속했을 때만</b> 나타납니다. 서버 PC에서 <code>server.js</code>를 실행한 뒤 브라우저 주소창에 <code>http://localhost:8080</code> (다른 PC는 <code>http://서버주소:8080</code>)을 입력해 접속하세요. 자세한 방법은 서버_사용법.md 참고.</p></div>`:''}
   ${REMOTE.on?`<div class="card"><h2>서버 계정</h2><div class="row"><span>로그인: <b>${esc(REMOTE.user)}</b> (${REMOTE.role==='master'?'마스터':'조회 전용'})</span><button class="b sm sec" onclick="acctMine()">내 비밀번호 변경</button>${REMOTE.role==='master'?'<button class="b sm" onclick="acctAdd()">+ 계정 추가</button>':''}</div>${REMOTE.role==='master'?'<div id="acct"></div><p class="hint">조회 전용 계정: 대시보드·용접사·시험기록·WPS/PQR 탭 조회, 엑셀·PDF 내려받기·인쇄·쪽지. 편집 계정: 같은 탭에서 용접사·시험기록은 수정/입력/가져오기 가능(WPS/PQR·설정·형상은 조회만). 수정 요청은 서버가 거부합니다.</p>':''}</div>`:''}
@@ -3031,15 +3031,26 @@ function vSettings(){
   if(REMOTE.on&&REMOTE.role==='master') acctRender(); roGuard();
 }
 function exportAll(){download(`welder-backup-${today()}.json`,JSON.stringify({version:4,welders,records,settings:S,images,wps:wpsMaster,pqr:pqrMaster,joints}),'application/json');}
-async function importAll(file){ if(!file) return; let d; try{d=JSON.parse(await file.text());}catch(e){return alert('JSON 형식이 아닙니다.');}
-  if(!Array.isArray(d.welders)||!Array.isArray(d.records)) return alert('백업 파일 형식이 올바르지 않습니다.');
-  if(!confirm('현재 데이터를 모두 지우고 복원할까요?')) return;
-  await DB.clear('welders');await DB.clear('records');await DB.clear('settings');await DB.clear('images');await DB.clear('wps');await DB.clear('pqr');await DB.clear('joints');
-  if(Array.isArray(d.joints)) await DB.putMany('joints',d.joints);
-  if(Array.isArray(d.wps)) await DB.putMany('wps',d.wps); if(Array.isArray(d.pqr)) await DB.putMany('pqr',d.pqr);
-  if(Array.isArray(d.images)) await DB.putMany('images',d.images.map(({id,...x})=>x));
-  await DB.putMany('welders',d.welders); await DB.putMany('records',d.records);
-  S={...DEFAULT_SETTINGS,...(d.settings||{})}; await saveSettings(); await load(); render(); }
+const SRV_STORES=['welders','records','settings','images','wps','pqr','joints'];
+async function importAll(file){ const files=!file?[]:(typeof file.text==='function'?[file]:[...file]); if(!files.length) return;
+  const parsed=[]; for(const f of files){ try{ parsed.push({name:f.name||'',d:JSON.parse(await f.text())}); }catch(e){ if(files.length===1) return alert('JSON 형식이 아닙니다.'); } }
+  // (1) 앱의 'JSON 백업 다운로드' 파일 (welders+records 가 한 파일에 들어 있음)
+  const app=parsed.find(x=>x.d&&Array.isArray(x.d.welders)&&Array.isArray(x.d.records));
+  if(app){ const d=app.d; if(!confirm('현재 데이터를 모두 지우고 복원할까요?')) return;
+    await DB.clear('welders');await DB.clear('records');await DB.clear('settings');await DB.clear('images');await DB.clear('wps');await DB.clear('pqr');await DB.clear('joints');
+    if(Array.isArray(d.joints)) await DB.putMany('joints',d.joints);
+    if(Array.isArray(d.wps)) await DB.putMany('wps',d.wps); if(Array.isArray(d.pqr)) await DB.putMany('pqr',d.pqr);
+    if(Array.isArray(d.images)) await DB.putMany('images',d.images.map(({id,...x})=>x));
+    await DB.putMany('welders',d.welders); await DB.putMany('records',d.records);
+    S={...DEFAULT_SETTINGS,...(d.settings||{})}; await saveSettings(); await load(); render(); return; }
+  // (2) 서버의 data 폴더(또는 data\backup\날짜 폴더)에 있는 welders.json, records.json … 파일들: 파일 이름으로 항목을 알아본다 (여러 개 한꺼번에 선택)
+  const got={}; for(const x of parsed){ const st=SRV_STORES.find(k=>new RegExp('(^|[\\\\/._-])'+k+'(\\.json)?$','i').test(x.name.replace(/\.json$/i,''))||x.name.toLowerCase()===k+'.json'); if(st&&x.d&&x.d.items&&typeof x.d.items==='object') got[st]=Object.values(x.d.items); }
+  if(!Object.keys(got).length) return alert('복원할 수 있는 파일이 아닙니다.\n\n· 앱의 "JSON 백업 다운로드"로 받은 파일 하나, 또는\n· 서버 data 폴더(data\\backup\\날짜 포함)의 welders.json, records.json, wps.json, pqr.json, joints.json, images.json, settings.json 을 한꺼번에 선택하세요 (파일 선택 창에서 Ctrl+A).');
+  const L={welders:'용접사',records:'시험기록',settings:'설정',images:'이미지',wps:'WPS',pqr:'PQR',joints:'형상'};
+  if(!got.welders||!got.records) if(!confirm(`선택한 파일에 ${!got.welders?'welders.json(용접사)':''}${!got.welders&&!got.records?', ':''}${!got.records?'records.json(시험기록)':''} 이(가) 없습니다.\n없는 항목은 지금 데이터를 그대로 두고, 아래 항목만 바꿉니다. 계속할까요?`)) return;
+  if(!confirm(`서버 데이터 파일에서 복원합니다.\n\n${Object.keys(got).map(k=>`· ${L[k]}: ${got[k].length}건`).join('\n')}\n\n위 항목은 현재 데이터를 모두 지우고 이 파일 내용으로 교체됩니다. (파일에 없는 항목은 그대로 유지)\n계속할까요?`)) return;
+  for(const k of Object.keys(got)){ await DB.clear(k); if(k==='settings'){ S={...DEFAULT_SETTINGS}; got.settings.forEach(x=>{ if(x&&x.key!=null) S[x.key]=x.value; }); await saveSettings(); } else if(got[k].length) await DB.putMany(k,k==='images'?got[k].map(({id,...x})=>x):got[k]); }
+  await load(); render(); toast('서버 데이터 파일에서 복원했습니다.',4000); }
 
 async function autoFixNo(){ // 명단에 'RM-WD24028' 처럼 하이픈이 빠진 번호를 'RM-WD-24028' 형식으로 통일 (충돌 없을 때만)
   const all=new Set(welders.map(w=>w.welderNo)), fix=welders.filter(w=>normNo(w.welderNo)!==w.welderNo&&!all.has(normNo(w.welderNo)));
@@ -3096,7 +3107,7 @@ function dropZones(){ switch(tab){
   case 'welders': return [{ic:'📋',t:'명단 · 시험 기록 · 인증서 엑셀 / CSV',s:'시트 형식을 자동 인식해서 불러옵니다',acc:/\.(xlsx|csv)$/i,f:importFiles},{ic:'🔤',t:'인증서 엑셀로 영문명 · 출생지 채우기',s:'발급한 인증서 엑셀에서 빈 칸만 채웁니다',acc:/\.xlsx$/i,f:fillFromCerts}];
   case 'dash': case 'records': return [{ic:'📋',t:'명단 · 시험 기록 · 인증서 엑셀 / CSV',s:'시트 형식을 자동 인식해서 불러옵니다',acc:/\.(xlsx|csv)$/i,f:importFiles}];
   case 'wps': return WF.doc?[]:[{ic:'📑',t:'WPS · WPQR 목록 / WPS 양식 엑셀 / PQR PDF',s:'엑셀·PDF를 자동 인식해서 불러옵니다',acc:/\.(xlsx|pdf)$/i,f:importFiles}];
-  case 'settings': return [{ic:'💾',t:'JSON 백업 복원',s:'복원하면 현재 데이터가 모두 대체됩니다',acc:/\.json$/i,f:l=>importAll(l[0])}];
+  case 'settings': return [{ic:'💾',t:'JSON 백업 복원',s:'복원하면 현재 데이터가 모두 대체됩니다',acc:/\.json$/i,f:l=>importAll(l)}];
  } return []; }
 let DRG=0;
 const dragHasFiles=e=>{ const dt=e.dataTransfer; if(!dt||![...(dt.types||[])].includes('Files')) return false; const it=[...(dt.items||[])]; return !it.length||it.some(i=>i.kind==='file'&&!/^image\//.test(i.type)); };
