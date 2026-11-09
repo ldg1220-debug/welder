@@ -163,6 +163,7 @@ function ask(q, hidden) { return new Promise(ok => { const rl = readline.createI
     setUser(name, pw, 'master'); console.log(`마스터 계정 "${name}" 을(를) 만들었습니다.\n`);
   }
   dailyBackup(); archiveHtml();
+  server.on('error', e => { if (e.code === 'EADDRINUSE') console.error(`\n[안내] ${PORT} 번 포트를 이미 다른 프로그램이 쓰고 있습니다.\n  → 서버가 이미 실행 중일 가능성이 큽니다 (자동 실행으로 켜져 있는 경우). 브라우저에서 http://localhost:${PORT} 로 접속해 보세요.\n  → 새 server.js 를 적용하려면 기존 서버를 먼저 끄세요: 관리자 명령 프롬프트에서  taskkill /F /IM node.exe  실행 후 다시 시작\n`); else console.error('[서버 오류]', e.message); process.exit(1); });
   server.listen(PORT, '0.0.0.0', () => {
     const ips = Object.values(os.networkInterfaces()).flat().filter(i => i && i.family === 'IPv4' && !i.internal).map(i => i.address);
     console.log(`서버가 시작되었습니다 (종료: Ctrl+C)\n  이 PC에서:  http://localhost:${PORT}\n${ips.map(ip => `  다른 PC에서: http://${ip}:${PORT}`).join('\n')}\n  데이터 폴더: ${DATA}\n  화면 파일:   ${htmlPath()}\n`); });
