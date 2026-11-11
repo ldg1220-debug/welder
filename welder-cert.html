@@ -166,7 +166,7 @@ body.ro input[type=file]{display:none!important}
 </head>
 <body>
 <header>
-  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v127</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v128</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -722,12 +722,14 @@ function wsData(except,onlyIds){ const t=today(), wm=new Map(welders.map(w=>[w.i
   let ws=welders.filter(w=>onlyIds?onlyIds.has(w.id):((WS.st==='전체'?w.status!=='미입사':w.status===WS.st)&&(WS.co==='전체'||w.company===WS.co)&&(!q||[w.name,w.welderNo].join(' ').toLowerCase().includes(q))))
     .sort((a,b)=>String(a.company||'').localeCompare(b.company||'','ko')||a.welderNo.localeCompare(b.welderNo,undefined,{numeric:true}));
   if(!onlyIds) ws=cfFilter('wsm',ws,except);
-  const ids=new Set(ws.map(w=>w.id)), cell={}, cols=new Map(), prog={};
+  const ids=new Set(ws.map(w=>w.id)), cell={}, cols=new Map(), prog={}, np={};
   for(const r of records){ if(!ids.has(r.welderId)) continue; const st=recStatus(r), k=[r.process,r.joint,+r.thickness,r.position].join('|');
     if(st==='pass'){ const exp=calcExpire(r.weldingDate), al=certAlert(r.weldingDate,exp,(r.renewals||[]).length,t), kind=exp<t?'ex':(al==='renewal'&&WS.rn)?'rn':'ok';
       if(kind==='ex'&&!WS.exp) continue; const c=cell[r.welderId+'|'+k];
       if(!c||c.kind==='pg'||c.kind==='ft'||(c.kind==='ex'&&kind!=='ex')||(kind===c.kind&&r.weldingDate>c.r.weldingDate)) cell[r.welderId+'|'+k]={kind,r,exp}; cols.set(k,[r.process,r.joint,+r.thickness,r.position]); }
-    else { if(st==='pending') prog[r.welderId]=(prog[r.welderId]||0)+1; const c=cell[r.welderId+'|'+k]; if(!c&&WS.fail&&!(S.wsHide||[]).includes(r.welderId+'|'+k)){ cell[r.welderId+'|'+k]={kind:st==='pending'?'pg':'ft',r}; cols.set(k,[r.process,r.joint,+r.thickness,r.position]); } } }
+    else { if(st==='pending') prog[r.welderId]=(prog[r.welderId]||0)+1; const kk=r.welderId+'|'+k, o=np[kk]; if(!o||String(r.weldingDate)>String(o.r.weldingDate)||(r.weldingDate===o.r.weldingDate&&r.id>o.r.id)) np[kk]={r,st,k}; } }
+  // 합격이 없는 조건칸에는 '가장 최근 시도'의 결과(진행 또는 불합격)를 표시한다 (예전 불합격 뒤에 다시 시험 중이면 진행으로 보인다)
+  if(WS.fail){ const hid=S.wsHide||[]; for(const kk in np){ if(cell[kk]) continue; const {r,st,k}=np[kk]; if(hid.includes(kk+'#'+r.id)||(hid.includes(kk)&&st!=='pending')) continue; cell[kk]={kind:st==='pending'?'pg':'ft',r}; cols.set(k,[r.process,r.joint,+r.thickness,r.position]); } }
   const pn=x=>parseInt(x)||999, C=[...cols.entries()].sort((a,b)=>{ const A=a[1],B=b[1]; return pn(A[0])-pn(B[0])||(A[1]==='BW'?0:1)-(B[1]==='BW'?0:1)||B[2]-A[2]||String(A[3]).localeCompare(B[3]); });
   // 실제 합격 칸이 하나도 없는 열(진행/불합격만 있는 열)은 그대로 두되 순서만 유지
   return {ws,cell,C,prog,t}; }
@@ -741,7 +743,7 @@ function drawWStatus(){ cfDef('wsm',[{k:'co',label:'업체',get:w=>w.company},{k
   const h4=C.map(c=>`<th>${esc(c[1][3])}</th>`).join('');
   let prev=null, body='';
   ws.forEach((w,n)=>{ const first=prev!==null&&prev!==w.company; prev=w.company; let fin=0;
-    const tds=C.map(([k])=>{ const c=cell[w.id+'|'+k]; if(!c) return '<td></td>'; if(c.kind==='pg') return `<td class="pg" data-k="${esc(w.id+'|'+k)}" onclick="hideWsCell(this.dataset.k)" style="cursor:pointer" title="시험 진행중 · 클릭하면 이 표시를 숨깁니다">진행</td>`; if(c.kind==='ft') return `<td class="ft" data-k="${esc(w.id+'|'+k)}" onclick="hideWsCell(this.dataset.k)" style="cursor:pointer" title="불합격 기록만 있음 · 클릭하면 이 표시를 숨깁니다 (기록은 삭제되지 않음)">✕</td>`;
+    const tds=C.map(([k])=>{ const c=cell[w.id+'|'+k]; if(!c) return '<td></td>'; if(c.kind==='pg') return `<td class="pg" data-k="${esc(w.id+'|'+k+'#'+c.r.id)}" onclick="hideWsCell(this.dataset.k)" style="cursor:pointer" title="시험 진행중 · 클릭하면 이 표시를 숨깁니다">진행</td>`; if(c.kind==='ft') return `<td class="ft" data-k="${esc(w.id+'|'+k+'#'+c.r.id)}" onclick="hideWsCell(this.dataset.k)" style="cursor:pointer" title="불합격 기록만 있음 · 클릭하면 이 표시를 숨깁니다 (기록은 삭제되지 않음)">✕</td>`;
       if(c.kind==='ok'||c.kind==='rn') fin++; return `<td class="${c.kind}" onclick="showCert(${c.r.id})" title="${c.r.weldingDate} 용접 · 만료 ${c.exp}${c.kind==='rn'?' · 6개월 서명 갱신 필요':''}">${c.kind==='ex'?'만료':'합격'}</td>`; }).join('');
     body+=`<tr class="${first?'sep':''} ${w.status==='퇴사'?'gone':''}"><td class="l">${esc(w.company)}</td><td>${n+1}</td><td class="l nm" onclick="printWelderCerts(${w.id})" title="${esc(w.name)} — 합격 인증서 전체 보기 (PDF 저장)"><b>${esc(w.name)}</b></td><td>${w.birthDate?w.birthDate.replace(/-/g,'').slice(2):''}</td><td class="l">${esc(w.welderNo)}</td><td>${esc(w.role)}</td><td>${w.status}</td>${tds}<td><b>${fin}</b></td><td>${prog[w.id]||''}</td></tr>`; });
   $('#wsbar').innerHTML=cfBar('wsm'); $('#wstbl').innerHTML=`<table class="mx"><thead><tr><th rowspan="4" class="l">업체${cfTh('wsm','co')}</th><th rowspan="4">순</th><th rowspan="4" class="l">성명${cfTh('wsm','name')}</th><th rowspan="4">생년월일</th><th rowspan="4" class="l">용접사번호${cfTh('wsm','no')}</th><th rowspan="4">구분${cfTh('wsm','role')}</th><th rowspan="4">상태${cfTh('wsm','st')}</th>${h1}<th rowspan="4">유효<br>합격</th><th rowspan="4">진행<br>시험</th></tr><tr class="h2">${h2}</tr><tr class="h3">${h3}</tr><tr class="h4">${h4}</tr></thead><tbody>${body||'<tr><td colspan="9" style="color:var(--mute)">표시할 용접사가 없습니다.</td></tr>'}</tbody></table>`;
