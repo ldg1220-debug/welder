@@ -166,7 +166,7 @@ body.ro input[type=file]{display:none!important}
 </head>
 <body>
 <header>
-  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v134</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v135</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -215,20 +215,20 @@ function certAlert(weldingDate, expireDate, renewalCount, today){
 // 합/불 판정. 규격(ISO 9606-1 Table 13 시험 방법): BW = VT + [RT 또는 굽힘/파단] 이되, 131·135·138·311 공정은 RT 를 쓰면 굽힘/파단도 필수(각주 b),
 //   UT 로 RT 를 대체(두께 ≥ 8mm 페라이트강)하면 추가 굽힘/파단 불필요(각주 c) / FW = VT + [파단 또는 Macro].
 // 이 앱은 RT 와 UT 를 한 칸(rtut)으로 받으므로 규격 모드에서는 RT 로 간주해 131·135·138·311 에서 굽힘/파단을 요구한다 (UT ≥ 8mm 로 합격시키려면 사내 기준 해제가 아니라 최종 판정을 직접 조정).
-// companyStrict=true 이면 사내 기준(BW: VT+RT/UT+Bend, FW: VT+Macro 모두).
+// companyStrict=true 이면 사내 기준(BW: VT+RT/UT+Bend, FW: VT+Macro 모두). 굽힘 대신 파단 시험을 했으면 파단을 굽힘 자리에(Fracture) 기록하며 같은 것으로 본다.
 function judge(joint, t, companyStrict, proc){
   const v=k=>t[k]||'na';
   const all=['vt','rtut','bend','macro','fracture','additional'].map(v);
   if(all.includes('fail')) return 'fail';
   if(joint==='BW'){
     if(v('vt')!=='pass') return 'pending';
-    if(companyStrict) return (v('rtut')==='pass'&&v('bend')==='pass')?'pass':'pending';
+    if(companyStrict) return (v('rtut')==='pass'&&(v('bend')==='pass'||v('fracture')==='pass'))?'pass':'pending';   // 파괴시험은 굽힘 또는 파단(규격 Table 13: 둘 중 하나)
     const code=processCode(proc), needBoth=['131','135','138','311'].includes(code), destr=v('bend')==='pass'||v('fracture')==='pass';
     if(needBoth) return (v('rtut')==='pass'&&destr)?'pass':'pending';
     return (v('rtut')==='pass'||destr)?'pass':'pending';
   }
   if(v('vt')!=='pass') return 'pending';
-  if(companyStrict) return v('macro')==='pass'?'pass':'pending';
+  if(companyStrict) return (v('macro')==='pass'||v('fracture')==='pass')?'pass':'pending';   // 필릿: 파단 또는 단면(Macro 가 파단을 대체)
   return (v('macro')==='pass'||v('fracture')==='pass')?'pass':'pending';
 }
 
@@ -573,7 +573,7 @@ async function jointMismatchApply(){ const pl=jointMismatchPlan(), n=pl.del.leng
   if(!confirm(`이음(BW/FW)과 시험 항목이 안 맞는 기록 ${n}건을 정리할까요?\n\n· 같은 용접사의 같은 조건(반대 이음) 기록이 이미 있어 중복으로 보고 삭제: ${pl.del.length}건\n${pl.del.slice(0,5).map(x=>`   ${wn(x.r)} ${x.r.weldingDate} ${x.r.joint} t${fmtN(x.r.thickness)} ${x.r.position}`).join('\n')}\n· 이음 형식을 시험 항목에 맞게 수정(BW↔FW): ${pl.fix.length}건\n${pl.fix.slice(0,5).map(x=>`   ${wn(x.r)} ${x.r.weldingDate} ${x.r.joint}→${x.want} t${fmtN(x.r.thickness)} ${x.r.position}`).join('\n')}\n\n(되돌릴 수 없으니 먼저 설정에서 백업을 받아 두세요)`)) return;
   for(const {r,q} of pl.del){ if(r.wpsNo&&!(q.wpsNo||'').trim()&&processCode(q.process)===processCode(r.process)) await DB.put('records',{...q,wpsNo:r.wpsNo,issueDate:q.issueDate||r.issueDate||''}); await DB.del('records',r.id); }
   if(pl.fix.length) await DB.putMany('records',pl.fix.map(({r,want})=>({...r,joint:want,backing:want==='FW'?'N/A':r.backing,tests:applyImpliedVT(r.tests||{})}))); await load(); render(); toast(`삭제 ${pl.del.length}건 · 수정 ${pl.fix.length}건 정리했습니다.`,5000); }
-const missTests=r=>{ const T=r.tests||{}, L=[]; if(T.vt!=='pass') L.push('VT'); if(r.joint==='BW'){ if(S.strict?T.rtut!=='pass':(T.rtut!=='pass'&&T.fracture!=='pass')) L.push('RT/UT'); if(S.strict?T.bend!=='pass':(T.bend!=='pass'&&T.fracture!=='pass'&&T.rtut!=='pass')) L.push('Bend'); } else if(S.strict?T.macro!=='pass':(T.macro!=='pass'&&T.fracture!=='pass')) L.push('Macro'); return L.join('·'); };
+const missTests=r=>{ const T=r.tests||{}, L=[]; if(T.vt!=='pass') L.push('VT'); if(r.joint==='BW'){ if(S.strict?T.rtut!=='pass':(T.rtut!=='pass'&&T.fracture!=='pass')) L.push('RT/UT'); if(S.strict?(T.bend!=='pass'&&T.fracture!=='pass'):(T.bend!=='pass'&&T.fracture!=='pass'&&T.rtut!=='pass')) L.push('Bend/Fracture'); } else if(T.macro!=='pass'&&T.fracture!=='pass') L.push('Macro/Fracture'); return L.join('·'); };
 function dataAudit(showIgn){ const wm=new Map(welders.map(w=>[w.id,w])), nm=r=>{ const w=wm.get(r.welderId)||{}; return `${w.name||'?'} ${r.weldingDate} ${r.process} ${r.joint} t${fmtN(r.thickness)} ${r.position}`; }, out=[], R=records.filter(r=>{ const w=wm.get(r.welderId); return !(w&&w.status==='미입사'); });
   const miss=r=>missTests(r)+' 결과 없음';
   const pend=R.filter(r=>recStatus(r)==='pending'); out.push({k:'pend',sev:1,t:'시험이 끝나지 않은(진행중) 기록',hint:'빠진 시험 결과(VT, RT/UT, Bend/Macro)를 입력하거나, 시험이 이미 끝난 기록이면 불합격으로 종결하세요.',action:'<button class="b sm" onclick="auditCloseAll()">모두 불합격으로 종결</button>',items:pend.map(r=>({id:r.id,t:nm(r)+' — '+miss(r)}))});
@@ -1253,6 +1253,8 @@ async function inheritWpsApply(silent){ const up=inheritWpsPlan(); if(!up.length
   if(!silent&&!confirm(`같은 용접사·같은 조인트(유형·공정·두께·자세)의 다른 기록에 WPS가 한 종류만 지정돼 있는 WPS 미지정 기록 ${up.length}건에 그 WPS를 복사할까요?\n(재시험·불합격 기록은 같은 WPS로 시험한 것으로 봅니다)`)) return 0;
   await DB.putMany('records',up); await load(); if(!silent){ drawWps(); toast(`${up.length}건에 WPS를 복사했습니다.`,3000); } return up.length; }
 // 인증서가 발급됐다는 것은 시험에 합격했다는 뜻이므로, 인증서에서 새로 만드는 기록은 빠진 필수 시험 결과를 Pass 로 채운다(진행중으로 남지 않게)
+const destrKey=r=>{ const T=r.tests||{}, k=r.joint==='BW'?'bend':'macro'; return (T[k]||'na')==='na'&&(T.fracture||'na')!=='na'?'fracture':k; };   // 파괴시험(굽힘·파단 / 단면·파단) 결과가 실제로 저장된 칸
+const destrVal=r=>(r.tests||{})[destrKey(r)]||'na';
 function certTestsPass(joint,t0){ const t={...t0}; t.vt='pass'; if(joint==='BW'){ if(t.rtut==='na'&&t.fracture==='na') t.rtut='pass'; if(t.bend==='na') t.bend='pass'; } else { if(t.macro==='na'&&t.fracture==='na') t.macro='pass'; } return t; }
 async function importCerts(certs){
   const bad=certs.filter(c=>c.bad), ok=certs.filter(c=>!c.bad&&c.weldingDate), noDate=certs.filter(c=>!c.bad&&!c.weldingDate);
@@ -1582,7 +1584,7 @@ function recStMenu(e,id){ e.stopPropagation(); if(RO()) return toast('조회 전
    B('✔ 합격으로 처리 <small style="color:var(--mute)">(필수 시험을 Pass로)</small>',`recSetStatus(${id},'pass')`,'#1a7f4b')+B('✕ 불합격으로 종결 <small style="color:var(--mute)">(시험 결과는 유지)</small>',`recSetStatus(${id},'fail')`,'#c0392b')+B('↺ 자동 판정으로 되돌리기 <small style="color:var(--mute)">(종결 해제)</small>',`recSetStatus(${id},'auto')`)+B('↻ 재시험 기록 추가 <small style="color:var(--mute)">(같은 조건, 결과는 비움)</small>',`retestRec(${id})`,'#b86e00')+B('✎ 상세 수정 화면 열기',`editRec=null;tab='records';editR(${id});render()`);
   document.body.appendChild(m); setTimeout(()=>document.addEventListener('click',function f(){ document.getElementById('stmenu')?.remove(); document.removeEventListener('click',f); }),0); }
 async function recSetStatus(id,mode){ const r=records.find(x=>x.id===id); if(!r) return; const T={...(r.tests||{})};
-  if(mode==='pass'){ const need=r.joint==='BW'?['vt','rtut','bend']:['vt','macro'], ch=need.filter(k=>T[k]!=='pass'); if(Object.values(T).includes('fail')&&!confirm('Fail 로 기록된 시험이 있습니다. 필수 시험을 모두 Pass 로 바꿔 합격 처리할까요?')) return; if(ch.length&&!Object.values(T).includes('fail')&&!confirm(`합격 처리하려면 ${ch.map(k=>({vt:'VT',rtut:'RT/UT',bend:'Bend',macro:'Macro'})[k]).join('·')} 를 Pass 로 기록해야 합니다.\n지금 Pass 로 바꿀까요?`)) return;
+  if(mode==='pass'){ const dk=destrKey(r), need=r.joint==='BW'?['vt','rtut',dk]:['vt',dk], ch=need.filter(k=>T[k]!=='pass'); if(Object.values(T).includes('fail')&&!confirm('Fail 로 기록된 시험이 있습니다. 필수 시험을 모두 Pass 로 바꿔 합격 처리할까요?')) return; if(ch.length&&!Object.values(T).includes('fail')&&!confirm(`합격 처리하려면 ${ch.map(k=>({vt:'VT',rtut:'RT/UT',bend:'Bend',macro:'Macro'})[k]).join('·')} 를 Pass 로 기록해야 합니다.\n지금 Pass 로 바꿀까요?`)) return;
     for(const k of ['vt','rtut','bend','macro','fracture','additional']) if(T[k]==='fail') T[k]='pass'; need.forEach(k=>T[k]='pass'); return recSaveInline({...r,tests:T,finalResult:''},'합격으로 처리했습니다.'); }
   if(mode==='fail') return recSaveInline({...r,finalResult:'fail'},'불합격으로 종결했습니다.');
   return recSaveInline({...r,finalResult:''},'자동 판정으로 되돌렸습니다.'); }
@@ -1630,7 +1632,7 @@ function drawRecs(){
   const rowHTML=({r,w,st},kid,g)=>{const T=r.tests||{}, open=RF.all||RF.open.has(g.main.r.id);
     const tog=kid?'<span style="color:var(--mute)">↳</span>':(g.kids.length?`<button class="b sm sec" style="padding:1px 7px" onclick="toggleGrp(${r.id})" title="재시험 이전 시도 ${g.kids.length}건 ${open?'접기':'보기'}">${open?'▾':'▸'} ${g.kids.length}</button>`:'');
     return `${msTr('rec',r.id,kid?'kid':'')}${msTd('rec',r.id)}<td class="num">${tog}</td><td>${r.weldingDate}</td><td>${esc(w.name)} <small style="color:var(--mute)">${esc(w.welderNo)}</small></td><td>${esc(w.company||'')}</td><td class="num">${w.status?`<span class="pill" style="background:${w.status==='재직'?'var(--ok)':w.status==='미확인'?'var(--warn)':'#8a94a0'}">${w.status}</span>`:''}</td><td class="num">${r.joint}</td><td>${esc(r.process)}</td><td class="num">${fmtN(r.thickness)}</td><td class="num">${esc(r.position)}</td><td>${esc(r.fillerGroup)}</td><td>${wpsCell(r)}</td>
-   <td class="num"><span class="mc" onclick="cellTest(${r.id},'vt')" title="클릭: 미실시 → Pass → Fail">${mk3(T.vt)}</span></td><td class="num"><span class="mc" onclick="cellTest(${r.id},'rtut')" title="클릭: 미실시 → Pass → Fail">${mk3(T.rtut)}</span></td><td class="num"><span class="mc" onclick="cellTest(${r.id},'${r.joint==='BW'?'bend':'macro'}')" title="클릭: 미실시 → Pass → Fail">${mk3(r.joint==='BW'?T.bend:T.macro)}</span></td><td class="num"><span class="mc" onclick="recStMenu(event,${r.id})" title="클릭: 합격 / 불합격 처리">${pill(st,st==='fail'&&rawStatus(r)==='pending'?'퇴사자의 미완료 시험 → 불합격 처리':'')}</span></td><td>${calcExpire(r.weldingDate)}</td><td class="num">${(r.renewals||[]).length}/5</td>
+   <td class="num"><span class="mc" onclick="cellTest(${r.id},'vt')" title="클릭: 미실시 → Pass → Fail">${mk3(T.vt)}</span></td><td class="num"><span class="mc" onclick="cellTest(${r.id},'rtut')" title="클릭: 미실시 → Pass → Fail">${mk3(T.rtut)}</span></td><td class="num"><span class="mc" onclick="cellTest(${r.id},'${destrKey(r)}')" title="${destrKey(r)==='fracture'?'파단 시험 · ':''}클릭: 미실시 → Pass → Fail">${mk3(destrVal(r))}${destrKey(r)==='fracture'?'<sup style="color:var(--mute)">F</sup>':''}</span></td><td class="num"><span class="mc" onclick="recStMenu(event,${r.id})" title="클릭: 합격 / 불합격 처리">${pill(st,st==='fail'&&rawStatus(r)==='pending'?'퇴사자의 미완료 시험 → 불합격 처리':'')}</span></td><td>${calcExpire(r.weldingDate)}</td><td class="num">${(r.renewals||[]).length}/5</td>
    <td class="bx"><button class="b sm sec" onclick="editR(${r.id})">수정</button>${kid?'':` <button class="b sm sec" title="같은 조건으로 새 기록 만들기" onclick="copyRec(${r.id})">복사</button>`}${!kid&&st==='fail'?` <button class="b sm" style="background:#e08a1a" title="같은 용접사·같은 조건으로 재시험 기록을 바로 만듭니다 (용접일은 오늘, 결과는 비움)" onclick="retestRec(${r.id})">↻ 재시험</button>`:''}
    ${st==='pass'?`<button class="b sm" onclick="showCert(${r.id})">인증서</button> <button class="b sm sec" onclick="addRenewal(${r.id})">6개월 서명</button>`:''}
    <button class="b sm red" onclick="delRec(${r.id})">삭제</button></td></tr>`;};
@@ -2869,8 +2871,8 @@ function vRecForm(){
    <label>용접 자세<input name="position" value="${esc(r.position)}" placeholder="PA / PC / PF ..." list="dl-pos"></label></div>
   <div class="gh">검사 결과 <small style="font-weight:400;color:var(--mute)">해당 없는 시험은 유형(BW/FW)에 따라 잠깁니다</small></div><div class="grid sm">
    <label>VT 육안${sel('vt',R3,T.vt||'na')}</label><label>RT/UT 체적${sel('rtut',R3,T.rtut||'na')}</label>
-   <label>Bend 굽힘${sel('bend',R3,T.bend||'na')}</label><label>Macro 단면${sel('macro',R3,T.macro||'na')}</label>
-   <label>Fracture 파단${sel('fracture',R3,T.fracture||'na')}</label><label>Additional 기타 시험${sel('additional',R3,T.additional||'na')}</label>
+   <label title="규격 Table 13: 굽힘 시험 또는 파단 시험 중 하나 (어느 쪽을 했는지는 '파괴시험 방법'에서 선택)">Bend/Fracture 굽힘·파단${sel('bend',R3,(T.bend&&T.bend!=='na')?T.bend:(r.joint==='BW'?(T.fracture||'na'):'na'))}</label><label title="필릿: 파단 시험 또는 단면(Macro) 시험">Macro/Fracture 단면·파단${sel('macro',R3,(T.macro&&T.macro!=='na')?T.macro:(r.joint==='FW'?(T.fracture||'na'):'na'))}</label>
+   <label title="실제로 한 시험이 굽힘/단면이면 '굽힘·단면', 파단 시험이면 '파단'. 인증서에는 해당 행에 표시됩니다.">파괴시험 방법${sel('destrKind',[['','굽힘·단면 Bend/Macro'],['fracture','파단 Fracture']],(T.fracture&&T.fracture!=='na'&&(r.joint==='BW'?(T.bend||'na')==='na':(T.macro||'na')==='na'))?'fracture':'')}</label><label>Additional 기타 시험${sel('additional',R3,T.additional||'na')}</label>
    <label title="굽힘·단면 등이 '대기'인 채로 시험이 끝난 기록은 '불합격으로 종결'로 두면 진행중으로 남지 않습니다">최종 판정${sel('finalResult',[['','자동 (시험 결과로 판정)'],['fail','불합격으로 종결 (미완료·중단)']],r.finalResult||'')}</label></div>
   <div class="gh">인증서 발행 정보</div><div class="grid">
    <label>Reference No.<input name="refNo" value="${esc(r.refNo)}" placeholder="비우면 자동 생성"></label>
@@ -2883,6 +2885,7 @@ function vRecForm(){
   const recNA=()=>{ const E=f.elements, bw=E.joint.value==='BW', T0=r.tests||{}, set=(n,off)=>{ const el=E[n]; if(!el||el.disabled===off) return; el.disabled=off; const lab=el.closest('label'); if(lab){ lab.style.opacity=off?'.45':''; lab.title=off?'이 조건에는 해당 없음':''; } };
     set('pipeDiameter',E.productType.value!=='T'); set('transfer',!/^13/.test(processCode(E.process.value))); set('backing',!bw); set('rtut',!bw); set('bend',!bw); set('macro',bw&&!['pass','fail'].includes(T0.macro)); };
   const collect=()=>{const o0=Object.fromEntries(new FormData(f)), T0=r.tests||{}, o={pipeDiameter:r.pipeDiameter??'',transfer:r.transfer,backing:r.backing||'N/A',rtut:T0.rtut||'na',bend:T0.bend||'na',macro:T0.macro||'na',...o0};
+    { const bwj=o.joint==='BW', kind=o.destrKind||'', both=(T0.fracture||'na')!=='na'&&(bwj?(T0.bend||'na')!=='na':(T0.macro||'na')!=='na'); if(kind==='fracture'){ o.fracture=bwj?o.bend:o.macro; if(bwj) o.bend='na'; else o.macro='na'; } else o.fracture=both?T0.fracture:'na'; }
     return {...r,welderId:+o.welderId,weldingDate:o.weldingDate,project:o.project,wpsNo:o.wpsNo,process:o.process,productType:o.productType,pipeDiameter:o.pipeDiameter,
      joint:o.joint,transfer:o.transfer,fillerGroup:o.fillerGroup,fillerType:o.fillerType,materialGroup:o.materialGroup,gas:o.gas,backing:o.backing,thickness:+o.thickness,deposited:+o.deposited||+o.thickness,position:o.position.trim().toUpperCase(),
      tests:(S.impliedVT?applyImpliedVT:x=>x)({vt:o.vt,rtut:o.rtut,bend:o.bend,macro:o.macro,fracture:o.fracture,additional:o.additional}),refNo:o.refNo,issueDate:o.issueDate,jobKnowledge:o.jobKnowledge,suppFillet:o.suppFillet,finalResult:o.finalResult||''};};

@@ -56,3 +56,8 @@ t('규격 Table 13: 135/131/138/311 은 RT 만으로는 부족, 굽힘·파단 �
   assert.equal(E.judge('BW',{vt:'pass',rtut:'pass'},false,'141 TIG'),'pass');
   assert.equal(E.judge('BW',{vt:'pass',bend:'pass'},false,'141 TIG'),'pass');
   assert.equal(E.judge('BW',{vt:'pass',rtut:'pass'},false),'pass');});
+t('사내 엄격 기준: 굽힘 대신 파단(Fracture)도 파괴시험으로 인정 (BW: VT+RT/UT+[Bend 또는 Fracture], FW: VT+[Macro 또는 Fracture])',()=>{
+  assert.equal(E.judge('BW',{vt:'pass',rtut:'pass',fracture:'pass'},true,'141 TIG'),'pass');
+  assert.equal(E.judge('BW',{vt:'pass',rtut:'pass'},true,'141 TIG'),'pending');
+  assert.equal(E.judge('FW',{vt:'pass',fracture:'pass'},true),'pass');
+  assert.equal(E.judge('FW',{vt:'pass'},true),'pending');});
