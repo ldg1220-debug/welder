@@ -166,7 +166,7 @@ body.ro input[type=file]{display:none!important}
 </head>
 <body>
 <header>
-  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v128</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v129</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -646,7 +646,7 @@ function drawWelders(){
    const tog=certs.length?`<button class="b sm sec" style="padding:1px 7px" onclick="toggleWelder(${w.id})" title="발행된 인증서 ${certs.length}건">${open?'▾':'▸'} ${certs.length}</button>`:'<span style="color:var(--mute)">-</span>';
    return `${msTr('wel',w.id,w.status==='퇴사'||w.status==='미입사'?'gone':'')}${msTd('wel',w.id)}<td class="num">${tog}</td><td class="num">${n+1}</td><td title="${esc(pj.join(' / '))}">${esc(pj[0]||'')}${pj.length>1?` <small style="color:var(--mute)">외 ${pj.length-1}</small>`:''}</td><td>${esc(w.company)}</td><td>${esc(w.name)}</td><td>${w.birthDate||''}</td><td>${esc(w.welderNo)}</td>
    <td>${first}</td><td>${last}</td><td>${esc(w.role)}</td>
-   <td class="num"><span class="pill" style="background:${w.status==='재직'?'var(--ok)':w.status==='퇴사'||w.status==='미입사'?'#8a94a0':'var(--warn)'}">${w.status}</span></td><td class="num">${ok[w.id]||0} / ${cnt[w.id]||0}</td>
+   <td class="num"><span class="pill mc" style="background:${w.status==='재직'?'var(--ok)':w.status==='퇴사'||w.status==='미입사'?'#8a94a0':'var(--warn)'}" onclick="wStMenu(event,${w.id})" title="클릭: 재직 / 퇴사 / 미입사 / 미확인 변경">${w.status} ▾</span></td><td class="num">${ok[w.id]||0} / ${cnt[w.id]||0}</td>
    <td title="${esc(is.map(i=>i.t).join(' / '))}" style="max-width:none">${is.length?is.map(issuePill).join(''):'<span style="color:var(--ok)">✔</span>'}</td>
    <td class="bx"><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm sec" title="소속·직무·출생지·상태를 복사해 새 용접사 등록" onclick="copyWelder(${w.id})">복사</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>${open&&certs.length?certDetail(w,certs):''}`;}).join('')||'<tr><td colspan="15" style="color:var(--mute)">해당하는 용접사가 없습니다.</td></tr>'}</tbody></table>`;
   rz($('#wlist'),'welders4');
@@ -691,6 +691,11 @@ function exportWelders(){ const {rows,cnt,ok,passes,iss}=welderRows(), sel=new S
   const head=['연번','소속','성명','영문 성명','생년월일','출생지','용접사 No','직무','상태','합격 건수','시험 건수','최초 합격일','가장 늦은 만기','비고(미비점)'];
   exportXlsx(`${fname('용접사 관리')}.xlsx`,'용접사',head,list.map((w,i)=>{ const ps=(passes[w.id]||[]).map(r=>r.weldingDate).sort(); return [i+1,w.company||'',w.name,w.nameEn||'',w.birthDate||'',w.birthPlace||'',w.welderNo,w.role||'',w.status,ok[w.id]||0,cnt[w.id]||0,ps[0]||'',ps.length?calcExpire(ps[ps.length-1]):'',iss[w.id].map(x=>x.t).join(', ')]; }));
   toast(`${list.length}명을 엑셀로 저장했습니다.`,2500); }
+function wStMenu(e,id){ e.stopPropagation(); if(RO()) return toast('조회 전용 계정은 수정할 수 없습니다.',2500); document.getElementById('stmenu')?.remove(); const w=welders.find(x=>x.id===id); if(!w) return;
+  const m=document.createElement('div'); m.id='stmenu'; m.style.cssText=`position:fixed;z-index:9999;left:${Math.min(e.clientX,innerWidth-190)}px;top:${Math.min(e.clientY,innerHeight-190)}px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:4px;min-width:160px`;
+  m.innerHTML=`<div style="font-size:11px;color:var(--mute);padding:4px 10px">${esc(w.name)} · ${esc(w.welderNo)}</div>`+[['재직','#1a7f4b'],['퇴사','#667'],['미입사','#667'],['미확인','#b86e00']].map(([v,c])=>`<button type="button" style="display:block;width:100%;text-align:left;background:${w.status===v?'#eef3f9':'none'};border:0;padding:8px 10px;border-radius:5px;cursor:pointer;font:inherit;font-size:13px;color:${c}" onmouseover="this.style.background='#eef3f9'" onmouseout="this.style.background='${w.status===v?'#eef3f9':''}'" onclick="document.getElementById('stmenu').remove();setWelderStatus(${id},'${v}')">${w.status===v?'✔ ':''}${v}</button>`).join('');
+  document.body.appendChild(m); setTimeout(()=>document.addEventListener('click',function f(){ document.getElementById('stmenu')?.remove(); document.removeEventListener('click',f); }),0); }
+async function setWelderStatus(id,v){ const w=welders.find(x=>x.id===id); if(!w||w.status===v) return; const sp=scrollPosOf('#wlist'); try{ await DB.put('welders',{...w,status:v}); }catch(e){ return; } await load(); drawWelders(); scrollRestore('#wlist',sp); toast(`${w.name}: 상태를 "${v}"(으)로 바꿨습니다.${v==='미입사'?' (미입사자는 기본 목록에서 숨겨집니다)':''}`,3000); }
 async function bulkWelderStatus(){ const v=$('#wbst')&&$('#wbst').value, ids=msIds('wel'); if(!v) return toast('바꿀 상태를 고르세요.',2500); if(!ids.length) return;
   if(!confirm(`선택한 ${ids.length}명의 상태를 "${v}"(으)로 바꿀까요?`)) return; const sp=scrollPosOf('#wlist');
   await DB.putMany('welders',welders.filter(w=>ids.includes(w.id)).map(w=>({...w,status:v}))); await load(); drawWelders(); scrollRestore('#wlist',sp); toast(`${ids.length}명을 "${v}"로 바꿨습니다.`,2500); }
