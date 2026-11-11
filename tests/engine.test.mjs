@@ -18,9 +18,16 @@ t('t=6 → 3 ≤ t ≤ 12',()=>assert.equal(R({thickness:6,deposited:6}).thickne
 t('t=3 → 3 ≤ t ≤ 6',()=>assert.equal(R({thickness:3,deposited:3}).thickness,'3 ≤ t ≤ 6'));
 t('t=11.9 → 3 ≤ t ≤ 23.8',()=>assert.equal(R({thickness:11.9,deposited:11.9}).thickness,'3 ≤ t ≤ 23.8'));
 t('FW t=3 → ≥3, PF → PA,PB,PF',()=>{const r=R({joint:'FW',thickness:3,position:'PF'});assert.equal(r.thickness,'≥ 3.0');assert.equal(r.position,'PA, PB, PF');});
-t('미지원 자세/FM → 수동검토',()=>{
-  assert.equal(E.calculateRangeOfApproval({process:'135 MAG',joint:'BW',thickness:6,position:'H-L045',fillerGroup:'FM1'}).manual_review_required,true);
-  assert.equal(E.calculateRangeOfApproval({process:'135 MAG',joint:'BW',thickness:6,position:'PC',fillerGroup:'FM5'}).manual_review_required,true);});
+t('규격에 없는 자세/FM → 수동검토',()=>{
+  assert.equal(E.calculateRangeOfApproval({process:'135 MAG',joint:'BW',thickness:6,position:'PX',fillerGroup:'FM1'}).manual_review_required,true);
+  assert.equal(E.calculateRangeOfApproval({process:'135 MAG',joint:'BW',thickness:6,position:'PC',fillerGroup:'FM7'}).manual_review_required,true);});
+t('규격서 표 값 (Table 3·5·6·8·9·10)',()=>{
+  assert.equal(R({fillerGroup:'FM2'}).fillerGroup,'FM1, FM2'); assert.equal(R({fillerGroup:'FM5'}).fillerGroup,'FM5'); assert.equal(R({fillerGroup:'FM4'}).fillerGroup,'FM1, FM2, FM3, FM4');
+  assert.equal(R({fillerType:'M'}).fillerType,'S, M');
+  assert.equal(R({position:'PE'}).position,'PA, PC, PE'); assert.equal(R({position:'PH'}).position,'PA, PE, PF'); assert.equal(R({position:'H-L045'}).position,'PA, PC, PE, PF');
+  assert.equal(R({joint:'FW',position:'PD',thickness:3,deposited:3}).position,'PA, PB, PC, PD, PE');
+  assert.equal(R({thickness:1,deposited:1}).thickness,'1 ≤ t ≤ 3'); assert.equal(R({joint:'FW',thickness:1,deposited:1}).thickness,'1 ≤ t ≤ 3');
+  assert.equal(R({productType:'T',pipeDiameter:20}).product,'T');});
 t('311 가스용접 → 수동검토',()=>assert.equal(E.calculateRangeOfApproval({process:'311',joint:'BW',thickness:6,position:'PC',fillerGroup:'FM1'}).manual_review_required,true));
 t('파이프 D=50 → D ≥ 25',()=>assert.equal(R({productType:'T',pipeDiameter:50}).diameter,'D ≥ 25'));
 t('파이프 D=20 → 20 ≤ D ≤ 40',()=>assert.equal(R({productType:'T',pipeDiameter:20}).diameter,'20 ≤ D ≤ 40'));
