@@ -166,7 +166,7 @@ body.ro input[type=file]{display:none!important}
 </head>
 <body>
 <header>
-  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v133</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v134</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -212,16 +212,20 @@ function certAlert(weldingDate, expireDate, renewalCount, today){
   return null;
 }
 
-// 합/불 판정. 기본은 ISO 9606-1 Table 1 (BW: VT + [RT/UT 또는 굽힘/파단], FW: VT + [Macro 또는 파단]).
+// 합/불 판정. 규격(ISO 9606-1 Table 13 시험 방법): BW = VT + [RT 또는 굽힘/파단] 이되, 131·135·138·311 공정은 RT 를 쓰면 굽힘/파단도 필수(각주 b),
+//   UT 로 RT 를 대체(두께 ≥ 8mm 페라이트강)하면 추가 굽힘/파단 불필요(각주 c) / FW = VT + [파단 또는 Macro].
+// 이 앱은 RT 와 UT 를 한 칸(rtut)으로 받으므로 규격 모드에서는 RT 로 간주해 131·135·138·311 에서 굽힘/파단을 요구한다 (UT ≥ 8mm 로 합격시키려면 사내 기준 해제가 아니라 최종 판정을 직접 조정).
 // companyStrict=true 이면 사내 기준(BW: VT+RT/UT+Bend, FW: VT+Macro 모두).
-function judge(joint, t, companyStrict){
+function judge(joint, t, companyStrict, proc){
   const v=k=>t[k]||'na';
   const all=['vt','rtut','bend','macro','fracture','additional'].map(v);
   if(all.includes('fail')) return 'fail';
   if(joint==='BW'){
     if(v('vt')!=='pass') return 'pending';
     if(companyStrict) return (v('rtut')==='pass'&&v('bend')==='pass')?'pass':'pending';
-    return (v('rtut')==='pass'||v('bend')==='pass'||v('fracture')==='pass')?'pass':'pending';
+    const code=processCode(proc), needBoth=['131','135','138','311'].includes(code), destr=v('bend')==='pass'||v('fracture')==='pass';
+    if(needBoth) return (v('rtut')==='pass'&&destr)?'pass':'pending';
+    return (v('rtut')==='pass'||destr)?'pass':'pending';
   }
   if(v('vt')!=='pass') return 'pending';
   if(companyStrict) return v('macro')==='pass'?'pass':'pending';
@@ -537,7 +541,7 @@ function render(){ if(LIM()&&!['dash','welders','records','wps'].includes(tab)) 
 
 // 판정. 시험이 끝나지 않은(진행중) 기록이라도 용접사가 퇴사 처리돼 있으면 불합격으로 본다.
 // 판정: 시험 결과로 계산하되, 엑셀 시험 기록서의 '합격' 열이 FAIL 로 확정한 기록(finalResult)은 불합격으로 본다 (VT·RT 합격 후 굽힘 미실시로 종결된 경우 등)
-function rawStatus(r){ const st=judge(r.joint,r.tests||{},S.strict); return r.finalResult==='fail'&&st!=='fail'?'fail':st; }
+function rawStatus(r){ const st=judge(r.joint,r.tests||{},S.strict,r.process); return r.finalResult==='fail'&&st!=='fail'?'fail':st; }
 function isGone(r){const w=welders.find(x=>x.id===r.welderId);return !!w&&(w.status==='퇴사'||w.status==='미입사');}
 function recStatus(r){const st=rawStatus(r); return st==='pending'&&isGone(r)?'fail':st;}
 function vDash(){
@@ -1590,7 +1594,7 @@ async function fixImpliedVT(){
   const t=records.filter(r=>applyImpliedVT(r.tests||{})!==(r.tests||{}));
   if(!t.length) return alert('보정할 기록이 없습니다.');
   const before=t.filter(r=>recStatus(r)!=='pass').length;
-  const after=t.filter(r=>judge(r.joint,applyImpliedVT(r.tests||{}),S.strict)==='pass'&&recStatus(r)!=='pass').length;
+  const after=t.filter(r=>judge(r.joint,applyImpliedVT(r.tests||{}),S.strict,r.process)==='pass'&&recStatus(r)!=='pass').length;
   if(!confirm(`VT가 미기록이고 RT/UT·굽힘·단면 결과가 있는 기록 ${t.length}건의 VT를 Pass로 보정합니다.\n(VT는 다음 시험 전에 통과한 것으로 간주. VT에 Fail이 적힌 기록은 건드리지 않음)\n\n이 중 판정이 새로 '합격'이 되는 기록: ${after}건\n계속할까요?`)) return;
   await DB.putMany('records',t.map(r=>({...r,tests:applyImpliedVT(r.tests||{})}))); await load(); vRecords(); toast(`${t.length}건 보정했습니다 (새 합격 ${after}건).`,5000); }
 const mk3=v=>v==='pass'?'<span class="m p">●</span>':v==='fail'?'<span class="m f">✕</span>':'<span class="m n">–</span>';
@@ -1712,7 +1716,7 @@ function drawWpsMaster(){
     const open=WF.open.has(x.key), m=x.m, l=x.list, pass=l.filter(y=>y.st==='pass').length, warn=l.filter(y=>y.why.length).length, k=esc(x.key);
     const name=m?m.wpsNo:(x.key===''?'(WPS 미지정)':x.name);
     const head=`<tr class="${x.key===''?'gone':''}"><td class="num" style="white-space:nowrap">${m?`<input type="checkbox" ${WF.msel.has(m.id)?'checked':''} onchange="selMaster('wps',${m.id},this.checked)"> `:''}<button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(name)}</b>${m&&wpsPqrCheck(m).length?` <span class="wn" title="${esc('PQR/양식 점검: '+wpsPqrCheck(m).join(' / '))}">◆</span>`:''}</td>
-     <td>${m?m.kind:(x.key===''?'':'<span class="wn">마스터 미등록</span>')}</td><td class="num">${m?esc(m.rev):''}</td><td>${m?esc(m.pqrNos.join(', ')):''}</td><td>${m?esc(m.materialGroup):''}</td><td class="num">${m?esc(m.weldType):esc(uj(l.map(y=>y.r.joint),3))}</td><td>${m?esc(m.process):esc(uj(l.map(y=>y.r.process),3))}</td><td>${m?esc(m.position):esc(uj(l.map(y=>y.r.position),5))}</td><td>${m?esc(m.thk):esc(uj(l.map(y=>fmtN(y.r.thickness)),5))}</td><td>${m?esc(m.backing):''}</td><td title="${m?esc(m.part):''}">${m?esc(m.part.replace(/\s+/g,' ')):''}</td>
+     <td>${m?m.kind:(x.key===''?'':'<span class="wn">마스터 미등록</span>')}</td><td class="num">${m?esc(m.rev):''}</td><td>${m?esc(m.pqrNos.join(', ')):''}</td><td>${m?esc(m.materialGroup):''}</td><td class="num">${m?esc(m.weldType):esc(uj(l.map(y=>y.r.joint),3))}</td><td>${m?esc(m.process):esc(uj(l.map(y=>y.r.process),3))}</td><td>${m?esc(m.position):esc(uj(l.map(y=>y.r.position),5))}</td><td>${m?esc(m.thk):esc(uj(l.map(y=>fmtN(y.r.thickness)),5))}</td><td>${m?esc(m.backing):''}</td><td title="${m?esc(m.part):''}">${m?esc((m.part||'').replace(/\s+/g,' ')):''}</td>
      <td class="num">${m?stPill(m.status,m.status==='사용'?'var(--ok)':m.status==='예비'?'var(--warn)':'#8a94a0'):''}</td><td class="num">${l.length}</td><td class="num">${pass}</td><td class="num">${new Set(l.map(y=>y.r.welderId)).size}</td><td class="num">${warn?`<span class="wn">${warn}</span>`:''}</td>
      <td class="bx">${m?`<button class="b sm" onclick="editMaster('wps',${m.id})">편집</button> <button class="b sm sec" onclick="previewWps(${m.id})">양식</button> <button class="b sm sec" onclick="copyWps(${m.id})">복사</button> <button class="b sm red" onclick="delMaster('wps',${m.id})">삭제</button>`:''}</td></tr>`;
     const detail=open?`<tr class="nom"><td></td><td colspan="17" style="padding:0;white-space:normal;overflow:visible;max-width:none"><div style="padding:6px 0 12px">
@@ -1739,7 +1743,7 @@ function drawPqr(){
     const p=x.p, ls=linked(x.key), open=WF.open.has('pqr:'+x.key), used=ls.reduce((a,m)=>a+(use.get(m.wpsNo.toUpperCase())||[]).length,0), k=esc('pqr:'+x.key);
     const head=`<tr><td class="num" style="white-space:nowrap">${p?`<input type="checkbox" ${WF.psel.has(p.id)?'checked':''} onchange="selMaster('pqr',${p.id},this.checked)"> `:''}<button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(p?p.pqrNo:x.name)}</b>${p?'':' <span class="wn">목록 미등록</span>'}</td><td>${p?esc(p.materialGroup):''}</td><td class="num">${p?esc(p.weldType):''}</td><td>${p?esc(p.process):''}</td><td>${p?esc(p.position):''}</td><td>${p?esc(p.thickness):''}</td><td>${p?p.weldDate||'':''}</td><td>${p?esc(p.certBody):''}</td><td>${p?esc(p.heat||''):''}</td><td>${p?esc(hrText(p)):''}</td>
       <td title="${esc(ls.map(m=>m.wpsNo).join(', '))}">${esc(uj(ls.map(m=>m.wpsNo),3))}</td><td class="num">${ls.length}</td><td class="num">${used}</td><td>${p?esc(p.remarks):''}</td><td class="bx">${p?`<button class="b sm sec" onclick="editMaster('pqr',${p.id})">수정</button> <button class="b sm red" onclick="delMaster('pqr',${p.id})">삭제</button>`:''}</td></tr>`;
-    const detail=open?`<tr class="nom"><td></td><td colspan="15" style="padding:0;white-space:normal;overflow:visible;max-width:none"><div style="padding:6px 0 12px"><b style="font-size:13px">이 PQR로 승인된 WPS (${ls.length}건)</b><table class="list nested" style="font-size:13px;width:100%"><thead><tr><th>WPS</th><th>구분</th><th class="num">형식</th><th>공정</th><th>자세</th><th>두께범위</th><th>용도</th><th class="num">상태</th><th class="num">사용 기록</th></tr></thead><tbody>${ls.map(m=>`<tr class="kid"><td>${esc(m.wpsNo)}</td><td>${m.kind}</td><td class="num">${esc(m.weldType)}</td><td>${esc(m.process)}</td><td>${esc(m.position)}</td><td>${esc(m.thk)}</td><td>${esc(m.part.replace(/\s+/g,' '))}</td><td class="num">${m.status}</td><td class="num">${(use.get(m.wpsNo.toUpperCase())||[]).length}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">연결된 WPS 없음</td></tr>'}</tbody></table></div></td></tr>`:'';
+    const detail=open?`<tr class="nom"><td></td><td colspan="15" style="padding:0;white-space:normal;overflow:visible;max-width:none"><div style="padding:6px 0 12px"><b style="font-size:13px">이 PQR로 승인된 WPS (${ls.length}건)</b><table class="list nested" style="font-size:13px;width:100%"><thead><tr><th>WPS</th><th>구분</th><th class="num">형식</th><th>공정</th><th>자세</th><th>두께범위</th><th>용도</th><th class="num">상태</th><th class="num">사용 기록</th></tr></thead><tbody>${ls.map(m=>`<tr class="kid"><td>${esc(m.wpsNo)}</td><td>${m.kind}</td><td class="num">${esc(m.weldType)}</td><td>${esc(m.process)}</td><td>${esc(m.position)}</td><td>${esc(m.thk)}</td><td>${esc((m.part||'').replace(/\s+/g,' '))}</td><td class="num">${m.status}</td><td class="num">${(use.get(m.wpsNo.toUpperCase())||[]).length}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">연결된 WPS 없음</td></tr>'}</tbody></table></div></td></tr>`:'';
     return head+detail;}).join('')||'<tr><td colspan="15" style="color:var(--mute)">PQR가 없습니다. WPQR 목록 엑셀을 가져오거나 "+ PQR 추가"로 등록하세요.</td></tr>'}</tbody></table>`;
   rz($('#wpslist'),'pqr1',2);
 }
@@ -2829,6 +2833,7 @@ function recTopHTML(c){ const w=welders.find(x=>x.id===c.welderId)||{}, st=recSt
   // 같은 날 같은 조건 / 같은 조인트 다른 날
   const same=records.filter(x=>sameCond(x)&&x.weldingDate===c.weldingDate); if(same.length) iss.push({sev:same.some(x=>recStatus(x)==='pass')&&st==='pass'?2:0,ic:'👥',t:`같은 날 같은 조건의 다른 기록 ${same.length}건: ${same.map(other).join(' · ')}`});
   const diff=records.filter(x=>sameCond(x)&&x.weldingDate!==c.weldingDate); if(diff.length) iss.push({sev:0,ic:'🔁',t:`같은 조인트의 다른 날짜 기록 ${diff.length}건 (재시험·재발급): ${diff.slice(0,6).map(other).join(' · ')}${diff.length>6?' …':''}`});
+  { const fails=diff.filter(x=>x.weldingDate<c.weldingDate&&recStatus(x)==='fail').length; if(fails>=2) iss.push({sev:1,ic:'🎓',t:`같은 조건에서 이전 불합격이 ${fails}회 있습니다. ISO 9606-1 8절: 재시험은 추가 교육 없이 <b>1회</b>만 허용됩니다 — 추가 교육 여부를 확인하세요.`}); }
   const worst=iss.reduce((a,x)=>Math.max(a,x.sev),-1);
   return `<div class="rt"><div class="rt-head"><div class="rt-who"><b>${esc(w.name||'용접사 선택')}</b> <small>${esc(w.welderNo||'')}${w.company?' · '+esc(w.company):''}${w.status?' · '+esc(w.status):''}</small></div><div class="rt-cond"><span>${esc(c.weldingDate||'날짜 미입력')}</span><span>${esc(c.process||'')}</span><span class="rt-j">${esc(c.joint||'')}</span><span>t${esc(thk)}</span><span class="rt-j">${esc(pos)}</span><span>${esc(c.fillerGroup||'')}</span></div><div>${pill(st)}</div></div>
    ${iss.length?`<div class="rt-list">${iss.map(x=>`<div class="rt-i s${x.sev}"><span class="ic">${x.ic}</span><span class="tx">${x.t}</span>${x.a||''}</div>`).join('')}</div>`:'<div class="rt-ok">✔ 점검할 문제가 없습니다 (WPS 적합 · 판정 완료 · 이음/시험항목 일치)</div>'}</div>`; }
@@ -3038,7 +3043,7 @@ function vSettings(){
    </div>
    <div class="gh">로고 · 서명 · 직인 <small style="font-weight:400;color:var(--mute)">붙여넣은 이미지는 보관함에 계속 저장됩니다</small></div><div class="imgg">${imgSection()}</div>
    <div class="gh">판정 기준</div>
-   <label class="ck" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" name="strict" ${S.strict?'checked':''} style="margin-top:3px"><span><b>사내 엄격 기준 (권장)</b> — BW: VT+RT/UT+Bend 모두 Pass, FW: VT+Macro Pass. 시험 기록서 엑셀의 '합격' 열과 같은 기준.<br><small style="color:var(--mute)">해제 시 ISO 9606-1 Table 1 기준 (BW: VT + RT/UT 또는 Bend/Fracture)</small></span></label>
+   <label class="ck" style="align-items:flex-start;margin-bottom:8px"><input type="checkbox" name="strict" ${S.strict?'checked':''} style="margin-top:3px"><span><b>사내 엄격 기준 (권장)</b> — BW: VT+RT/UT+Bend 모두 Pass, FW: VT+Macro Pass. 시험 기록서 엑셀의 '합격' 열과 같은 기준.<br><small style="color:var(--mute)">해제 시 ISO 9606-1 Table 13 기준 (BW: VT + RT 또는 Bend/Fracture, 단 135·131·138·311 공정은 RT 사용 시 Bend/Fracture 추가 필수 / FW: VT + Fracture 또는 Macro)</small></span></label>
    <label class="ck" style="align-items:flex-start"><input type="checkbox" name="impliedVT" ${S.impliedVT?'checked':''} style="margin-top:3px"><span><b>VT 자동 통과 처리</b> — RT/UT·굽힘·단면 결과가 있으면 VT를 따로 적지 않아도 통과로 간주 (입력·가져오기 시 적용)</span></label>
    <div class="gh">6개월 서명 (ISO 9606-1 9.2)</div>
    <div class="grid"><label class="ck"><input type="checkbox" name="renewSign" ${S.renewSign!==false?'checked':''}>인증서 서명란에 등록된 서명 이미지 넣기</label>
@@ -3156,6 +3161,7 @@ document.addEventListener('drop',async e=>{ const o=document.getElementById('dro
   try{ await z.f(ok); }catch(err){ alert('가져오기 실패: '+(err.message||err)); } });
 
 // ---- 서버 모드 보조: 상태 표시 / 다른 PC 변경 감지 / 조회 전용 UI 잠금 / 계정 관리
+function localBadge(){ if(REMOTE.on||!/^file:/.test(location.protocol)||document.getElementById('lclb')) return; const h=document.querySelector('header h1'); if(h) h.insertAdjacentHTML('beforeend','<span id="lclb" title="서버에 연결되지 않은 상태입니다. 이 PC의 브라우저에만 저장되며, 서버 데이터와 다릅니다. 서버 주소(http://…:8080)로 접속하세요." style="font-size:11px;background:#a35b00;border-radius:8px;padding:1px 8px;margin-left:6px;font-weight:400">⚠ 로컬 모드(서버 아님)</span>'); }
 function remoteBadge(){ if(!REMOTE.on) return; document.getElementById('srvb')?.remove(); const h=document.querySelector('header h1'); if(!h) return; h.insertAdjacentHTML('beforeend',`<span id="srvb" title="서버에 연결되어 있습니다">🖥 ${esc(REMOTE.user)} · ${ROLEN[REMOTE.role]||''}<a href="#" onclick="acctMine();return false" title="내 비밀번호 변경">🔑</a><a href="#" onclick="remoteLogout();return false">로그아웃</a></span>`); document.getElementById('msgbtn')?.remove(); document.getElementById('srvb').insertAdjacentHTML('afterend',`<button type="button" id="msgbtn" onclick="msgOpen()" title="${REMOTE.role==='master'?'받은 쪽지함 (조회 계정이 보낸 의견)':'관리자에게 메세지 보내기'}">✉ 쪽지<b id="msgn"></b></button>`); msgBadge(); }
 function msgBadge(){ const e=document.getElementById('msgn'); if(e) e.textContent=REMOTE.m?` ${REMOTE.m}`:''; const b=document.getElementById('msgbtn'); if(b) b.classList.toggle('new',!!REMOTE.m); }
 async function remoteLogout(){ try{ await rapi('/api/logout',{}); }catch(e){} location.reload(); }
@@ -3201,7 +3207,7 @@ async function acctRole(name,role){ if(!confirm(`"${name}" 계정을 ${role==='e
 async function acctPass(name){ const pass=prompt(`"${name}" 의 새 비밀번호 (6자 이상)`); if(!pass) return; try{ await rapi('/api/users',{name,pass}); toast('비밀번호를 바꿨습니다. (해당 계정은 다시 로그인해야 합니다)',3500); acctRender(); }catch(e){ alert(e.message); } }
 async function acctDel(name){ if(!confirm(`계정 "${name}" 을(를) 삭제할까요?`)) return; try{ await rapi('/api/users/del',{name}); acctRender(); }catch(e){ alert(e.message); } }
 async function acctMine(){ const old=prompt('현재 비밀번호'); if(old===null) return; const pass=prompt('새 비밀번호 (6자 이상)'); if(!pass) return; try{ await rapi('/api/passwd',{old,pass}); toast('비밀번호를 바꿨습니다.',2500); }catch(e){ alert(e.message); } }
-DB.open().then(load).then(async()=>{ if(LIM()) return; for(const f of [autoFixNo,autoFixRef,autoFixApproval,autoFixProc,autoFixStrict,autoFixVT]) await f(); }).then(render).catch(e=>{document.body.insertAdjacentHTML('beforeend','<div class="msg err">저장소를 열 수 없습니다: '+esc(e)+'</div>');});
+DB.open().then(()=>{ localBadge(); }).then(load).then(async()=>{ if(LIM()) return; for(const f of [autoFixNo,autoFixRef,autoFixApproval,autoFixProc,autoFixStrict,autoFixVT]) await f(); }).then(render).catch(e=>{document.body.insertAdjacentHTML('beforeend','<div class="msg err">저장소를 열 수 없습니다: '+esc(e)+'</div>');});
 </script>
 </body>
 </html>

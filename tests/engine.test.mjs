@@ -49,3 +49,10 @@ t('VT 미기록: 다음 검사 결과가 있으면 VT=Pass (RT Fail이어도), �
   assert.equal(E.judge('BW',E.applyImpliedVT({rtut:'pass',bend:'pass'}),true),'pass'); assert.equal(E.judge('BW',E.applyImpliedVT({rtut:'fail'}),false),'fail');});
 t('발행일 기본값 = 용접일 + 14일 (월/연 경계 포함)',()=>{ assert.equal(E.defaultIssue('2024-08-21'),'2024-09-04'); assert.equal(E.defaultIssue('2024-12-25'),'2025-01-08'); assert.equal(E.defaultIssue('2024-02-20'),'2024-03-05'); });
 console.log(`\n${n} passed`);
+t('규격 Table 13: 135/131/138/311 은 RT 만으로는 부족, 굽힘·파단 추가 필요 / 그 외 공정은 RT 또는 굽힘',()=>{
+  assert.equal(E.judge('BW',{vt:'pass',rtut:'pass'},false,'135 MAG'),'pending');
+  assert.equal(E.judge('BW',{vt:'pass',rtut:'pass',bend:'pass'},false,'135 MAG'),'pass');
+  assert.equal(E.judge('BW',{vt:'pass',rtut:'pass',fracture:'pass'},false,'138'),'pass');
+  assert.equal(E.judge('BW',{vt:'pass',rtut:'pass'},false,'141 TIG'),'pass');
+  assert.equal(E.judge('BW',{vt:'pass',bend:'pass'},false,'141 TIG'),'pass');
+  assert.equal(E.judge('BW',{vt:'pass',rtut:'pass'},false),'pass');});
