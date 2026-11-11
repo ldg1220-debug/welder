@@ -166,7 +166,7 @@ body.ro input[type=file]{display:none!important}
 </head>
 <body>
 <header>
-  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v131</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v132</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -181,6 +181,11 @@ body.ro input[type=file]{display:none!important}
 // ===================== ISO 9606-1 규격 엔진 (DOM 미사용, 순수 함수) =====================
 // confidence: 'high' = 샘플 인증서/규격 조항으로 확신, 'check' = 규격서 원문(표) 대조 필요
 const STD = 'ISO 9606-1';
+// '근거' 열에 표시하는 규격 조항. 사용자가 준 샘플 인증서에서 확인된 것만 표 번호를 적고, 확인되지 않은 항목은 표 번호 없이 항목 이름만 적는다.
+// (규격서 원문으로 표 번호를 확인하면 아래 값만 고치면 된다)
+const REF={process:'ISO 9606-1 5.2 (용접 방법)', productSample:'ISO 9606-1 Table 6 (샘플 인증서)', diameter:'ISO 9606-1 Table 6 (샘플 인증서)', joint:'ISO 9606-1 5.4 (용접 유형)', transfer:'ISO 9606-1 5.3 (샘플 인증서)', material:'ISO 9606-1 (샘플 인증서)',
+  fillerGroup:'ISO 9606-1 용가재 그룹 승인표 (표 번호 미확인)', fillerType:'ISO 9606-1 용가재 종류 승인표 (표 번호 미확인)', gas:'샘플 인증서 표기 (규격서 대조 필요)', backing:'양식(샘플 인증서)',
+  thickness:'ISO 9606-1 시험재 두께 승인표 (표 번호 미확인)', deposited:'ISO 9606-1 용접 두께 승인표 (표 번호 미확인)', position:'ISO 9606-1 용접 자세 승인표 (표 번호 미확인)', details:'ISO 9606-1 Weld details·백킹 (표 번호 미확인)'};
 const INF = Infinity;
 function fmtN(n){ return String(Number(Number(n).toFixed(2))); }
 function pd(s){ const [y,m,d]=String(s).slice(0,10).split('-').map(Number); return new Date(Date.UTC(y,m-1,d)); }
@@ -257,7 +262,7 @@ function calculateRangeOfApproval(input, standard){
   const add=(key,label,test,range,source,confidence)=>{ items.push({key,label,test,range,source,confidence:confidence||'high'}); };
   const j=i.joint, code=processCode(i.process), t=Number(i.thickness), s=Number(i.deposited||i.thickness);
 
-  add('process','용접방법 Welding process',i.process,i.process,'ISO 9606-1 5.2 / Table 5');
+  add('process','용접방법 Welding process',i.process,i.process,REF.process);
   if(!['135','136','138','141','121','111','114','131','311'].includes(code)) W.push(`공정 ${code}: 규격서 확인 필요`);
   if(code==='311'){ manual=true; W.push('311(가스용접)은 두께 범위 규칙이 달라 자동 산출 불가 → 수동 검토'); }
 
@@ -265,46 +270,46 @@ function calculateRangeOfApproval(input, standard){
   if(i.productType==='T'){
     const D=Number(i.pipeDiameter);
     let rng; if(!(D>0)) {rng='-'; W.push('관 외경(D) 미입력');} else rng = D<=25?`${fmtN(D)} ≤ D ≤ ${fmtN(2*D)}`:`D ≥ ${fmtN(Math.max(0.5*D,25))}`;
-    add('product','판재 또는 파이프 Plate or pipe','T','T, P','ISO 9606-1 Table 6','check');
-    add('diameter','파이프 직경 Pipe diameter',D>0?fmtN(D):'-',rng,'ISO 9606-1 Table 6','check');
+    add('product','판재 또는 파이프 Plate or pipe','T','T, P',REF.diameter,'check');
+    add('diameter','파이프 직경 Pipe diameter',D>0?fmtN(D):'-',rng,REF.diameter,'check');
   }else{
-    add('product','판재 또는 파이프 Plate or pipe','P','P, T (F:D≥500mm / R:D≥75mm)','ISO 9606-1 Table 6 (샘플 인증서)');
-    add('diameter','파이프 직경 Pipe diameter','N/A','N/A','ISO 9606-1 Table 6');
+    add('product','판재 또는 파이프 Plate or pipe','P','P, T (F:D≥500mm / R:D≥75mm)',REF.productSample);
+    add('diameter','파이프 직경 Pipe diameter','N/A','N/A',REF.diameter);
   }
-  add('joint','용접 유형 Type of Weld',j,j,'ISO 9606-1 Table 7 / 5.4','check');
+  add('joint','용접 유형 Type of Weld',j,j,REF.joint,'check');
   if(j==='FW') W.push('필릿 시험은 맞대기 자격과 별개 (규격서 확인)');
 
   // 이행 모드(GMAW 계열만)
   if(/^13/.test(code)){
     const tr=i.transfer||'globular/spray';
     const rng=tr==='short'?'Short circuit':tr==='pulsed'?'Pulsed':'Globular or Spray';
-    add('transfer','용접 이행 Transfer mode',tr==='globular/spray'?'Globular or Spray':tr==='short'?'Short circuit':'Pulsed',rng,'ISO 9606-1 5.3(샘플 인증서)', tr==='globular/spray'?'high':'check');
+    add('transfer','용접 이행 Transfer mode',tr==='globular/spray'?'Globular or Spray':tr==='short'?'Short circuit':'Pulsed',rng,REF.transfer, tr==='globular/spray'?'high':'check');
   }else add('transfer','용접 이행 Transfer mode','-','-','—');
 
-  add('material','모재 그룹 Material Group',i.materialGroup||'-','-','ISO 9606-1 (샘플 인증서)','check');
+  add('material','모재 그룹 Material Group',i.materialGroup||'-','-',REF.material,'check');
   // 용가재
   const fg=String(i.fillerGroup||'').replace(/\s/g,'');
-  if(FILLER_GRP[fg]) add('fillerGroup','용가재 그룹 Filler material group',fg,FILLER_GRP[fg].join(', '),'ISO 9606-1 Table 3', fg==='FM1'?'high':'check');
-  else if(fg){ manual=true; W.push(`용가재 그룹 ${fg}: Table 3 수동 확인 필요`); add('fillerGroup','용가재 그룹 Filler material group',fg,'수동 확인','ISO 9606-1 Table 3','check'); }
+  if(FILLER_GRP[fg]) add('fillerGroup','용가재 그룹 Filler material group',fg,FILLER_GRP[fg].join(', '),REF.fillerGroup, fg==='FM1'?'high':'check');
+  else if(fg){ manual=true; W.push(`용가재 그룹 ${fg}: 규격서 용가재 그룹표 수동 확인 필요`); add('fillerGroup','용가재 그룹 Filler material group',fg,'수동 확인',REF.fillerGroup,'check'); }
   const ft=i.fillerType||'S';
-  add('fillerType','용가재 종류 Filler material designation',ft,(FILLER_TYPE[ft]||[ft]).join(', '),'ISO 9606-1 Table 4', ft==='S'?'high':'check');
-  add('gas','보호가스 Shielding gas',i.gas||'-',i.gas?'Similar shielding gas':'-','ISO 9606-1 Table 5');
+  add('fillerType','용가재 종류 Filler material designation',ft,(FILLER_TYPE[ft]||[ft]).join(', '),REF.fillerType, ft==='S'?'high':'check');
+  add('gas','보호가스 Shielding gas',i.gas||'-',i.gas?'Similar shielding gas':'-',REF.gas,'check');
 
   // 백킹/이면 처리
   const bk=i.backing||'N/A';
-  add('backing','가우징/배킹 Gouging/Backing','N/A','N/A','양식(샘플 인증서)'); // ss nb/ss mb 는 아래 '기타 Weld details' 행에 표기
+  add('backing','가우징/배킹 Gouging/Backing','N/A','N/A',REF.backing); // ss nb/ss mb 는 아래 '기타 Weld details' 행에 표기
 
   // 두께
   const tr=thicknessRange(j,t), sr=thicknessRange(j,s);
-  add('thickness','시험재 두께 Material Thickness',fmtN(t),rangeText(tr,'t'),'ISO 9606-1 Table 8', 'high');
-  add('deposited','용접 두께 Deposited Thickness',fmtN(s),rangeText(sr,'s'),'ISO 9606-1 Table 8', 'high');
+  add('thickness','시험재 두께 Material Thickness',fmtN(t),rangeText(tr,'t'),REF.thickness, 'check');
+  add('deposited','용접 두께 Deposited Thickness',fmtN(s),rangeText(sr,'s'),REF.deposited, 'check');
 
   // 용접 자세
   const posTable=j==='BW'?POS_BW:POS_FW, pos=String(i.position||'').toUpperCase();
-  if(posTable[pos]) add('position','용접자세 Welding Position',pos,posTable[pos].join(', '),'ISO 9606-1 Table 9', (POS_HIGH[j]||[]).includes(pos)?'high':'check');
-  else { manual=true; W.push(`자세 ${pos||'(미입력)'}: 자동 산출표에 없음 → 수동 검토`); add('position','용접자세 Welding Position',pos||'-','수동 확인','ISO 9606-1 Table 9','check'); }
+  if(posTable[pos]) add('position','용접자세 Welding Position',pos,posTable[pos].join(', '),REF.position, (POS_HIGH[j]||[]).includes(pos)?'high':'check');
+  else { manual=true; W.push(`자세 ${pos||'(미입력)'}: 자동 산출표에 없음 → 수동 검토`); add('position','용접자세 Welding Position',pos||'-','수동 확인',REF.position,'check'); }
 
-  add('details','기타 Weld details',j==='BW'?bk:'-', j==='BW'?(BACKING[bk]||[bk]).join(', '):'-','ISO 9606-1 Table 7', bk==='ss nb'?'high':'check');
+  add('details','기타 Weld details',j==='BW'?bk:'-', j==='BW'?(BACKING[bk]||[bk]).join(', '):'-',REF.details, bk==='ss nb'?'high':'check');
   return {items, warnings:W, manual_review_required:manual, expire: i.weldingDate?calcExpire(i.weldingDate):null};
 }
 
