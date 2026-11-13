@@ -21,7 +21,9 @@ function archiveHtml() { try { const f = htmlPath(), st = fs.statSync(f); if (st
     const dir = path.join(path.dirname(f), 'archive'); fs.mkdirSync(dir, { recursive: true }); fs.copyFileSync(f, path.join(dir, `welder-cert_${ver}_${stamp}.html`)); fs.writeFileSync(sf, h);
     const all = fs.readdirSync(dir).filter(x => /^welder-cert_.*\.html$/.test(x)).sort(); while (all.length > 30) fs.unlinkSync(path.join(dir, all.shift()));
     console.log(`[화면 파일 보관] ${ver} → ${path.join(dir, `welder-cert_${ver}_${stamp}.html`)}`); } catch (e) { console.error('[화면 파일 보관 실패]', e.message); } }
-const STORES = ['welders', 'records', 'settings', 'images', 'wps', 'pqr', 'joints'];
+const STORES = ['welders', 'records', 'settings', 'images', 'wps', 'pqr', 'joints', 'files'];   // files = 첨부 파일 메타데이터 (실제 파일은 data/files/<id>)
+const FDIR = path.join(DATA, 'files'), MAX_FILE = 100 * 1024 * 1024;
+fs.mkdirSync(FDIR, { recursive: true });
 const KEYPATH = { settings: 'key' };           // 나머지는 id 자동 증가
 const argv = process.argv.slice(2), arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
 const PORT = +arg('port', process.env.PORT || 8080), MAX_BODY = 400 * 1024 * 1024, SESSION_MS = 12 * 3600 * 1000;
@@ -85,7 +87,8 @@ setInterval(() => { const n = Date.now(); for (const [k, s] of sessions) if (s.e
 function dailyBackup() {
   try { flush(); const day = new Date().toISOString().slice(0, 10), dir = path.join(DATA, 'backup', day); if (fs.existsSync(dir)) return; fs.mkdirSync(dir, { recursive: true });
     for (const f of [...STORES.map(s => s + '.json'), 'users.json', 'messages.json']) if (fs.existsSync(path.join(DATA, f))) fs.copyFileSync(path.join(DATA, f), path.join(dir, f));
-    const days = fs.readdirSync(path.join(DATA, 'backup')).sort(); while (days.length > 14) fs.rmSync(path.join(DATA, 'backup', days.shift()), { recursive: true, force: true });
+    try { const mir = path.join(DATA, 'backup', 'files'); fs.mkdirSync(mir, { recursive: true }); for (const f of fs.readdirSync(FDIR)) if (!fs.existsSync(path.join(mir, f))) fs.copyFileSync(path.join(FDIR, f), path.join(mir, f)); } catch (e) { console.error('[첨부 파일 백업 실패]', e.message); }   // 첨부 파일은 날짜별이 아니라 한 곳에 누적 복사(새 파일만)
+    const days = fs.readdirSync(path.join(DATA, 'backup')).filter(x => /^\d{4}-\d\d-\d\d$/.test(x)).sort(); while (days.length > 14) fs.rmSync(path.join(DATA, 'backup', days.shift()), { recursive: true, force: true });
   } catch (e) { console.error('[백업 실패]', e.message); } }
 setInterval(dailyBackup, 6 * 3600 * 1000).unref();
 
@@ -111,6 +114,22 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/logout') { log(ses, 'login', 'logout', {}); sessions.delete(ses.token); return send(res, 200, {}, { 'Set-Cookie': 'wsess=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' }); }
     if (p === '/api/me') return send(res, 200, { user: ses.name, role: ses.role, v: version });
     if (p === '/api/version') return send(res, 200, { v: version, m: msgCount(ses) });
+    // ---- 첨부 파일: 업로드/삭제는 마스터(WPS·PQR) 또는 마스터·편집(시험 기록), 열람은 로그인한 모두 ----
+    const FOWN = { wps: 'wps', pqr: 'pqr', record: 'records' };
+    const fcan = t => ses.role === 'master' || (ses.role === 'editor' && t === 'record');
+    let fm; if ((fm = /^\/api\/file\/(\d+)$/.exec(p)) && req.method === 'GET') { const meta = store.files.items[fm[1]], fp = path.join(FDIR, fm[1]); if (!meta || !fs.existsSync(fp)) return send(res, 404, { error: '파일을 찾을 수 없습니다.' });
+      const inl = /^(application\/pdf|image\/(png|jpe?g|gif|webp))$/.test(meta.mime) && url.searchParams.get('dl') !== '1', nm = encodeURIComponent(meta.name);
+      res.writeHead(200, { 'Content-Type': inl ? meta.mime : 'application/octet-stream', 'Content-Length': fs.statSync(fp).size, 'Content-Disposition': `${inl ? 'inline' : 'attachment'}; filename*=UTF-8''${nm}`, 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': 'sandbox', 'Cache-Control': 'private, max-age=300' }); return fs.createReadStream(fp).pipe(res); }
+    if (p === '/api/file/upload' && req.method === 'POST') { const q = url.searchParams, ot = q.get('type') || '', oid = +q.get('id');
+      if (!FOWN[ot] || !(oid > 0) || !store[FOWN[ot]].items[String(oid)]) return send(res, 400, { error: '첨부할 대상을 찾을 수 없습니다.' }); if (!fcan(ot)) return send(res, 403, { error: ot === 'record' ? '조회 전용 계정은 첨부할 수 없습니다.' : 'WPS·PQR 첨부는 마스터만 할 수 있습니다.' });
+      const name = decodeURIComponent(String(req.headers['x-file-name'] || 'file')).replace(/[\\/:*?"<>|\r\n]/g, '_').slice(0, 200) || 'file', mime = String(req.headers['content-type'] || 'application/octet-stream').split(';')[0].slice(0, 100), id = ++store.files.seq, fp = path.join(FDIR, String(id));
+      return await new Promise(ok => { const ws = fs.createWriteStream(fp); let n = 0, bad = false; req.on('data', c => { n += c.length; if (n > MAX_FILE && !bad) { bad = true; ws.destroy(); req.unpipe(ws); fs.unlink(fp, () => {}); send(res, 413, { error: '파일이 너무 큽니다 (최대 100MB).' }); ok(); } }); req.pipe(ws);
+        ws.on('finish', () => { if (bad) return; if (!n) { fs.unlink(fp, () => {}); send(res, 400, { error: '빈 파일입니다.' }); return ok(); }
+          const meta = { id, name, size: n, mime, ownerType: ot, ownerId: oid, cat: String(q.get('cat') || '기타').slice(0, 30), note: String(q.get('note') || '').slice(0, 200), by: ses.name, ts: Date.now() }; store.files.items[String(id)] = meta; markDirty('files');
+          const own = store[FOWN[ot]].items[String(oid)]; log(ses, 'data', 'file-add', { store: 'files', key: String(id), label: `첨부 ${name} → ${ot === 'wps' ? own.wpsNo : ot === 'pqr' ? own.pqrNo : lbl('records', own)}`, diff: [] }); send(res, 200, meta); ok(); });
+        ws.on('error', e => { if (!bad) { send(res, 500, { error: String(e.message) }); ok(); } }); }); }
+    if (p === '/api/file/del' && req.method === 'POST') { const b = await body(req), meta = store.files.items[String(b.id)]; if (!meta) return send(res, 404, { error: '이미 삭제된 파일입니다.' }); if (!fcan(meta.ownerType)) return send(res, 403, { error: '삭제 권한이 없습니다.' });
+      delete store.files.items[String(b.id)]; markDirty('files'); fs.unlink(path.join(FDIR, String(b.id)), () => {}); log(ses, 'data', 'file-del', { store: 'files', key: String(b.id), label: `첨부 삭제 ${meta.name}`, diff: [] }); return send(res, 200, { v: version }); }
     if (p === '/api/msgs' && req.method === 'GET') return send(res, 200, ses.role === 'master' ? msgs : msgs.filter(m => m.from === ses.name));
     if (p === '/api/msg' && req.method === 'POST') { const b = await body(req), text = String(b.text || '').trim().slice(0, 2000); if (!text) return send(res, 400, { error: '내용을 입력하세요.' });
       const now = Date.now(), a = (msgSent.get(ses.name) || []).filter(t => now - t < 3600000); if (a.length >= 30) return send(res, 429, { error: '쪽지를 너무 많이 보냈습니다. 잠시 뒤 다시 시도하세요.' }); a.push(now); msgSent.set(ses.name, a);
@@ -122,12 +141,12 @@ const server = http.createServer(async (req, res) => {
     // ---- 이하 마스터 전용 ----
     // ---- 데이터 쓰기: 마스터=전체 / 편집 계정(editor)=용접사·시험기록(+대시보드 '확인함', 현황표 숨김 설정) 만 / 조회 계정=불가 ----
     const EDITOR_STORES = ['welders', 'records'], EDITOR_SET = ['auditIgnore', 'wsHide'];
-    const canWrite = (store, v) => ses.role === 'master' || (ses.role === 'editor' && (EDITOR_STORES.includes(store) || (store === 'settings' && v && EDITOR_SET.includes(v.key))));
+    const canWrite = (store, v) => store !== 'files' && (ses.role === 'master' || (ses.role === 'editor' && (EDITOR_STORES.includes(store) || (store === 'settings' && v && EDITOR_SET.includes(v.key)))));
     const deny = () => send(res, 403, { error: ses.role === 'editor' ? '편집 권한이 없는 항목입니다. (편집 계정은 용접사·시험기록만 수정할 수 있습니다)' : '조회 전용 계정은 수정할 수 없습니다.' });
     if ((m = /^\/api\/put\/(\w+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); const v = await body(req); if (!canWrite(m[1], v)) return deny(); const r = applyPut(m[1], v); markDirty(m[1]); if (r.ch) logChanges(ses, [r.ch]); return send(res, 200, { id: r.id, v: version }); }
     if ((m = /^\/api\/putMany\/(\w+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); const a = await body(req); if (!Array.isArray(a)) return send(res, 400, {}); if (!a.every(v => canWrite(m[1], v))) return deny(); const rs = a.map(v => applyPut(m[1], v)); markDirty(m[1]); logChanges(ses, rs.filter(r => r.ch).map(r => r.ch)); return send(res, 200, { ids: rs.map(r => r.id), v: version }); }
     if ((m = /^\/api\/del\/(\w+)\/(.+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); if (!canWrite(m[1], null)) return deny(); const dk = decodeURIComponent(m[2]), old = store[m[1]].items[dk]; delete store[m[1]].items[dk]; markDirty(m[1]); if (old) log(ses, 'data', 'delete', { store: m[1], key: dk, label: lbl(m[1], old), diff: [], before: snap(m[1], old) }); return send(res, 200, { v: version }); }
-    if ((m = /^\/api\/clear\/(\w+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); if (ses.role !== 'master') return deny(); const nOld = Object.keys(store[m[1]].items).length; store[m[1]].items = {}; markDirty(m[1]); if (nOld) log(ses, 'data', 'clear', { store: m[1], n: nOld, label: `${m[1]} 전체 삭제 (${nOld}건)` }); return send(res, 200, { v: version }); }
+    if ((m = /^\/api\/clear\/(\w+)$/.exec(p)) && req.method === 'POST') { if (!STORES.includes(m[1])) return send(res, 404, {}); if (ses.role !== 'master' || m[1] === 'files') return deny(); const nOld = Object.keys(store[m[1]].items).length; store[m[1]].items = {}; markDirty(m[1]); if (nOld) log(ses, 'data', 'clear', { store: m[1], n: nOld, label: `${m[1]} 전체 삭제 (${nOld}건)` }); return send(res, 200, { v: version }); }
     if (ses.role !== 'master') return send(res, 403, { error: '마스터 계정만 할 수 있습니다.' });
     if (p === '/api/msg/reply' && req.method === 'POST') { const b = await body(req), m = msgs.find(x => x.id === b.id), text = String(b.text || '').trim().slice(0, 2000); if (!m || !text) return send(res, 400, { error: '쪽지를 찾을 수 없거나 내용이 없습니다.' }); m.replies.push({ from: ses.name, text, ts: Date.now() }); m.ru = true; saveMsgs(); return send(res, 200, {}); }
     if (p === '/api/msg/done' && req.method === 'POST') { const b = await body(req), m = msgs.find(x => x.id === b.id); if (!m) return send(res, 404, {}); m.done = !!b.done; saveMsgs(); return send(res, 200, {}); }
