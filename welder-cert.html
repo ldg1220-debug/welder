@@ -492,7 +492,7 @@ function msClick(k,id,e){ const m=ms(k); id=+id;
   else { m.sel.has(id)?m.sel.delete(id):m.sel.add(id); }
   m.last=id; msScrollRedraw(k); }
 function msAll(k,on){ const m=ms(k); m.order.forEach(i=>on?m.sel.add(i):m.sel.delete(i)); msScrollRedraw(k); }
-document.addEventListener('keydown',e=>{ const ae=document.activeElement||{}; if(e.key!=='Escape'||/TEXTAREA|SELECT/.test(ae.tagName||'')||(ae.tagName==='INPUT'&&!/^(checkbox|radio|button)$/.test(ae.type||''))) return; if(document.querySelector('#modal:not([hidden]) .sheet, #filesdlg, #prtdlg, #stmenu, #flink, #msgov')) return; const k=tab==='welders'?'wel':tab==='records'?'rec':null; if(k&&msIds(k).length){ msClear(k); } else if(tab==='wps'&&((WF.msel&&WF.msel.size)||(WF.psel&&WF.psel.size))){ clearMsel(WF.view==='pqr'?'pqr':'wps'); } });
+document.addEventListener('keydown',e=>{ const ae=document.activeElement||{}; if(e.key!=='Escape'||/TEXTAREA|SELECT/.test(ae.tagName||'')||(ae.tagName==='INPUT'&&!/^(checkbox|radio|button)$/.test(ae.type||''))) return; if(document.querySelector('#modal:not(.hide), #filesdlg, #prtdlg, #stmenu, #flink, #msgov, #rlg')) return; const k=tab==='welders'?'wel':tab==='records'?'rec':null; if(k&&msIds(k).length){ msClear(k); } else if(tab==='wps'&&((WF.msel&&WF.msel.size)||(WF.psel&&WF.psel.size))){ clearMsel(WF.view==='pqr'?'pqr':'wps'); } });
 function msClear(k){ ms(k).sel.clear(); msScrollRedraw(k); }
 const msIds=k=>{ const m=ms(k); return m.order.filter(i=>m.sel.has(i)); };   // 현재 목록에 보이는 선택 항목만
 document.addEventListener('mousedown',e=>{ if(e.shiftKey&&e.target.closest&&e.target.closest('tr[data-ms]')&&!e.target.closest('input,button,select,textarea,a')) e.preventDefault(); });
