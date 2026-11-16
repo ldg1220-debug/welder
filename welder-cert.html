@@ -28,7 +28,10 @@ table.list tbody tr:hover{background:#f5f8fb}
 .cfb{cursor:pointer;margin-left:4px;font-size:10px;color:#8a94a0;border:1px solid transparent;border-radius:3px;padding:0 3px;user-select:none}.cfb:hover{background:#dde6f0}.cfb.on{color:#fff;background:var(--accent)}.cfp{position:fixed;z-index:99998;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:10px;width:250px;font-size:13px}.cfp .cfs{width:100%;box-sizing:border-box}.cfp .cfl{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:4px}.cfp .cfl label{display:flex;gap:6px;align-items:center;padding:2px 4px;flex-direction:row;color:var(--ink);white-space:nowrap}.cfp .cfl label small{margin-left:auto;color:var(--mute)}table.list tr.gone td{background:#fdeeee}table.list tr.sel td{background:#e3eefb!important}
 .wn{color:#b7791f;font-weight:700}
 table.list tr.kid td{background:#f7f9fb;color:#5a6672;font-size:13px}table.list tr.kid td:first-child{border-left:3px solid #c9d3de}
-.m{display:inline-block;width:20px;text-align:center;font-weight:700}.m.p{color:var(--ok)}.m.f{color:var(--bad)}.m.n{color:#b5bcc5}
+.m{display:inline-block;width:20px;text-align:center;font-weight:700}.m.p{color:var(--ok)}.m.f{color:var(--bad)}.tchips{display:inline-flex;gap:2px}.tc{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;font-size:10px;font-weight:700;border-radius:3px;border:1px solid transparent}.tc.pass{background:#e2f5ea;color:#1a7f4b;border-color:#9ad3b3}.tc.fail{background:#fde4e4;color:#c0392b;border-color:#eaa0a0}.tc.wait{background:#fff0cc;color:#a65f00;border-color:#e6bf6a}.tc.skip{background:#f3f4f6;color:#b8bec7}
+.m.n{color:#b5bcc5}.m.w{color:#a65f00;background:#fff0cc;border-radius:50%;width:18px;height:18px;line-height:18px;font-size:13px}.m.x{color:#c9ced6;font-weight:400}
+.rqb{display:block;font-size:11px;font-weight:600;margin-top:2px}.rqb.w{color:#a65f00}.rqb.p{color:var(--ok)}.rqb.f{color:var(--bad)}.rqb.x{color:#8a94a0;font-weight:400}
+label.rq-w select{border-color:#e0a63a;background:#fff8e6}label.rq-p select{border-color:#7fc49a}label.rq-f select{border-color:#e07a7a;background:#fff2f2}
 td.num,th.num{text-align:center!important}
 .bx{white-space:nowrap}
 table.list td{overflow:hidden;text-overflow:ellipsis;max-width:0}
@@ -173,7 +176,7 @@ body.ro input[type=file]{display:none!important}
 </head>
 <body>
 <header>
-  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v142</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v143</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
@@ -328,6 +331,26 @@ function calculateRangeOfApproval(input, standard){
   return {items, warnings:W, manual_review_required:manual, expire: i.weldingDate?calcExpire(i.weldingDate):null};
 }
 
+
+// ---- 필요한 시험 (시편 조건에 따라): 'need' = 필수(결과가 있어야 함) / 'either' = 둘 중 하나 필요 / 'opt' = 이미 다른 시험으로 충족돼 불필요 / 'na' = 해당 없음
+// 시험 기록: 사내 엄격 기준이면 BW=VT+RT/UT+Bend(또는 파단), FW=VT+Macro(또는 파단). 규격 모드(Table 13)는 judge() 와 같은 규칙.
+function requiredTests(rec, strict, proc){
+  const j=rec.joint, T=rec.tests||{}, v=k=>T[k]||'na', code=processCode(proc||rec.process), notes=[], D=Number(rec.pipeDiameter);
+  const out={vt:'need',rtut:'na',destr:'na',basis:strict?'사내 기준':'ISO 9606-1 Table 13',destrName:j==='BW'?'Bend/Fracture 굽힘·파단':'Macro/Fracture 단면·파단',notes};
+  const destrPass=j==='BW'?(v('bend')==='pass'||v('fracture')==='pass'):(v('macro')==='pass'||v('fracture')==='pass'), rtPass=v('rtut')==='pass';
+  if(j==='BW'){
+    if(strict){ out.rtut='need'; out.destr='need'; }
+    else if(['131','135','138','311'].includes(code)){ out.rtut='need'; out.destr='need'; notes.push(`${code} 공정은 RT를 쓰면 굽힘/파단도 필수 (Table 13 각주 b)`); notes.push('UT로 RT를 대체(두께 ≥8mm 페라이트강)하면 추가 굽힘/파단 불필요 (각주 c)'); }
+    else { const done=rtPass||destrPass; out.rtut=rtPass?'need':done?'opt':'either'; out.destr=destrPass?'need':done?'opt':'either'; notes.push('RT 또는 굽힘/파단 중 하나 (각주 a)'); }
+    if(D>0&&D<=25) notes.push('외경 D ≤ 25mm 파이프는 굽힘/파단을 노치 인장 시험(Additional)으로 대체 가능 (각주 d)');
+  } else { out.destr='need'; notes.push('파단 시험 또는 단면(Macro) 시험 — Macro는 단면 2개 이상, 1개는 시작·정지 위치 (각주 e, 6.5.3)'); if(rec.productType==='T'&&!strict) notes.push('파이프 필렛의 파단 시험은 RT로 대체 가능 (각주 f)'); }
+  return out;
+}
+// PQR 시험 항목 (사내 PQR 양식 기준: 맞대기 = VT·MT/PT·RT/UT·인장·굽힘·충격·매크로·경도, 필렛 = VT·MT/PT·매크로·경도). 충격은 12mm 이상 맞대기만 필수로 표시 — 재질·규격 요구에 따라 직접 '불필요'로 바꿀 수 있다.
+const PQR_TESTS=[['vt','VT 육안','V'],['mt','MT/PT 표면결함','M'],['rt','RT/UT 체적','R'],['tensile','인장 Tensile','T'],['bend','굽힘 Bend','B'],['impact','충격 Impact','I'],['macro','매크로 Macro','X'],['hardness','경도 Hardness','H']];
+function pqrRequired(p){ const fw=p.weldType==='FW', t=Number(String(p.thickness||'').match(/\d+(?:\.\d+)?/)||0), o={vt:'need',mt:'need',rt:fw?'na':'need',tensile:fw?'na':'need',bend:fw?'na':'need',impact:(!fw&&t>=12)?'need':'na',macro:'need',hardness:'need'}; return o; }
+// 각 시험의 화면 상태: pass / fail / wait(필요한데 결과 없음) / skip(불필요·해당 없음)
+function pqrTestState(p,k){ const r=pqrRequired(p)[k], v=(p.tests||{})[k]||''; return v==='pass'?'pass':v==='fail'?'fail':v==='skip'?'skip':(r==='need'?'wait':'skip'); }
 function designation(i){
   const code=processCode(i.process), fm=String(i.fillerGroup||'').replace(/\s/g,'');
   const parts=['EN ISO 9606-1',code,i.productType||'P',i.joint,fm,i.fillerType||'S',`t${fmtN(i.thickness)}`,i.position];
@@ -669,7 +692,7 @@ function drawWelders(){
    <td>${first}</td><td>${last}</td><td><span class="mc" onclick="wCellEdit(event,${w.id},'role')" title="클릭: 직무 변경">${esc(w.role)}</span></td>
    <td class="num"><span class="pill mc" style="background:${w.status==='재직'?'var(--ok)':w.status==='퇴사'||w.status==='미입사'?'#8a94a0':'var(--warn)'}" onclick="wStMenu(event,${w.id})" title="클릭: 재직 / 퇴사 / 미입사 / 미확인 변경">${w.status} ▾</span></td><td class="num">${ok[w.id]||0} / ${cnt[w.id]||0}</td>
    <td title="${esc(is.map(i=>i.t).join(' / '))}" style="max-width:none">${is.length?is.map(issuePill).join(''):'<span style="color:var(--ok)">✔</span>'}</td>
-   <td class="bx"><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm sec" title="소속·직무·출생지·상태를 복사해 새 용접사 등록" onclick="copyWelder(${w.id})">복사</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>${open&&certs.length?certDetail(w,certs):''}`;}).join('')||'<tr><td colspan="15" style="color:var(--mute)">해당하는 용접사가 없습니다.</td></tr>'}</tbody></table>`;
+   <td class="bx"><button class="b sm sec" onclick="editWelder(${w.id})">수정</button> <button class="b sm sec" title="소속·직무·출생지·상태를 복사해 새 용접사 등록" onclick="copyWelder(${w.id})">복사</button> <button class="b sm red" onclick="delWelder(${w.id})">삭제</button></td></tr>${open&&certs.length?certDetail(w,certs):''}`;}).join('')||'<tr><td colspan="16" style="color:var(--mute)">해당하는 용접사가 없습니다.</td></tr>'}</tbody></table>`;
   rz($('#wlist'),'welders5',0,[52,60,46,242,112,62,96,116,96,96,70,64,110,90]);
 }
 // 발급한 인증서 엑셀(시트=인증서 1장)에서 영문 성명·출생지만 읽어 용접사 정보를 보충한다 (시험 기록은 만들지 않음)
@@ -1040,6 +1063,13 @@ function pdfLines(items){ const r=items.filter(i=>i.s.trim()).map(i=>({...i})).s
 // ---------- PQR 양식 PDF -> PQR 목록 ----------
 const PROC_NAME={'135':'MAG','136':'MAG','138':'MAG','131':'MIG','141':'TIG','142':'TIG','143':'TIG','111':'SMAW','121':'SAW','122':'SAW','52':'LBW','521':'LBW'};
 function pqrDate(t){ const m=String(t||'').match(/DATE\s*:\s*(\d{1,4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,4})/i)||String(t||'').match(/Date of welding\s*:\s*(\d{1,4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,4})/i); if(!m) return ''; let y,mo,d; if(m[1].length===4){ y=+m[1]; mo=+m[2]; d=+m[3]; } else { y=+m[3]; if(+m[1]>12){ d=+m[1]; mo=+m[2]; } else if(+m[2]>12){ mo=+m[1]; d=+m[2]; } else { d=+m[1]; mo=+m[2]; } } if(!(y>1990&&mo>=1&&mo<=12&&d>=1&&d<=31)) return ''; return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+// PQR 양식의 시험 결과 문구(ACCEPTABLE / Acceptable / N/A)를 읽어 시험 항목별 결과로 만든다
+function pqrTestsFromText(T){ const STOP=/(^|\n)\s*(VT|MT|PT|RT|UT)[\s|]+(ACCEPTABLE|NOT|N\/A|FAIL)|(MACRO TEST|HARDNESS TEST|TENSILE TESTS?|BEND TESTS?|V-NOTCH IMPACT|IMPACT TESTS?|NON-DESTRUCTIVE|Specimen No|Test Report)/i;
+  const seg=(re,n)=>{ const m=re.exec(T); if(!m) return ''; const from=m.index+m[0].length, end=m.index+(n||110); const k=T.slice(from,end).search(STOP); return T.slice(m.index,k>=0?from+k:end); };
+  const res=x=>!x?'':/not\s+acceptable|unacceptable|fail/i.test(x)?'fail':/acceptable/i.test(x)?'pass':/N\/A/i.test(x)?'skip':'';
+  const nde=n=>seg(new RegExp('(^|\\n)\\s*'+n+'[\\s|]+(?=ACCEPTABLE|NOT|N\\/A|FAIL)','i'),60);
+  const o={vt:res(nde('VT')),mt:res(nde('MT'))||res(nde('PT')),rt:res(nde('RT'))||res(nde('UT')),tensile:res(seg(/TENSILE TESTS?/i)),bend:res(seg(/BEND TESTS?/i)),macro:res(seg(/MACRO TEST/i)),hardness:res(seg(/HARDNESS TEST/i)),impact:res(seg(/IMPACT TESTS?/i,300))};
+  return Object.fromEntries(Object.entries(o).filter(([,v])=>v)); }
 function pqrFields(T,p1,hint){ // T=전체 글자, p1=첫 쪽 글자, hint={sheet,joint}
   const o={}, g=(re,t)=>{ const m=(t||T).match(re); return m?m[1].trim():''; };
   o.pqrNo=g(/PQR No\.\s*:\s*(PQR-?[A-Za-z0-9-]+)/i);
@@ -1057,6 +1087,7 @@ function pqrFields(T,p1,hint){ // T=전체 글자, p1=첫 쪽 글자, hint={shee
   else { o.weldType=/^PB$/.test(o.position)?(multi||t1>=10?'T-BUTT':'FW'):'BW'; o.inferType=true; }
   const fil=g(/Specification\s*:\s*((?:AWS|ISO)[^\n|]*?)(?:\s+Other|\n|\||$)/,body)||g(/Filler metal Specification\s*:\s*([^\n|]*)/i,T), gas=g(/Type\s*:\s*(M\d+|I\d+|C\d+)/,body), pre=g(/Preheat Temp\s*:\s*(\S+(?:\s*℃)?)/,T);
   o.remarks=[fil&&`용가재 ${fil}`,gas&&`가스 ${gas}`,pre&&`예열 ${pre}`].filter(Boolean).join(' · ');
+  { const tt=pqrTestsFromText(T); if(Object.keys(tt).length) o.tests=tt; }
   return {o,tbl,body}; }
 function parsePqrPage(pages){ // pages: 같은 PQR 번호의 페이지들(각각 pdfLines 결과)
   const T=pages.map(L=>L.map(l=>l.a.map(x=>x.s).join(' ')).join('\n')).join('\n'), p1=pages[0].map(l=>l.a.map(x=>x.s).join(' ')).join('\n'), {o,tbl}=pqrFields(T,p1,null);
@@ -1087,6 +1118,7 @@ async function commitPqrList(list,fname,srcLabel,extra){
   const byP=new Map(pqrMaster.map(m=>[m.pqrNo.toUpperCase(),m])), diff=[], nw=[], KL={materialGroup:'모재',process:'공정',position:'자세',thickness:'두께',weldDate:'시험일',heat:'입열량',heatRange:'입열량 범위'};
   const merged=list.map(o=>{ const old=byP.get(o.pqrNo.toUpperCase()); const n={...(old||{standard:'ISO 15614-1'}),pqrNo:old?old.pqrNo:o.pqrNo};
     for(const k of ['materialGroup','process','position','thickness','weldDate','heat','heatRange','passes']){ if(o[k]&&(Array.isArray(o[k])?o[k].length:true)){ if(old&&old[k]&&String(old[k])!==String(o[k])&&k!=='passes') diff.push(`${o.pqrNo} ${KL[k]}: ${old[k]} → ${o[k]}`); n[k]=o[k]; } }
+    if(o.tests) n.tests={...(old&&old.tests||{}),...o.tests};
     if(!n.weldType) n.weldType=o.weldType; else if(old&&old.weldType&&o.weldType&&old.weldType!==o.weldType&&!o.inferType) diff.push(`${o.pqrNo} 형식: ${old.weldType} → ${o.weldType}`),n.weldType=o.weldType;
     if(!old) nw.push(o.pqrNo); if(!n.remarks&&o.remarks) n.remarks=o.remarks; n.pdfName=fname; return n; });
   if(!confirm(`${srcLabel}에서 PQR ${merged.length}건을 읽었습니다 (신규 ${nw.length} / 갱신 ${merged.length-nw.length}).\n${merged.map(m=>`  ${m.pqrNo}  ${m.process||'?'} · ${m.position||'?'} · ${m.thickness||'?'}t · ${m.weldType}${m.heatRange?` · 입열량 ${m.heatRange}`:''} · 패스 ${(m.passes||[]).length}`).slice(0,30).join('\n')}${merged.length>30?`\n  … 외 ${merged.length-30}건`:''}\n${extra||''}${diff.length?`\n[기존 값과 달라지는 항목]\n${diff.slice(0,20).join('\n')}${diff.length>20?`\n… 외 ${diff.length-20}건`:''}\n`:''}\n※ 자동 판독이므로 가져온 뒤 PQR 목록에서 확인하세요.\n가져올까요?`)) return;
@@ -1567,7 +1599,7 @@ function vRecords(){
     <label class="ck"><input type="checkbox" id="rgone" ${RF.hideGone?'checked':''}>퇴사자 숨기기</label><label class="ck" title="시험만 보고 채용되지 않은 사람"><input type="checkbox" id="rnew" ${RF.hideNew?'checked':''}>미입사자 숨기기</label>
     <span id="rinfo" style="color:var(--mute);font-size:12px"></span></div>
    <div id="rbar" style="margin-top:8px"></div><div class="tw" id="rlist" style="margin-top:4px"></div><div class="row" id="rpager"></div>
-   <div style="color:var(--mute);font-size:12px;margin-top:8px">같은 용접사·같은 조인트(유형·공정·두께·자세)는 합격 기록(없으면 최근 기록) 한 줄로 묶이고, <b>▸ 숫자</b>를 누르면 이전 시도(불합격 등)가 펼쳐집니다.<br>검사 결과: <span class="m p">●</span> Pass <span class="m f">✕</span> Fail <span class="m n">–</span> 미실시. 판정은 검사 결과로 자동 계산됩니다(설정의 판정 기준 적용).</div></div>`;
+   <div style="color:var(--mute);font-size:12px;margin-top:8px">같은 용접사·같은 조인트(유형·공정·두께·자세)는 합격 기록(없으면 최근 기록) 한 줄로 묶이고, <b>▸ 숫자</b>를 누르면 이전 시도(불합격 등)가 펼쳐집니다.<br>검사 결과: <span class="m p">●</span> Pass <span class="m f">✕</span> Fail <span class="m w">○</span> 필요한 시험·결과 대기 <span class="m w">◐</span> 둘 중 하나 필요 <span class="m x">⊘</span> 불필요·해당 없음. 필요한 시험은 시편 조건(유형·공정)과 설정의 판정 기준으로 정해지고, 판정은 검사 결과로 자동 계산됩니다.</div></div>`;
   $('#rall').onchange=e=>{RF.all=e.target.checked;drawRecs();};
   $('#rgone').onchange=e=>{RF.hideGone=e.target.checked;RF.page=0;drawRecs();}; $('#rnew').onchange=e=>{RF.hideNew=e.target.checked;RF.page=0;drawRecs();};
   msReg('rec',drawRecs,'#rlist'); cfDef('rec',RCOLS.map(([k,label,get])=>({k,label,get})),ex=>recGroups(ex),drawRecs,'#rlist');
@@ -1694,6 +1726,10 @@ async function fixImpliedVT(){
   const after=t.filter(r=>judge(r.joint,applyImpliedVT(r.tests||{}),S.strict,r.process)==='pass'&&recStatus(r)!=='pass').length;
   if(!confirm(`VT가 미기록이고 RT/UT·굽힘·단면 결과가 있는 기록 ${t.length}건의 VT를 Pass로 보정합니다.\n(VT는 다음 시험 전에 통과한 것으로 간주. VT에 Fail이 적힌 기록은 건드리지 않음)\n\n이 중 판정이 새로 '합격'이 되는 기록: ${after}건\n계속할까요?`)) return;
   await DB.putMany('records',t.map(r=>({...r,tests:applyImpliedVT(r.tests||{})}))); await load(); vRecords(); toast(`${t.length}건 보정했습니다 (새 합격 ${after}건).`,5000); }
+// 시험 칸: 결과가 있으면 ● Pass / ✕ Fail, 없으면 필요 여부에 따라 ○ 필요(결과 대기) / ◐ 둘 중 하나 필요 / ⊘ 불필요·해당 없음
+const mk3r=(r,w)=>{ const T=(S.impliedVT?applyImpliedVT(r.tests||{}):(r.tests||{})), rq=requiredTests(r,S.strict), key=w==='destr'?destrKey(r):w, val=w==='destr'?destrVal(r):(T[w]||'na'), st=rq[w]; let cls='n',ch='–',tt='';
+  if(val==='pass'){ cls='p'; ch='●'; tt='합격'; } else if(val==='fail'){ cls='f'; ch='✕'; tt='불합격'; } else if(st==='need'){ cls='w'; ch='○'; tt='필요한 시험 — 결과 대기'; } else if(st==='either'){ cls='w'; ch='◐'; tt='RT 또는 굽힘/파단 중 하나 필요 — 결과 대기'; } else { cls='x'; ch='⊘'; tt=st==='opt'?'불필요 (다른 시험으로 이미 충족)':'불필요 (이 조건에는 해당 없음)'; }
+  return `<span class="mc" onclick="cellTest(${r.id},'${key}')" title="${tt}${key==='fracture'?' · 파단 시험':''} — 클릭: 미실시 → Pass → Fail"><span class="m ${cls}">${ch}</span>${key==='fracture'?'<sup style="color:var(--mute)">F</sup>':''}</span>`; };
 const mk3=v=>v==='pass'?'<span class="m p">●</span>':v==='fail'?'<span class="m f">✕</span>':'<span class="m n">–</span>';
 // 같은 용접사 + 같은 조인트(유형·공정·두께·자세)의 시험은 한 묶음: 합격(없으면 최근) 기록만 보이고 나머지(재시험 이전 시도)는 접어둔다
 const gkey=r=>[r.welderId,r.joint,r.process,r.thickness,r.position].join('|');
@@ -1727,7 +1763,7 @@ function drawRecs(){
   const rowHTML=({r,w,st},kid,g)=>{const T=r.tests||{}, open=RF.all||RF.open.has(g.main.r.id);
     const tog=kid?'<span style="color:var(--mute)">↳</span>':(g.kids.length?`<button class="b sm sec" style="padding:1px 7px" onclick="toggleGrp(${r.id})" title="재시험 이전 시도 ${g.kids.length}건 ${open?'접기':'보기'}">${open?'▾':'▸'} ${g.kids.length}</button>`:'');
     return `${msTr('rec',r.id,kid?'kid':'')}${msTd('rec',r.id)}<td class="num">${tog}</td><td><span class="mc" onclick="wDateEdit(event,${r.id})" title="클릭: 용접일 수정 (체크한 여러 건은 동시에 변경 가능)">${r.weldingDate}</span></td><td>${esc(w.name)} <small style="color:var(--mute)">${esc(w.welderNo)}</small></td><td>${esc(w.company||'')}</td><td class="num">${w.status?`<span class="pill" style="background:${w.status==='재직'?'var(--ok)':w.status==='미확인'?'var(--warn)':'#8a94a0'}">${w.status}</span>`:''}</td><td class="num">${r.joint}</td><td>${esc(r.process)}</td><td class="num">${fmtN(r.thickness)}</td><td class="num">${esc(r.position)}</td><td>${esc(r.fillerGroup)}</td><td>${wpsCell(r)}</td>
-   <td class="num"><span class="mc" onclick="cellTest(${r.id},'vt')" title="클릭: 미실시 → Pass → Fail">${mk3(T.vt)}</span></td><td class="num"><span class="mc" onclick="cellTest(${r.id},'rtut')" title="클릭: 미실시 → Pass → Fail">${mk3(T.rtut)}</span></td><td class="num"><span class="mc" onclick="cellTest(${r.id},'${destrKey(r)}')" title="${destrKey(r)==='fracture'?'파단 시험 · ':''}클릭: 미실시 → Pass → Fail">${mk3(destrVal(r))}${destrKey(r)==='fracture'?'<sup style="color:var(--mute)">F</sup>':''}</span></td><td class="num"><span class="mc" onclick="recStMenu(event,${r.id})" title="클릭: 합격 / 불합격 처리">${pill(st,st==='fail'&&rawStatus(r)==='pending'?'퇴사자의 미완료 시험 → 불합격 처리':'')}</span></td><td>${calcExpire(r.weldingDate)}</td><td class="num">${(r.renewals||[]).length}/5</td>
+   <td class="num">${mk3r(r,'vt')}</td><td class="num">${mk3r(r,'rtut')}</td><td class="num">${mk3r(r,'destr')}</td><td class="num"><span class="mc" onclick="recStMenu(event,${r.id})" title="클릭: 합격 / 불합격 처리">${pill(st,st==='fail'&&rawStatus(r)==='pending'?'퇴사자의 미완료 시험 → 불합격 처리':'')}</span></td><td>${calcExpire(r.weldingDate)}</td><td class="num">${(r.renewals||[]).length}/5</td>
    <td class="bx">${clipBtn('record',r.id)}<button class="b sm sec" onclick="editR(${r.id})">수정</button>${kid?'':` <button class="b sm sec" title="같은 조건으로 새 기록 만들기" onclick="copyRec(${r.id})">복사</button>`}${!kid&&st==='fail'?` <button class="b sm" style="background:#e08a1a" title="같은 용접사·같은 조건으로 재시험 기록을 바로 만듭니다 (용접일은 오늘, 결과는 비움)" onclick="retestRec(${r.id})">↻ 재시험</button>`:''}
    ${st==='pass'?`<button class="b sm" onclick="showCert(${r.id})">인증서</button> <button class="b sm sec" onclick="addRenewal(${r.id})">6개월 서명</button>`:''}
    <button class="b sm red" onclick="delRec(${r.id})">삭제</button></td></tr>`;};
@@ -1831,18 +1867,23 @@ function pqrRows(except){
   if(q) rows=rows.filter(x=>[x.key,x.p?[x.p.process,x.p.position,x.p.weldType,x.p.certBody,x.p.remarks,x.p.materialGroup,x.p.thickness,x.p.weldDate,x.p.heat,hrText(x.p),x.p.standard].join(' '):'',linked(x.key).map(m=>m.wpsNo).join(' ')].join(' ').toLowerCase().includes(q));
   return {rows:cfFilter('pqr',rows,except),use,linked}; }
 function hrText(p){ if(String(p.heatRange||'').trim()) return String(p.heatRange).trim(); const H=numOf(p.heat); return H?`${r2(.75*H)}~${r2(1.25*H)} (±25%)`:''; }
-const PCOLS=[['no','PQR No.',x=>x.p?x.p.pqrNo:x.name],['mat','모재',x=>x.p?x.p.materialGroup:''],['wt','형식',x=>x.p?x.p.weldType:''],['proc','공정',x=>x.p?x.p.process:''],['pos','자세',x=>x.p?x.p.position:''],['thk','시험 두께',x=>x.p?x.p.thickness:''],['date','시험일',x=>x.p?x.p.weldDate:''],['cb','인증기관',x=>x.p?x.p.certBody:''],['ht','시험 입열량',x=>x.p?x.p.heat:''],['hr','입열량 승인 범위 (최소~최대)',x=>x.p?hrText(x.p):''],['lk','연결 WPS',x=>PQLINK(x.key).map(m=>m.wpsNo)],['nw','WPS 수',x=>String(PQLINK(x.key).length)],['rm','비고',x=>x.p?x.p.remarks:'']];
+
+// ---- PQR 시험 현황 표시
+const PQ_LBL={pass:'합격',fail:'불합격',wait:'필요 · 결과 대기',skip:'불필요 · 해당 없음'};
+function pqrTestSummary(p){ if(!p.tests) return '시험 결과 미입력'; const st=PQR_TESTS.map(([k])=>pqrTestState(p,k)), n={pass:0,fail:0,wait:0,skip:0}; st.forEach(x=>n[x]++); return n.fail?`불합격 ${n.fail}`:n.wait?`대기 ${n.wait}건 (합격 ${n.pass})`:`모두 합격 (${n.pass}항목)`; }
+function pqrTestChips(p){ if(!p.tests) return '<span style="color:var(--mute);font-size:12px">미입력</span>'; return `<span class="tchips" title="${esc(PQR_TESTS.map(([k,l])=>l+': '+PQ_LBL[pqrTestState(p,k)]).join('\n'))}">${PQR_TESTS.map(([k,l,c])=>`<span class="tc ${pqrTestState(p,k)}">${c}</span>`).join('')}</span>`; }
+const PCOLS=[['no','PQR No.',x=>x.p?x.p.pqrNo:x.name],['mat','모재',x=>x.p?x.p.materialGroup:''],['wt','형식',x=>x.p?x.p.weldType:''],['proc','공정',x=>x.p?x.p.process:''],['pos','자세',x=>x.p?x.p.position:''],['thk','시험 두께',x=>x.p?x.p.thickness:''],['date','시험일',x=>x.p?x.p.weldDate:''],['cb','인증기관',x=>x.p?x.p.certBody:''],['ht','시험 입열량',x=>x.p?x.p.heat:''],['hr','입열량 승인 범위 (최소~최대)',x=>x.p?hrText(x.p):''],['ts','시험 현황',x=>x.p?pqrTestSummary(x.p):''],['lk','연결 WPS',x=>PQLINK(x.key).map(m=>m.wpsNo)],['nw','WPS 수',x=>String(PQLINK(x.key).length)],['rm','비고',x=>x.p?x.p.remarks:'']];
 function drawPqr(){
   const {rows,use,linked}=pqrRows();
   $('#wtitle2').textContent=`PQR / WPQR (${pqrMaster.length}건${rows.length>pqrMaster.length?` · 목록에 없는 참조 ${rows.length-pqrMaster.length}건`:''})`;
   WF.visP=rows.filter(x=>x.p).map(x=>x.p.id);
-  $('#wbulk').innerHTML=cfBar('pqr')+bulkBar('pqr'); $('#wpslist').innerHTML=`<table class="list"><thead><tr><th class="num"><input type="checkbox" title="현재 목록 전체 선택" ${WF.visP.length&&WF.visP.every(i=>WF.psel.has(i))?'checked':''} onchange="selAllMaster('pqr',this.checked)"></th><th>PQR No.${cfTh('pqr','no')}</th><th>모재${cfTh('pqr','mat')}</th><th class="num">형식${cfTh('pqr','wt')}</th><th>공정${cfTh('pqr','proc')}</th><th>자세${cfTh('pqr','pos')}</th><th>시험 두께${cfTh('pqr','thk')}</th><th>시험일${cfTh('pqr','date')}</th><th>인증기관${cfTh('pqr','cb')}</th><th title="PQR 시험 때의 입열량 (kJ/cm). 여러 패스면 최댓값">시험 입열량${cfTh('pqr','ht')}</th><th title="이 PQR로 승인되는 입열량 범위 kJ/cm (목록의 최소~최대, 없으면 시험값 ±25%)">입열량 승인 범위${cfTh('pqr','hr')}</th><th>연결 WPS${cfTh('pqr','lk')}</th><th class="num">WPS 수${cfTh('pqr','nw')}</th><th class="num">사용 기록</th><th>비고${cfTh('pqr','rm')}</th><th></th></tr></thead><tbody>${rows.map(x=>{
+  $('#wbulk').innerHTML=cfBar('pqr')+bulkBar('pqr'); $('#wpslist').innerHTML=`<table class="list"><thead><tr><th class="num"><input type="checkbox" title="현재 목록 전체 선택" ${WF.visP.length&&WF.visP.every(i=>WF.psel.has(i))?'checked':''} onchange="selAllMaster('pqr',this.checked)"></th><th>PQR No.${cfTh('pqr','no')}</th><th>모재${cfTh('pqr','mat')}</th><th class="num">형식${cfTh('pqr','wt')}</th><th>공정${cfTh('pqr','proc')}</th><th>자세${cfTh('pqr','pos')}</th><th>시험 두께${cfTh('pqr','thk')}</th><th>시험일${cfTh('pqr','date')}</th><th>인증기관${cfTh('pqr','cb')}</th><th title="PQR 시험 때의 입열량 (kJ/cm). 여러 패스면 최댓값">시험 입열량${cfTh('pqr','ht')}</th><th title="이 PQR로 승인되는 입열량 범위 kJ/cm (목록의 최소~최대, 없으면 시험값 ±25%)">입열량 승인 범위${cfTh('pqr','hr')}</th><th title="PQR 시험 항목별 결과: V 육안 · M MT/PT · R RT/UT · T 인장 · B 굽힘 · I 충격 · X 매크로 · H 경도">시험 현황${cfTh('pqr','ts')}</th><th>연결 WPS${cfTh('pqr','lk')}</th><th class="num">WPS 수${cfTh('pqr','nw')}</th><th class="num">사용 기록</th><th>비고${cfTh('pqr','rm')}</th><th></th></tr></thead><tbody>${rows.map(x=>{
     const p=x.p, ls=linked(x.key), open=WF.open.has('pqr:'+x.key), used=ls.reduce((a,m)=>a+(use.get(m.wpsNo.toUpperCase())||[]).length,0), k=esc('pqr:'+x.key);
-    const head=`<tr><td class="num" style="white-space:nowrap">${p?`<input type="checkbox" ${WF.psel.has(p.id)?'checked':''} onchange="selMaster('pqr',${p.id},this.checked)"> `:''}<button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(p?p.pqrNo:x.name)}</b>${p?'':' <span class="wn">목록 미등록</span>'}</td><td>${p?esc(p.materialGroup):''}</td><td class="num">${p?esc(p.weldType):''}</td><td>${p?esc(p.process):''}</td><td>${p?esc(p.position):''}</td><td>${p?esc(p.thickness):''}</td><td>${p?p.weldDate||'':''}</td><td>${p?esc(p.certBody):''}</td><td>${p?esc(p.heat||''):''}</td><td>${p?esc(hrText(p)):''}</td>
+    const head=`<tr><td class="num" style="white-space:nowrap">${p?`<input type="checkbox" ${WF.psel.has(p.id)?'checked':''} onchange="selMaster('pqr',${p.id},this.checked)"> `:''}<button class="b sm sec" style="padding:1px 7px" data-k="${k}" onclick="toggleWps(this.dataset.k)">${open?'▾':'▸'}</button></td><td><b>${esc(p?p.pqrNo:x.name)}</b>${p?'':' <span class="wn">목록 미등록</span>'}</td><td>${p?esc(p.materialGroup):''}</td><td class="num">${p?esc(p.weldType):''}</td><td>${p?esc(p.process):''}</td><td>${p?esc(p.position):''}</td><td>${p?esc(p.thickness):''}</td><td>${p?p.weldDate||'':''}</td><td>${p?esc(p.certBody):''}</td><td>${p?esc(p.heat||''):''}</td><td>${p?esc(hrText(p)):''}</td><td>${p?pqrTestChips(p):''}</td>
       <td title="${esc(ls.map(m=>m.wpsNo).join(', '))}">${esc(uj(ls.map(m=>m.wpsNo),3))}</td><td class="num">${ls.length}</td><td class="num">${used}</td><td>${p?esc(p.remarks):''}</td><td class="bx">${p?`${clipBtn('pqr',p.id)}<button class="b sm sec" onclick="editMaster('pqr',${p.id})">수정</button> <button class="b sm red" onclick="delMaster('pqr',${p.id})">삭제</button>`:''}</td></tr>`;
-    const detail=open?`<tr class="nom"><td></td><td colspan="15" style="padding:0;white-space:normal;overflow:visible;max-width:none"><div style="padding:6px 0 12px"><b style="font-size:13px">이 PQR로 승인된 WPS (${ls.length}건)</b><table class="list nested" style="font-size:13px;width:100%"><thead><tr><th>WPS</th><th>구분</th><th class="num">형식</th><th>공정</th><th>자세</th><th>두께범위</th><th>용도</th><th class="num">상태</th><th class="num">사용 기록</th></tr></thead><tbody>${ls.map(m=>`<tr class="kid"><td>${esc(m.wpsNo)}</td><td>${m.kind}</td><td class="num">${esc(m.weldType)}</td><td>${esc(m.process)}</td><td>${esc(m.position)}</td><td>${esc(m.thk)}</td><td>${esc((m.part||'').replace(/\s+/g,' '))}</td><td class="num">${m.status}</td><td class="num">${(use.get(m.wpsNo.toUpperCase())||[]).length}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">연결된 WPS 없음</td></tr>'}</tbody></table></div></td></tr>`:'';
+    const detail=open?`<tr class="nom"><td></td><td colspan="16" style="padding:0;white-space:normal;overflow:visible;max-width:none"><div style="padding:6px 0 12px"><b style="font-size:13px">이 PQR로 승인된 WPS (${ls.length}건)</b><table class="list nested" style="font-size:13px;width:100%"><thead><tr><th>WPS</th><th>구분</th><th class="num">형식</th><th>공정</th><th>자세</th><th>두께범위</th><th>용도</th><th class="num">상태</th><th class="num">사용 기록</th></tr></thead><tbody>${ls.map(m=>`<tr class="kid"><td>${esc(m.wpsNo)}</td><td>${m.kind}</td><td class="num">${esc(m.weldType)}</td><td>${esc(m.process)}</td><td>${esc(m.position)}</td><td>${esc(m.thk)}</td><td>${esc((m.part||'').replace(/\s+/g,' '))}</td><td class="num">${m.status}</td><td class="num">${(use.get(m.wpsNo.toUpperCase())||[]).length}</td></tr>`).join('')||'<tr><td colspan="9" style="color:var(--mute)">연결된 WPS 없음</td></tr>'}</tbody></table></div></td></tr>`:'';
     return head+detail;}).join('')||'<tr><td colspan="15" style="color:var(--mute)">PQR가 없습니다. WPQR 목록 엑셀을 가져오거나 "+ PQR 추가"로 등록하세요.</td></tr>'}</tbody></table>`;
-  rz($('#wpslist'),'pqr2',2,[70,200,76,60,96,62,94,96,120,94,130,90,72,80,120,230]);
+  rz($('#wpslist'),'pqr3',2,[70,200,76,60,96,62,94,96,120,94,130,170,90,72,80,120,230]);
 }
 // ---- 편집 폼
 const WPS_FIELDS=[['wpsNo','WPS No.*','text'],['kind','구분','sel:WPS,pWPS'],['rev','Rev','text'],['revDate','개정일','date'],['pqr','연결 PQR (쉼표로 구분)','text'],['materialGroup','모재 그룹','text'],['weldType','용접 형식','sel:BW,FW,T-BUTT'],['process','공정 (예: 135(MAG))','text'],['position','자세 (예: ALL, PF, PA or PC)','text'],['thk','두께 범위 (예: 3≤T≤24)','text'],['backing','백킹/Detail','text'],['pwht','PWHT','text'],['part','용도/적용 부위','text'],['status','상태','sel:사용,예비,폐기'],['remarks','비고','text']];
@@ -1873,8 +1914,10 @@ function drawWform(){
   box.innerHTML=`<form id="wef" style="border:1px solid var(--accent);border-radius:8px;padding:12px;margin:10px 0;background:#f7fbff"><b>${e.type==='wps'?'WPS':'PQR'} ${o.id?'수정':'추가'}</b><div class="grid" style="margin-top:8px">${F.map(([k,l,t])=>t.startsWith('sel:')?
     `<label>${l}<select name="${k}">${t.slice(4).split(',').map(v=>`<option ${val(k)===v?'selected':''}>${v}</option>`).join('')}</select></label>`:
     `<label>${l}<input type="${t}" name="${k}" value="${esc(val(k))}" ${k==='wpsNo'||k==='pqrNo'?'required':''}></label>`).join('')}</div>
+    ${e.type==='pqr'?`<div class="gh" style="margin-top:12px">시험 항목 <small style="font-weight:400;color:var(--mute)">형식·시험 두께에 따라 필요한 시험이 표시됩니다 — ○ 필요·결과 대기 / ✔ 합격 / ✕ 불합격 / ⊘ 불필요 (사내 PQR 양식 기준 — 규격서 확인 필요)</small></div><div class="grid sm" id="pqrt">${PQR_TESTS.map(([k,l])=>`<label>${l}<select name="t_${k}">${[['','결과 대기 / 미기록'],['pass','합격 Acceptable'],['fail','불합격'],['skip','불필요 · 해당 없음']].map(([v,t])=>`<option value="${v}" ${((o.tests||{})[k]||'')===v?'selected':''}>${t}</option>`).join('')}</select><span class="rqb" data-k="${k}"></span></label>`).join('')}</div>`:''}
     <div class="row"><button class="b">저장</button><button type="button" class="b sec" onclick="WF.edit=null;drawWps()">취소</button></div></form>`;
-  $('#wef').onsubmit=async ev=>{ ev.preventDefault(); const f=Object.fromEntries(new FormData(ev.target)); await saveMaster(e.type,o,f); };
+  if(e.type==='pqr'){ const fm=$('#wef'), paint=()=>{ const q={weldType:fm.elements.weldType.value,thickness:fm.elements.thickness.value}, rq=pqrRequired(q); for(const [k] of PQR_TESTS){ const el=fm.elements['t_'+k], lab=el.closest('label'), b=lab.querySelector('.rqb'), v=el.value; lab.classList.remove('rq-w','rq-p','rq-f'); let cls='x',tx; if(v==='pass'){ cls='p'; tx='✔ 합격'; lab.classList.add('rq-p'); } else if(v==='fail'){ cls='f'; tx='✕ 불합격'; lab.classList.add('rq-f'); } else if(v==='skip') tx='⊘ 불필요'; else if(rq[k]==='need'){ cls='w'; tx='○ 필요 · 결과 대기'; lab.classList.add('rq-w'); } else tx='⊘ 이 조건에는 해당 없음'; b.className='rqb '+cls; b.textContent=tx; } }; fm.addEventListener('input',paint); fm.addEventListener('change',paint); paint(); }
+  $('#wef').onsubmit=async ev=>{ ev.preventDefault(); const f=Object.fromEntries(new FormData(ev.target)); if(e.type==='pqr') f.tests=Object.fromEntries(PQR_TESTS.map(([k])=>[k,f['t_'+k]||''])); await saveMaster(e.type,o,f); };
 }
 async function saveMaster(type,old,f){
   if(type==='wps'){
@@ -1884,7 +1927,7 @@ async function saveMaster(type,old,f){
     if(old.wpsNo&&old.wpsNo!==no){ const ch=records.filter(r=>(r.wpsNo||'').trim().toUpperCase()===old.wpsNo.toUpperCase()); if(ch.length){ await DB.putMany('records',ch.map(r=>({...r,wpsNo:no}))); toast(`번호가 바뀌어 시험 기록 ${ch.length}건의 WPS 번호도 함께 변경했습니다.`,5000); } }
   } else {
     const no=f.pqrNo.trim(); if(pqrMaster.some(m=>m.pqrNo.toUpperCase()===no.toUpperCase()&&m.id!==old.id)){ alert('이미 등록된 PQR 번호입니다.'); return false; }
-    await DB.put('pqr',{...old,pqrNo:no,standard:f.standard.trim(),materialGroup:f.materialGroup.trim(),weldType:f.weldType,process:f.process.trim(),position:f.position.trim(),thickness:f.thickness.trim(),weldDate:f.weldDate,certBody:f.certBody.trim(),throat:(f.throat||'').trim(),heat:(f.heat||'').trim(),heatRange:(f.heatRange||'').trim(),remarks:f.remarks.trim()});
+    await DB.put('pqr',{...old,pqrNo:no,standard:f.standard.trim(),materialGroup:f.materialGroup.trim(),weldType:f.weldType,process:f.process.trim(),position:f.position.trim(),thickness:f.thickness.trim(),weldDate:f.weldDate,certBody:f.certBody.trim(),throat:(f.throat||'').trim(),heat:(f.heat||'').trim(),heatRange:(f.heatRange||'').trim(),remarks:f.remarks.trim(),...(f.tests?{tests:f.tests}:{})});
     if(old.pqrNo&&old.pqrNo!==no){ const ch=wpsMaster.filter(m=>m.pqrNos.some(q=>q.toUpperCase()===old.pqrNo.toUpperCase())); if(ch.length){ await DB.putMany('wps',ch.map(m=>({...m,pqrNos:m.pqrNos.map(q=>q.toUpperCase()===old.pqrNo.toUpperCase()?no:q)}))); toast(`이 PQR을 참조하는 WPS ${ch.length}건의 참조 번호도 변경했습니다.`,5000); } }
   }
   WF.edit=null; await load(); drawWps();
@@ -2964,7 +3007,7 @@ function vRecForm(){
    <label>시험재 두께 t (mm)<input type="number" step="any" name="thickness" value="${r.thickness}" required></label>
    <label>용접 두께 s (mm)<input type="number" step="any" name="deposited" value="${r.deposited}"></label>
    <label>용접 자세<input name="position" value="${esc(r.position)}" placeholder="PA / PC / PF ..." list="dl-pos"></label></div>
-  <div class="gh">검사 결과 <small style="font-weight:400;color:var(--mute)">해당 없는 시험은 유형(BW/FW)에 따라 잠깁니다</small></div><div class="grid sm">
+  <div class="gh">검사 결과 <small style="font-weight:400;color:var(--mute)">시편 조건(유형·공정)에 따라 필요한 시험이 표시됩니다 — ○ 필요·결과 대기 / ✔ 합격 / ✕ 불합격 / ⊘ 불필요</small></div><div id="reqbox" style="margin:0 0 8px"></div><div class="grid sm">
    <label>VT 육안${sel('vt',R3,T.vt||'na')}</label><label>RT/UT 체적${sel('rtut',R3,T.rtut||'na')}</label>
    <label title="규격 Table 13: 굽힘 시험 또는 파단 시험 중 하나 (어느 쪽을 했는지는 '파괴시험 방법'에서 선택)">Bend/Fracture 굽힘·파단${sel('bend',R3,(T.bend&&T.bend!=='na')?T.bend:(r.joint==='BW'?(T.fracture||'na'):'na'))}</label><label title="필릿: 파단 시험 또는 단면(Macro) 시험">Macro/Fracture 단면·파단${sel('macro',R3,(T.macro&&T.macro!=='na')?T.macro:(r.joint==='FW'?(T.fracture||'na'):'na'))}</label>
    <label title="실제로 한 시험이 굽힘/단면이면 '굽힘·단면', 파단 시험이면 '파단'. 인증서에는 해당 행에 표시됩니다.">파괴시험 방법${sel('destrKind',[['','굽힘·단면 Bend/Macro'],['fracture','파단 Fracture']],(T.fracture&&T.fracture!=='na'&&(r.joint==='BW'?(T.bend||'na')==='na':(T.macro||'na')==='na'))?'fracture':'')}</label><label>Additional 기타 시험${sel('additional',R3,T.additional||'na')}</label>
@@ -2984,7 +3027,13 @@ function vRecForm(){
     return {...r,welderId:+o.welderId,weldingDate:o.weldingDate,project:o.project,wpsNo:o.wpsNo,process:o.process,productType:o.productType,pipeDiameter:o.pipeDiameter,
      joint:o.joint,transfer:o.transfer,fillerGroup:o.fillerGroup,fillerType:o.fillerType,materialGroup:o.materialGroup,gas:o.gas,backing:o.backing,thickness:+o.thickness,deposited:+o.deposited||+o.thickness,position:o.position.trim().toUpperCase(),
      tests:(S.impliedVT?applyImpliedVT:x=>x)({vt:o.vt,rtut:o.rtut,bend:o.bend,macro:o.macro,fracture:o.fracture,additional:o.additional}),refNo:o.refNo,issueDate:o.issueDate,jobKnowledge:o.jobKnowledge,suppFillet:o.suppFillet,finalResult:o.finalResult||''};};
-  const upd=()=>{recNA();const c=collect(),res=calculateRangeOfApproval(c),st=recStatus(c); $('#recTop').innerHTML=recTopHTML(c);
+  const reqPaint=c=>{ const rq=requiredTests(c,S.strict,c.process), st={vt:rq.vt,rtut:rq.rtut,bend:c.joint==='BW'?rq.destr:'na',macro:c.joint==='FW'?rq.destr:'na'}, nm={vt:'VT 육안',rtut:'RT/UT 체적',bend:'Bend/Fracture 굽힘·파단',macro:'Macro/Fracture 단면·파단'}, need=[], wait=[];
+    for(const k of ['vt','rtut','bend','macro']){ const el=f.elements[k]; if(!el) continue; const lab=el.closest('label'); let b=lab.querySelector('.rqb'); if(!b){ b=document.createElement('span'); lab.appendChild(b); } const val=el.value||'na', s0=st[k]; let cls='x', tx='';
+      lab.classList.remove('rq-w','rq-p','rq-f');
+      if(val==='pass'){ cls='p'; tx='✔ 합격'; lab.classList.add('rq-p'); } else if(val==='fail'){ cls='f'; tx='✕ 불합격'; lab.classList.add('rq-f'); } else if(s0==='need'){ cls='w'; tx='○ 필요 · 결과 대기'; lab.classList.add('rq-w'); } else if(s0==='either'){ cls='w'; tx='◐ 둘 중 하나 필요'; lab.classList.add('rq-w'); } else tx=s0==='opt'?'⊘ 불필요 (다른 시험으로 충족)':'⊘ 해당 없음';
+      b.className='rqb '+cls; b.textContent=tx; if(s0==='need'||s0==='either'){ need.push(nm[k]+(s0==='either'?' (택1)':'')); if(val==='na') wait.push(nm[k]); } }
+    $('#reqbox').innerHTML=`<div style="font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:#fafbfc"><b>이 시편에 필요한 시험</b> <small style="color:var(--mute)">(${esc(rq.basis)} · ${c.joint} ${esc(processCode(c.process))})</small>: ${need.length?need.map(x=>`<span class="pill" style="background:#e9eef4;color:#24364a">${esc(x)}</span>`).join(' '):'-'}${wait.length?` <span style="color:#a65f00">→ 결과 대기 ${wait.length}건</span>`:' <span style="color:var(--ok)">→ 필요한 시험 결과가 모두 있음</span>'}${rq.notes.length?`<ul style="margin:4px 0 0 18px;padding:0;color:var(--mute);font-size:12px">${rq.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}</div>`; };
+  const upd=()=>{recNA();const c=collect(),res=calculateRangeOfApproval(c),st=recStatus(c); $('#recTop').innerHTML=recTopHTML(c); reqPaint(c);
     if(f.elements.vt.value!==(c.tests.vt||'na')) f.elements.vt.value=c.tests.vt; // 자동 통과 처리 표시
     { const m=wpsFind(c.wpsNo), sg=suggestWps(c); let h='';
       if(c.wpsNo.trim()){ if(m){ const why=wpsCover(m,c); h=why.length?`<span class="wn">⚠ ${esc(why.join(' / '))}</span>`:'<span style="color:var(--ok)">✔ WPS 범위 적합</span>'; } else if(wpsMaster.length) h='<span class="wn">⚠ 마스터에 없는 번호</span>'; }

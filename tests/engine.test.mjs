@@ -2,7 +2,7 @@
 import fs from 'node:fs'; import assert from 'node:assert/strict';
 const html = fs.readFileSync(new URL('../welder-cert.html', import.meta.url), 'utf8');
 const src = html.split('/*ENGINE-START*/')[1].split('/*ENGINE-END*/')[0];
-const E = new Function(src + '; return {calcExpire,validityText,monthsBetween,certAlert,judge,calculateRangeOfApproval,designation,applyImpliedVT,addDays,defaultIssue};')();
+const E = new Function(src + '; return {calcExpire,validityText,monthsBetween,certAlert,judge,calculateRangeOfApproval,designation,applyImpliedVT,addDays,defaultIssue,requiredTests,pqrRequired,pqrTestState};')();
 const R = (o) => Object.fromEntries(E.calculateRangeOfApproval({process:'135 MAG',productType:'P',joint:'BW',fillerGroup:'FM 1',fillerType:'S',backing:'ss nb',position:'PC',weldingDate:'2024-08-21',transfer:'globular/spray',gas:'M21',thickness:12,...o}).items.map(x=>[x.key,x.range]));
 let n=0; const t=(name,fn)=>{fn(); n++; console.log('ok -',name);};
 
@@ -61,3 +61,13 @@ t('사내 엄격 기준: 굽힘 대신 파단(Fracture)도 파괴시험으로 �
   assert.equal(E.judge('BW',{vt:'pass',rtut:'pass'},true,'141 TIG'),'pending');
   assert.equal(E.judge('FW',{vt:'pass',fracture:'pass'},true),'pass');
   assert.equal(E.judge('FW',{vt:'pass'},true),'pending');});
+t('필요한 시험: 사내 기준 BW=VT+RT/UT+Bend, FW=VT+Macro / 규격 모드 141 은 둘 중 하나, 135 는 둘 다',()=>{
+  const q=(o,st)=>E.requiredTests({joint:'BW',process:'135 MAG',tests:{},...o},st);
+  assert.deepEqual([q({},true).vt,q({},true).rtut,q({},true).destr],['need','need','need']);
+  assert.deepEqual([q({joint:'FW'},true).rtut,q({joint:'FW'},true).destr],['na','need']);
+  assert.deepEqual([q({process:'141 TIG'},false).rtut,q({process:'141 TIG'},false).destr],['either','either']);
+  assert.deepEqual([q({process:'141 TIG',tests:{rtut:'pass'}},false).rtut,q({process:'141 TIG',tests:{rtut:'pass'}},false).destr],['need','opt']);
+  assert.deepEqual([q({process:'135 MAG'},false).rtut,q({process:'135 MAG'},false).destr],['need','need']);});
+t('PQR 시험 항목: 필렛은 인장·굽힘·RT 해당 없음, 맞대기 12mm 이상만 충격 필수',()=>{
+  assert.equal(E.pqrRequired({weldType:'FW',thickness:'12'}).tensile,'na'); assert.equal(E.pqrRequired({weldType:'BW',thickness:'12'}).impact,'need'); assert.equal(E.pqrRequired({weldType:'BW',thickness:'2.3'}).impact,'na');
+  assert.equal(E.pqrTestState({weldType:'BW',thickness:'12',tests:{tensile:'pass'}},'tensile'),'pass'); assert.equal(E.pqrTestState({weldType:'BW',thickness:'12',tests:{}},'bend'),'wait'); assert.equal(E.pqrTestState({weldType:'FW',thickness:'12',tests:{}},'bend'),'skip');});
