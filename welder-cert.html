@@ -172,11 +172,54 @@ body.ro input[type=file]{display:none!important}
 .prtt{border-collapse:collapse;width:100%}.prtt th,.prtt td{border:1px solid #888;padding:1.2mm 1.8mm;text-align:left;vertical-align:middle}.prtt th{background:#e9eef4;font-weight:700}.prtt thead{display:table-header-group}.prtt tr{break-inside:avoid}
 .prtm table{border-collapse:collapse}.prtm th,.prtm td{border:1px solid #888;padding:.6mm 1.2mm;font-size:8pt;white-space:nowrap}.prtm thead{display:table-header-group}.prtm tr{break-inside:avoid}.prtm .pg,.prtm .ft,.prtm td[style]{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 @media print{ body.prt-on>*:not(#prt){display:none!important} body.prt-on #prt{display:block!important;background:#fff;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact} body.prt-on{background:#fff} }
+/* ===== 디자인 개선 v145 (화면 전용, 인쇄 영향 없음) ===== */
+@media screen{
+:root{--bg:#f1f4f8;--ink:#17212e;--mute:#5d6b7c;--line:#d8dfe7;--accent:#1d5fb4;--accent-d:#164a91;--accent-l:#e8f0fb;--navy:#102a46;
+ --ok:#17794a;--bad:#c0282d;--warn:#a96a0c;--r:8px;--r-s:5px;
+ --sh1:0 1px 2px rgba(16,42,70,.06),0 1px 1px rgba(16,42,70,.04);--sh2:0 4px 14px rgba(16,42,70,.10);--ring:0 0 0 3px rgba(29,95,180,.28)}
+body{font-family:"Pretendard","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+header{background:linear-gradient(180deg,#14355a,var(--navy));box-shadow:0 2px 8px rgba(16,42,70,.25);position:sticky;top:0;z-index:20}
+header h1{font-size:17px;font-weight:700;letter-spacing:-.01em}
+nav button{color:#c3d6ec;transition:background .12s,color .12s;position:relative}
+nav button:hover{background:rgba(255,255,255,.12);color:#fff}
+nav button.on{background:#fff;color:var(--navy);box-shadow:0 2px 6px rgba(0,0,0,.18)}
+nav button:focus-visible{outline:0;box-shadow:0 0 0 3px rgba(255,255,255,.55)}
+.card{border-radius:10px;box-shadow:var(--sh1);border-color:var(--line)}
+h2{font-size:17px;font-weight:700;letter-spacing:-.01em;color:var(--navy)}
+h3{font-size:14px;font-weight:700;color:#2a3a4d}
+input,select,textarea{border-color:#c6cfda;border-radius:var(--r-s);transition:border-color .12s,box-shadow .12s}
+input:hover,select:hover,textarea:hover{border-color:#9fb0c4}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--accent);box-shadow:var(--ring)}
+label{font-weight:500}
+button.b{font-weight:600;box-shadow:0 1px 2px rgba(16,42,70,.18);transition:background .12s,box-shadow .12s,transform .05s}
+button.b:hover{background:var(--accent-d)}
+button.b:active{transform:translateY(1px);box-shadow:none}
+button.b:focus-visible{outline:0;box-shadow:var(--ring)}
+button.b:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+button.b.sec{background:#e9eef4;color:#22313f;box-shadow:none;border:1px solid #d3dbe5}
+button.b.sec:hover{background:#dde5ee}
+button.b.red:hover{background:#a11f23}
+table.list th{background:#eaf0f6;color:#34465a;font-weight:700;letter-spacing:0;border-bottom:2px solid #cbd6e2}
+table.list tbody tr{transition:background .08s}
+table.list tbody tr:hover{background:var(--accent-l)}
+table.list td{border-bottom-color:#e6ebf1}
+.tw{border-radius:var(--r);box-shadow:var(--sh1);border-color:var(--line)}
+.pill{font-weight:600;letter-spacing:-.02em}
+.stat{background:linear-gradient(180deg,#fff,#f6f9fc);border:1px solid var(--line);border-radius:10px;padding:12px 8px;box-shadow:var(--sh1)}
+.stat b{font-size:28px;color:var(--navy);letter-spacing:-.02em}
+#toast{background:var(--navy);box-shadow:var(--sh2)}
+.msg{border-radius:var(--r)}
+.pz{border-radius:var(--r)}
+::selection{background:#bcd5f3}
+::-webkit-scrollbar{width:11px;height:11px}::-webkit-scrollbar-thumb{background:#c2ccd8;border-radius:8px;border:2px solid #f1f4f8}::-webkit-scrollbar-thumb:hover{background:#9fb0c4}
+}
+@media screen and (pointer:coarse){button.b,nav button,input,select{min-height:40px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 <header>
-  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v144</span></h1>
+  <h1>🔧 용접 자격 통합 관리 <span style="font-weight:400;font-size:12px;opacity:.7">ISO 9606-1</span> <button type="button" id="rfbtn" title="다른 창에서 바꾼 내용까지 포함해 데이터를 다시 불러옵니다" onclick="refreshData(true)" style="background:#2a5a8a;color:#fff;border:0;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">↻ 새로고침</button> <span id="ver" title="이 화면이 최신이 아니면 파일을 다시 받아 교체하세요" style="font-weight:400;font-size:11px;background:#2a5a8a;border-radius:8px;padding:1px 8px;margin-left:6px">v145</span></h1>
   <nav id="nav"></nav>
 </header>
 <main id="view"></main>
